@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?define UpgradeCode = "2056bd8a-bf03-11e6-a625-f0def1753696" ?>
+
+<?ifndef var.SrvBinaryName ?>
+  <?define var.SrvBinaryName = "nssm.exe" ?>
+<?endif?>
+
+<?ifndef var.SrvBinaryFile ?>
+  <?define var.SrvBinaryFile = "nssm/win32/nssm.exe" ?>
+<?endif?>
+
+<?ifndef var.SrvBinaryArgs ?>
+  <?define var.SrvBinaryArgs = "" ?>
+<?endif?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Product Name="OpenNebula Contextualization"
+    Manufacturer="OpenNebula Systems"
+    Id="*"
+    UpgradeCode="$(var.UpgradeCode)"
+    Language="1033" Codepage="1252"
+    Version="$(var.Version)">
+
+    <Package Id="*" Keywords="Installer"
+      Description="OpenNebula Windows Contextualization package"
+      Comments="OpenNebula is a registered trademark of the OpenNebula Systems"
+      Manufacturer="OpenNebula Systems"
+      InstallerVersion="100" Languages="1033" Compressed="yes" SummaryCodepage="1252" />
+
+    <Media Id="1" Cabinet="cabinet.cab" EmbedCab="yes" />
+
+    <Property Id="ARPHELPLINK" Value="https://forum.opennebula.org/" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/OpenNebula/addon-context-windows" />
+    <Property Id="ARPNOMODIFY" Value="1"/>
+    <Property Id="ARPNOREPAIR" Value="1"/>
+
+    <!-- Allow package upgrades only -->
+    <Upgrade Id="$(var.UpgradeCode)">
+      <UpgradeVersion Minimum="$(var.Version)" OnlyDetect="yes" Property="NEWERVERSIONDETECTED"/>
+      <UpgradeVersion Minimum="0.0.0" Maximum="$(var.Version)" IncludeMinimum="yes" IncludeMaximum="no" Property="OLDERVERSIONBEINGUPGRADED"/>
+    </Upgrade>
+    <Condition Message="Contextualization package is already installed.">INSTALLED OR NOT NEWERVERSIONDETECTED</Condition>
+
+    <!-- Check if we have PowerShell installed -->
+    <Property Id="PSEXE">
+      <RegistrySearch Id="PSEXE"
+        Type="raw"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell"
+        Name="Path" />
+    </Property>
+    <Condition Message="Windows PowerShell not found.">INSTALLED OR PSEXE</Condition>
+
+    <!-- Register property FASTBOOT -->
+    <Property Id="FASTBOOT">
+      <RegistrySearch Id="FASTBOOT"
+        Type="raw"
+        Root="HKLM"
+        Key="SYSTEM\CurrentControlSet\Control\Session Manager\Power"
+        Name="HiberbootEnabled" />
+    </Property>
+
+    <!--
+      workaround for missing features in wixl implementation...there should be
+      a couple of ways how to achieve the same with WiX semantics but the wixl
+      support is limited and running an exe was the only properly working
+      solution for the time being:
+        1. overwrite already existing registry
+        2. do not delete the registry on uninstall...
+    -->
+    <Property Id="REG" Value="C:\Windows\System32\reg.exe" />
+
+    <!-- Register action DisableFastBoot -->
+    <!--
+      wixl from msitools does not support all WiX features - like these:
+        <SetProperty Id="FASTBOOT" Value="#0" Before="InstallValidate" />
+        <CustomAction Id="DisableFastBoot" Property="FASTBOOT" Value="#0" />
+    -->
+    <CustomAction Id="DisableFastBoot"
+      Property="REG"
+      ExeCommand='add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power" /v HiberbootEnabled /t REG_DWORD /d 0 /f'
+      Execute="deferred"
+      Impersonate="no"
+      />
+
+    <!-- Install files -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder" Name="PFiles">
+        <Directory Id="INSTALLDIR" Name="OpenNebula">
+          <Component Id="Examples" Guid="fc1207c2-06e9-11ea-ad15-f0def1753696">
+            <File Id="unattend" Name="unattend.xml" DiskId="1" Source="unattend.xml" KeyPath="yes" />
+          </Component>
+
+          <Component Id="Context" Guid="f5807056-bf0c-11e6-acbe-f0def1753696">
+            <File Id="context" Name="context.ps1" DiskId="1" Source="src/context.ps1" KeyPath="yes" />
+          </Component>
+
+          <Component Id="Service" Guid="687050a4-c237-11e6-9fe4-54a050d65572">
+            <File Id="$(var.SrvBinaryName)" Name="$(var.SrvBinaryName)" DiskId="1" Source="$(var.SrvBinaryFile)" KeyPath="yes" />
+
+            <ServiceInstall Id="ocInstall" Name="onecontext"
+              DisplayName="OpenNebula Contextualization Service"
+              Description="Contextualizes virtual machines running in the OpenNebula cloud"
+              Type="ownProcess"
+              Start="auto"
+              Account="[SYSTEM]"
+              Arguments="$(var.SrvBinaryArgs)"
+              ErrorControl="normal">
+
+              <ServiceDependency Id="Winmgmt" />
+              <ServiceDependency Id="PlugPlay" />
+              <ServiceDependency Id="Tcpip" />
+              <ServiceDependency Id="Dhcp" />
+              <ServiceDependency Id="Dnscache" />
+            </ServiceInstall>
+
+            <ServiceControl Id="ocControl" Name="onecontext"
+              Remove="both"
+              Stop="both"
+              Wait="yes" />
+
+            <?if $(var.SrvBinaryName) = "nssm.exe" ?>
+              <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\onecontext\Parameters">
+                <RegistryValue Type="string" Name="Application" Value="[PSEXE]" />
+                <RegistryValue Type="string" Name="AppDirectory" Value="[INSTALLDIR]" />
+                <RegistryValue Type="string" Name="AppParameters" Value="-NonInteractive -NoProfile -ExecutionPolicy Unrestricted -file &quot;[#context]&quot;" />
+              </RegistryKey>
+              <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\onecontext\Parameters\AppExit">
+                <!-- You can change this to "Restart" but "Ignore" is compatible behavior with srvany and it will prevent unwanted recontextualization -->
+                <RegistryValue Type="string" Value="Ignore" />
+              </RegistryKey>
+            <?else?>
+              <RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\onecontext\Parameters">
+                <RegistryValue Type="string" Name="CommandLine" Value="&quot;[PSEXE]&quot; -NonInteractive -NoProfile -ExecutionPolicy Unrestricted -file &quot;[#context]&quot;" />
+                <RegistryValue Type="string" Name="PWD" Value="[INSTALLDIR]" />
+              </RegistryKey>
+            <?endif?>
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <!-- Features -->
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="Context"/>
+      <ComponentRef Id="Service"/>
+      <ComponentRef Id="Examples"/>
+    </Feature>
+
+    <InstallExecuteSequence>
+      <!-- NOTE:
+          This works for msitools/wixl implementation (v0.98) but according to
+          WiX documentation:
+          https://wixtoolset.org/documentation/manual/v3/xsd/wix/custom.html
+
+          it should not - 'Before' and 'After' are mutually exclusive...
+          *BUT* if we do not specify both of them like this the custom action
+          'DisableFastBoot' will not get the right sequence number - another
+          fix could be to use only 'Sequence' and somehow figure out the
+          correct number for it - at the time of the writing it should be
+          somewhere between 'InstallInitialize' (1500) and 'InstallFinalize'
+          (6600).
+
+          The reason why we need to be between these two stages is the fact
+          that we must run 'DisableFastBoot' as 'deffered' to get elevated
+          privileges...
+      -->
+      <Custom Action="DisableFastBoot" After="InstallInitialize" Before="InstallFinalize">NOT REMOVE AND FASTBOOT</Custom>
+      <RemoveExistingProducts After="InstallValidate" />
+    </InstallExecuteSequence>
+  </Product>
+</Wix>
