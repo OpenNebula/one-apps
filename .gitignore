@@ -1,0 +1,10 @@
+context-windows/out/
+context-windows/*.msi
+context-windows/rhsrvany.exe
+context-windows/.idea
+context-windows/.un~
+context-linux/out/
+context-linux/*.rpm
+context-linux/*.deb
+context-linux/.vagrant*/
+context-linux/*~bak
