@@ -1,0 +1,377 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+is_network_supported()
+{
+    command -v netplan >/dev/null
+
+    return $?
+}
+
+configure_network()
+{
+    init_netplan_renderer
+
+    gen_resolvconf
+    gen_network_configuration > /etc/netplan/50-one-context.yaml
+    netplan generate
+    nm_symlink_run_connections
+
+    # On Debian 10 and Ubuntu 18.04 the initial netplan apply is needed to
+    # set some interface parameters (e.g., MTU). Unfortunately, this deadlocks
+    # booting of current systems, so we execute netplan apply on the background
+    case "${NETCFG_NETPLAN_RENDERER}" in
+        ''|networkd)
+            flock /var/run/one-context/netplan.lock nohup netplan apply &>/dev/null &
+            ;;
+    esac
+}
+
+stop_network()
+{
+    service networking stop
+}
+
+start_network()
+{
+    netplan generate
+    nm_symlink_run_connections
+    service networking start
+    flock /var/run/one-context/netplan.lock netplan apply
+}
+
+reload_network()
+{
+    netplan generate
+    nm_symlink_run_connections
+    flock /var/run/one-context/netplan.lock netplan apply
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+gen_addresses()
+{
+    case "${method}" in
+        ''|static)
+            [ -n "${ip}" ] && gen_addr_conf
+            ;;
+    esac
+
+    case "${ip6_method}" in
+        ''|static)
+            [ -n "${ip6}" ] && gen_addr6_conf
+            ;;
+    esac
+
+    _aliases=$(get_interface_alias "$_iface")
+
+    for _nic_alias in $_aliases; do
+        setup_ipadr_vars "$_nic_alias"
+        setup_ip6adr_vars "$_nic_alias"
+        setup_alias_vars "$_nic_alias"
+
+        if [ -z "${detach}" ]; then
+            if ! is_true "${external}" ; then
+                [ -n "${ip}"  ] && gen_addr_conf
+                [ -n "${ip6}" ] && gen_addr6_conf
+            fi
+        fi
+    done
+}
+
+gen_routes()
+{
+    if [ -n "${gateway}" ] && { [ -z "${method}" ] || [ "${method}" = 'static' ]; }; then
+        cat <<EOT
+        - to: "0.0.0.0/0"
+          via: ${gateway}
+EOT
+
+
+
+        # Force default Linux IPv4 metric (man 8 route) to override
+        # automatic metrics calculation done by NetworkManager and unify
+        # behavior among different renderers.
+        metric=${metric:-0}
+
+        if [ -n "${metric}" ] ; then
+            echo "          metric: ${metric}"
+        fi
+    fi
+
+    # Add static routes
+    if [ -n "${static_routes}" ]; then
+
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        for route in "${routes[@]}"
+        do
+            rsplit=( ${route} )
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+        cat <<EOT
+        - to: "${dst}"
+          via: "${gw}"
+EOT
+            done
+
+        fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        cat <<EOT
+        - to: "${onegate_host}"
+          scope: link
+EOT
+
+        unset onegate_proxy_route_missing
+    fi
+
+    if [ -n "${ip6_gateway}" ] && { [ -z "${ip6_method}" ] || [ "${ip6_method}" = 'static' ]; }; then
+        cat <<EOT
+        - to: "::/0"
+          via: ${ip6_gateway}
+EOT
+
+        # Force default Linux IPv6 metric (man 8 route) to override
+        # automatic metrics calculation done by NetworkManager and unify
+        # behavior among different renderers.
+        ip6_metric=${ip6_metric:-1}
+
+        if [ -n "${ip6_metric}" ] ; then
+            echo "          metric: ${ip6_metric}"
+        fi
+    fi
+}
+
+gen_dhcp_conf()
+{
+    cat <<EOT
+      dhcp4: true
+EOT
+}
+
+gen_addr_conf()
+{
+    echo "        - ${ip}/${cidr}"
+}
+
+gen_addr6_conf()
+{
+    echo "        - ${ip6}/${ip6_prefix_length:-64}"
+
+    if [ -n "$ip6_ula" ]; then
+        echo "        - ${ip6_ula}/64"
+    fi
+}
+
+gen_dhcp6_conf()
+{
+    if [ "${ip6_method}" = "auto" ] ; then
+        cat <<EOT
+      accept-ra: true
+      dhcp6: false
+EOT
+    else
+        cat <<EOT
+      accept-ra: true
+      dhcp6: true
+EOT
+    fi
+
+    cat <<EOT
+      ipv6-privacy: false
+EOT
+}
+
+gen_ipv6_disable()
+{
+    cat <<EOT
+      accept-ra: false
+      link-local: []
+EOT
+}
+
+# Old NM doesn't read from /run/NetworkManager/system-connections,
+# so the generated Netplan configuration is not respected. As a workaround,
+# we symlink the connection files into /etc
+nm_symlink_run_connections()
+{
+    if [ "${NETCFG_NETPLAN_RENDERER}" != 'NetworkManager' ] ||
+       ! [ -d /run/NetworkManager/system-connections ];
+    then
+        return
+    fi
+
+    # cleanup any old symlinks
+    rm -f /etc/NetworkManager/system-connections/netplan-*
+
+    case "$(NetworkManager --version 2>/dev/null)" in
+        1.14.*) # Debian 10
+            echo "WARNING: Symlinking NM's ephemeral connections into /etc" >&2
+            ;;
+        *)
+            return
+            ;;
+    esac
+
+    # symlink Netplan connection files
+    for _src in /run/NetworkManager/system-connections/netplan-*; do
+        if [ -f "${_src}" ]; then
+            _dst="/etc/NetworkManager/system-connections/$(basename "${_src}")"
+            ln -s "${_src}" "${_dst}"
+        fi
+    done
+}
+
+init_netplan_renderer()
+{
+    if [ -z "${NETCFG_NETPLAN_RENDERER}" ] ; then
+        if command -v networkctl >/dev/null ; then
+            NETCFG_NETPLAN_RENDERER='networkd'
+        elif command -v nmcli >/dev/null ; then
+            NETCFG_NETPLAN_RENDERER='NetworkManager'
+        else
+            # fallback to networkd only not to leave the variable
+            # uninitialized, deployment most likely won't work!
+            NETCFG_NETPLAN_RENDERER='networkd'
+        fi
+    else
+        # support alternative names for some configuration renderers
+        _netcfg_netplan_renderer=$(echo "$NETCFG_NETPLAN_RENDERER" | \
+            sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | \
+            tr '[:upper:]' '[:lower:]')
+
+        # normalize renderer names and support alternatives
+        case "${_netcfg_netplan_renderer}" in
+            systemd-networkd|systemd-network|systemd|networkd)
+                NETCFG_NETPLAN_RENDERER='networkd'
+                ;;
+            networkmanager|nm)
+                NETCFG_NETPLAN_RENDERER='NetworkManager'
+                ;;
+        esac
+    fi
+}
+
+gen_network_configuration()
+{
+    if [ "${NETCFG_NETPLAN_RENDERER}" = 'NetworkManager' ]; then
+        nm_enable
+    fi
+
+    cat <<EOT
+# Generated by one-context
+network:
+  version: 2
+  renderer: ${NETCFG_NETPLAN_RENDERER}
+EOT
+
+    # ethernets key must have at least one interface
+    _ethernets_written=
+
+    _context_interfaces=$(get_context_interfaces)
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        if [ -z "${_ethernets_written}" ] ; then
+            echo "  ethernets:"
+            _ethernets_written=yes
+        fi
+        echo "    ${dev}:"
+
+        if [ -n "${mtu}" ]; then
+            echo "      mtu: ${mtu}"
+        fi
+
+        ## Requires Netplan 0.98+
+        # if [ -n "${mtu}" ]; then
+        #     echo "      ip6-mtu: ${mtu}"
+        # fi
+
+        case "${method}" in
+            ''|static)
+                : # in gen_addresses
+                ;;
+            dhcp)
+                gen_dhcp_conf
+                ;;
+        esac
+
+        case "${ip6_method}" in
+            ''|static)
+                : # in gen_addresses
+                ;;
+            auto|dhcp)
+                gen_dhcp6_conf
+                ;;
+            disable)
+                gen_ipv6_disable
+                ;;
+        esac
+
+        _addresses=$(gen_addresses)
+        if [ -n "${_addresses}" ] ; then
+            echo "      addresses:"
+            echo "${_addresses}"
+        fi
+
+        _routes=$(gen_routes)
+        if [ -n "${_routes}" ] ; then
+            echo "      routes:"
+            echo "${_routes}"
+        fi
+    done
+}

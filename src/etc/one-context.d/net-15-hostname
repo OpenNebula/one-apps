@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+_kernel="$(uname -s)"
+if [ "${_kernel}" = 'FreeBSD' ]; then
+    SED_I="sed -i ''"
+else
+    SED_I="sed -i''"
+fi
+
+# Detects suitable running syslog service and restarts it
+# to propagate the changed hostname into the logs
+# (otherwise old or default value remains until reboot)
+function restart_syslog() {
+    for _name in syslog syslogd rsyslog; do
+        if LANG=C systemctl is-active "${_name}" >/dev/null 2>&1; then
+            systemctl restart "${_name}" && return
+        elif service "${_name}" status >/dev/null 2>&1; then
+            service "${_name}" restart && return
+        fi
+    done
+}
+
+function set_hostname() {
+    local _hostname=$1
+
+    # remember currently set hostname to detect a change
+    local _old_hostname
+    _old_hostname=$(hostname)
+
+    if [ -d /run/systemd/system/ ] && hostnamectl status >/dev/null 2>/dev/null; then
+        hostnamectl set-hostname --static "${_hostname}"
+    else
+        if [ -f /etc/sysconfig/network ]; then
+            eval "${SED_I} '/^HOSTNAME=.*$/d' /etc/sysconfig/network"
+            echo "HOSTNAME=${_hostname}" >>/etc/sysconfig/network
+        elif [ "${_kernel}" = 'FreeBSD' ]; then
+            sysrc hostname="${_hostname}"
+        else
+            echo "${_hostname}" >/etc/hostname
+        fi
+
+        hostname "${_hostname}"
+    fi
+
+    # restart syslog if actual hostname changed
+    if [ "${_old_hostname}" != "$(hostname)" ]; then
+        restart_syslog
+    fi
+}
+
+function set_domainname() {
+    local _domain=$1
+
+    touch /etc/resolv.conf
+    eval "${SED_I} -e '/^domain .*/d' /etc/resolv.conf"
+    echo "domain ${_domain}" >>/etc/resolv.conf
+}
+
+function get_first_ip() {
+    local ip
+
+    ip=${ip:-$(ip route get 1 2>/dev/null | grep 'src [0-9\.]\+' | head -1 | sed -e 's/^.*src \([0-9\.]*\).*$/\1/')}
+    ip=${ip:-$(ip -4 address show scope global up 2>/dev/null | awk '/inet / { gsub(/\/[^\/]+$/, "", $2); print $2; exit}')}
+    ip=${ip:-$(ifconfig 2>/dev/null | awk '/inet / { gsub(/\/[^\/]+$/, "", $2); print $2; exit}')}
+    ip=${ip:-$(hostname -I 2>/dev/null | cut -d' ' -f1)}
+    ip=${ip:-$(hostname -i 2>/dev/null)}
+
+    echo "${ip}"
+}
+
+function get_dns_name() {
+    text=$(LC_ALL=C host "$1" 2>/dev/null)
+    [ $? = 0 ] || exit 0
+    [[ $text == *"has no PTR record" ]] && exit 0
+    name=$(echo "$text" | awk '/(has address|name pointer)/ {print $(NF)}' | sed 's/\.$//')
+    echo $name
+}
+
+function update_hosts() {
+    ip=$1
+    name=$2
+    hostname=$3
+
+    if [ "x${hostname}" = "x${name}" ]; then
+        hosts="${name}"
+    else
+        hosts="${name} ${hostname}"
+    fi
+
+    note='# one-contextd'
+    entry="${ip} ${hosts}  ${note}"
+
+    # update our old entry
+    if grep -qi "${note}" /etc/hosts; then
+        eval "${SED_I} -e \"s/^.*${note}\$/${entry}/\" /etc/hosts"
+    # update entry with same IP (but not localhost)
+    elif grep -E "^${ip}[[:space:]]" /etc/hosts | grep -qv localhost; then
+        eval "${SED_I} -e \"/localhost/! s/^${ip}[[:space:]].*\$/${entry}/\" /etc/hosts"
+    # update entry with same name
+    elif grep -qE "[[:space:]]${name}([[:space:]]|#|\$)" /etc/hosts; then
+        eval "${SED_I} -re \"s/^.*[[:space:]]${name}([[:space:]#].*|$)/${entry}/\" /etc/hosts"
+    # create new entry
+    elif [ -s /etc/hosts ]; then
+        # In FreeBSD, sed doesn't interpret \n. We put a real newline.
+        eval "${SED_I} -e \"1s/^/${entry}\"$'\\\\\n/' /etc/hosts"
+    else
+        echo "${entry}" >>/etc/hosts
+    fi
+}
+
+#####
+
+first_ip=$(get_first_ip)
+
+if [ -n "$SET_HOSTNAME" ]; then
+    name=$(echo "$SET_HOSTNAME" | \
+        sed -e 's/[^-a-zA-Z0-9\.]/-/g' -e 's/^-*//g' -e 's/-*$//g')
+
+elif [ -n "$DNS_HOSTNAME" ]; then
+    name=$(get_dns_name "${first_ip}")
+
+elif [ "${EC2_HOSTNAME}" = 'YES' ]; then
+    # try to quickly get hostname from the EC2 metadata server or
+    # create hostname based on the first IPv4 (format: "ip-1-2-3-4")
+    name=$(curl -sf -m 5 'http://169.254.169.254/latest/meta-data/local-hostname' 2>/dev/null)
+    if [ -z "${name}" ]; then
+        name="$(echo "${first_ip}" | grep -x '[0-9\.]\+' | tr . -)"
+        if [ -n "${name}" ]; then
+            name="ip-${name}"
+        fi
+    fi
+fi
+
+if [ -n "${name}" ]; then
+    # split host and domain names
+    hostname=${name%%.*}
+    domain=${name#*.}
+
+    [ "$domain" = "$hostname" ] && domain=''
+    [ -n "${domain}" ] && set_domainname "${domain}"
+
+    if [ "${_kernel}" = 'FreeBSD' ]; then
+        set_hostname "${name}"
+    else
+        set_hostname "${hostname}"
+    fi
+
+    if [ -n "${DNS_HOSTNAME}" ]; then
+        host_ip=$first_ip
+    else
+        name_ip=$(get_dns_name "${name}")
+
+        # If selected hostname resolves on first IP,
+        # use first IP for local hostname in /etc/hosts.
+        # Otherwise use loopback IP.
+        if [ "$first_ip" = "$name_ip" ]; then
+            host_ip=$first_ip
+        else
+            host_ip='127.0.0.1'
+        fi
+    fi
+
+    [ -n "${host_ip}" ] && update_hosts "${host_ip}" "${name}" "${hostname}"
+fi

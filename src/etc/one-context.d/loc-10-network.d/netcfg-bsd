@@ -1,0 +1,338 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+is_network_supported()
+{
+    case "${os_id}" in
+        freebsd)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+configure_network()
+{
+    gen_resolvconf
+    gen_network_configuration > /etc/rc.conf.d/network
+}
+
+stop_network()
+{
+    service netif stop >/dev/null
+    service routing stop >/dev/null
+    service rtsold stop >/dev/null
+}
+
+start_network()
+{
+    service netif start >/dev/null
+    service routing start >/dev/null
+    service rtsold start >/dev/null
+}
+
+reload_network()
+{
+    service netif restart >/dev/null
+    service routing restart >/dev/null
+    service rtsold restart >/dev/null
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+get_interface_mac()
+(
+    _macs=$(ifconfig | grep ether | awk '{print $2}')
+
+    for _mac in ${_macs} ; do
+        _iface=$(ifconfig | grep -B 2 "$_mac" | head -n 1 | awk '{print $1}' | cut -d ':' -f 1)
+        echo "${_iface} ${_mac}"
+    done
+)
+
+gen_iface_conf()
+{
+    echo -n "ifconfig_${dev}=\"inet ${ip} netmask ${mask}"
+
+    if [ -n "${mtu}" ]; then
+        echo -n " mtu ${mtu}"
+    fi
+
+    # WARNING: On FreeBSD the interface metrics are used only
+    # by routing daemons (see man 8 ifconfig)
+    if [ -n "${metric}" ]; then
+        echo -n " metric ${metric}"
+    fi
+
+    echo "\""
+
+    ###
+
+    routes_conf_path="/etc/rc.conf.d/routing"
+
+    if [ -n "${gateway}" ]; then
+        echo "defaultrouter=\"${gateway}\"" >> $routes_conf_path
+    fi
+
+    # Add static routes
+    # static_routes="lan mumoffice foo"
+    # route_lan="-net 192.168.1.0/24 192.168.1.254"
+    # route_mumoffice="-net 10.0.0.0/8 10.30.110.5"
+    # route_foo="-host 169.254.1.1 -iface lo0"
+    route_names=""
+
+    static_routes=$(get_iface_var "$dev" "ROUTES")
+
+    if [ -n "${static_routes}" ]; then
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        routes_conf=()
+
+        declare -i index=0
+
+        for route in "${routes[@]}"; do
+            rsplit=(${route})
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+            route_name="r_${index}"
+            route_names="${route_names}${route_name} "
+
+            route_conf="route_${route_name}=\"-net ${dst} ${gw}\""
+            routes_conf+=("$route_conf")
+
+            index+=1
+        done
+
+        # remove last whitespace
+        echo -e "static_routes=\"$(echo "$route_names" | xargs)\"" >>$routes_conf_path
+
+        for route_conf in "${routes_conf[@]}"; do
+            echo -e "${route_conf}" >>$routes_conf_path
+        done
+
+    fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        route_name="r_onegateproxy"
+
+        sed -i "s/${route_names}/${route_names} ${route_name}/g" "$routes_conf_path"
+        route_conf="route_${route_name}=\"-host ${onegate_host} -iface ${dev}\""
+
+        echo -e "$route_conf\n" >> $routes_conf_path
+
+        unset onegate_proxy_route_missing
+    fi
+}
+
+gen_dhcp_conf()
+{
+    echo -n "ifconfig_${dev}=\"DHCP"
+
+    if [ -n "${mtu}" ]; then
+        echo -n " inet mtu ${mtu}"
+    fi
+
+    echo "\""
+}
+
+gen_alias_conf()
+{
+    echo "ifconfig_${dev}_alias${alias_num}=\"inet ${ip} netmask ${mask}\""
+    alias_num=$((alias_num + 1))
+}
+
+gen_iface6_conf()
+{
+    echo -n "ifconfig_${dev}_ipv6=\"inet6 ${ip6} prefixlen ${ip6_prefix_length:-64}"
+
+    if [ -n "${mtu}" ]; then
+        echo -n " mtu ${mtu}"
+    fi
+
+    # WARNING: On FreeBSD the interface metrics are used only
+    # by routing daemons (see man 8 ifconfig)
+    if [ -n "${ip6_metric}" ]; then
+        echo -n " metric ${ip6_metric}"
+    fi
+
+    echo " -accept_rtadv\""
+
+    if [ -n "${ip6_ula}" ]; then
+        echo "ifconfig_${dev}_alias${alias_num}=\"inet6 ${ip6_ula} prefixlen 64\""
+        alias_num=$((alias_num + 1))
+    fi
+
+    ###
+
+    if [ -n "${ip6_gateway}" ]; then
+        echo "ipv6_defaultrouter=\"${ip6_gateway}\"" >> /etc/rc.conf.d/routing
+    fi
+}
+
+gen_dhcp6_conf()
+{
+    echo -n "ifconfig_${dev}_ipv6=\""
+
+    if [ "${ip6_method}" = "dhcp" ] ; then
+        echo -n "DHCP "
+
+        # FreeBSD support for DHCP6 does not seem to be great:
+        # https://forums.freebsd.org/threads/ipv6-dhcpv6-client-and-accept_rtadv-vs-rtsold.77421/
+        # https://forums.freebsd.org/threads/is-there-a-working-dhcpv6-client-for-freebsd.60168/
+        # https://subatomicsolutions.org/8-freebsd/13-ipv4-ipv6-client-addresses-via-dhcp
+        _dhclient_program=$(sysrc -n dhclient_program 2>/dev/null)
+        if [ -z "${_dhclient_program}" ] || [ "${_dhclient_program}" = '/sbin/dhclient' ]; then
+            echo "WARNING [!]: DHCPv6 on '${os_id}' is poorly supported, you need a different DHCP client! You can install net/isc-dhcp44-client and put into /etc/rc.conf: dhclient_program=\"/usr/sbin/one-dual-dhclient\"" >&2
+        fi
+    fi
+
+    echo -n "inet6 accept_rtadv"
+
+    if [ -n "${mtu}" ]; then
+        echo -n " mtu ${mtu}"
+    fi
+
+    echo "\""
+
+    # Enable Router Solicitation Deaemon
+    # NOTE: It's not enough to just enable the daemon during the current
+    # boot process, since the services to run are already evaluated. We also
+    # explicitly start the service on our own (but doesn't have to be correct!)
+    sysrc rtsold_enable="YES" >/dev/null
+    service rtsold start >/dev/null
+}
+
+gen_alias6_conf()
+{
+    # very first IPv6 can't be alias
+    if [ -n "${has_ip6}" ]; then
+        echo "ifconfig_${dev}_alias${alias_num}=\"inet6 ${ip6} prefixlen ${ip6_prefix_length:-64}\""
+        alias_num=$((alias_num + 1))
+    else
+        echo -n "ifconfig_${dev}_ipv6=\"inet6 ${ip6} prefixlen ${ip6_prefix_length:-64}"
+
+        if [ -n "${mtu}" ]; then
+            echo -n " mtu ${mtu}"
+        fi
+
+        # WARNING: On FreeBSD the interface metrics are used only
+        # by routing daemons (see man 8 ifconfig)
+        if [ -n "${ip6_metric}" ]; then
+            echo -n " metric ${ip6_metric}"
+        fi
+
+        echo " -accept_rtadv\""
+    fi
+
+    if [ -n "${ip6_ula}" ]; then
+        echo "ifconfig_${dev}_alias${alias_num}=\"inet6 ${ip6_ula} prefixlen 64\""
+        alias_num=$((alias_num + 1))
+    fi
+}
+
+gen_network_configuration()
+{
+    # clean routing information
+    echo '# Generated by one-context' | tee /etc/rc.conf.d/routing
+
+    _context_interfaces=$(get_context_interfaces)
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        case "${method}" in
+            ''|static)
+                [ -n "${ip}" ] && gen_iface_conf
+                ;;
+            dhcp)
+                gen_dhcp_conf
+                ;;
+        esac
+
+        case "${ip6_method}" in
+            ''|static)
+                [ -n "${ip6}" ] && gen_iface6_conf
+                ;;
+            auto|dhcp)
+                gen_dhcp6_conf
+                ;;
+            disable)
+                :
+                ;;
+        esac
+
+        has_ip6="${ip6}"
+        _aliases=$(get_interface_alias "$_iface")
+        alias_num=0
+
+        for _nic_alias in $_aliases; do
+            setup_ipadr_vars "$_nic_alias"
+            setup_ip6adr_vars "$_nic_alias"
+            setup_alias_vars "$_nic_alias"
+
+            if [ -z "${detach}" ]; then
+                if ! is_true "${external}" ; then
+                    [ -n "${ip}"  ] && gen_alias_conf
+
+                    if [ -n "${ip6}" ]; then
+                        gen_alias6_conf
+                        has_ip6="${ip6}"
+                    fi
+                fi
+            fi
+        done
+    done
+}

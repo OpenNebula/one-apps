@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# THIS IS A CONTEXTUALIZATION GUARD
+if [ "$1" != 'local' ] ; then
+    exit 0
+fi
+
+[ -z "${SSH_PUBLIC_KEY}${EC2_PUBLIC_KEY}" ] && exit 0
+
+if [ -z "${USERNAME}" ]
+then
+    USERNAME=root
+fi
+
+# Get user $HOME directory
+USER_HOME=$(getent passwd "${USERNAME}" | awk -F':' '{print $6}')
+
+if [ -n "${USER_HOME}" ]
+then
+    AUTH_DIR="${USER_HOME}/.ssh"
+else
+    # Fallback on root
+    AUTH_DIR="/root/.ssh"
+fi
+
+AUTH_FILE="$AUTH_DIR/authorized_keys"
+
+function add_keys {
+    while read key; do
+        if ! grep -q -F "$key" $AUTH_FILE; then
+            echo "$key" >> $AUTH_FILE
+        fi
+    done
+}
+
+[ -z "${SSH_PUBLIC_KEY}${EC2_PUBLIC_KEY}" ] && exit 0
+
+mkdir -m0700 -p $AUTH_DIR
+
+[ ! -f $AUTH_FILE ] && touch $AUTH_FILE
+
+if [ -n "$SSH_PUBLIC_KEY" ]; then
+    echo "$SSH_PUBLIC_KEY" | add_keys
+fi
+
+if [ -n "$EC2_PUBLIC_KEY" ]; then
+    echo "$EC2_PUBLIC_KEY" | add_keys
+fi
+
+chown "${USERNAME}": ${AUTH_DIR} ${AUTH_FILE}
+chmod 600 $AUTH_FILE
+
+# restore SELinux contexts
+if which restorecon &>/dev/null; then
+    restorecon -R -v "${AUTH_DIR}"
+fi

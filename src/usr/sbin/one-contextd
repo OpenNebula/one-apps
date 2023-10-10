@@ -1,0 +1,412 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2022, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+set -e
+
+# Save original locale variables and enforce POSIX C locale
+#
+# We provide the user a way to fallback to the correct locale when a command
+# should or must respect system's locale by saving the original values into the
+# '_one_orig*' variables...
+
+export _one_orig_LANG="${LANG}"
+export _one_orig_LC_ALL="${LC_ALL}"
+export _one_orig_LC_COLLATE="${LC_COLLATE}"
+export _one_orig_LC_CTYPE="${LC_CTYPE}"
+export _one_orig_LC_MESSAGES="${LC_MESSAGES}"
+export _one_orig_LC_MONETARY="${LC_MONETARY}"
+export _one_orig_LC_NUMERIC="${LC_NUMERIC}"
+export _one_orig_LC_TIME="${LC_TIME}"
+export LANG=C
+export LC_ALL=C
+
+TYPE="${1:-all}"  # local, online, network, all
+COMMAND="${2}"    # force, reconfigure?
+
+SCRIPTS_DIR="${SCRIPTS_DIR:-/etc/one-context.d}"
+RUNTIME_DIR="${RUNTIME_DIR:-/var/run/one-context}"
+TMP_DIR="${TMP_DIR:-/var/lib/one-context/tmp}"
+LOCK_FILE="${RUNTIME_DIR}/one-context.lock"
+SCRIPT_OUTPUT="${TMP_DIR}/script-output.log"
+CONTEXT_BASE="${RUNTIME_DIR}/context.sh"
+SYSLOG_TAG="$(basename $0)"
+
+[ -d "${RUNTIME_DIR}" ] || mkdir -m 0700 -p "${RUNTIME_DIR}"
+[ -d "${TMP_DIR}" ] || mkdir -m 0700 -p "${TMP_DIR}"
+CONTEXT_NEW=$(mktemp "${CONTEXT_BASE}.XXXXXX" 2>/dev/null)
+SYSLOG_FACILITY="${SYSLOG_FACILITY:-local3}"
+
+shopt -s extglob
+set +e
+
+
+function log
+{
+    # display on stdout/err?, force if DEBUG
+    local _echo_fd=$3
+    if [ -n "${DEBUG}" ] && [ "${_echo_fd}" = '' ]; then
+        _echo_fd=1
+    fi
+
+    if [ "${_echo_fd}" = '1' ] || [ "${_echo_fd}" = '2' ]; then
+        echo "${2}" >&${_echo_fd}
+    fi
+
+    # try systemd/journald with fallback to logger
+    systemd-cat -t "${SYSLOG_TAG}" -p "${1}" \
+        echo "${2}" 2>/dev/null
+
+    if [ "$?" != "0" ]; then
+        if [ -S /dev/log ]; then
+            logger -t "${SYSLOG_TAG}" \
+                -p "${SYSLOG_FACILITY}.${1}" \
+                "${2}" 2>/dev/null
+
+            if [  "$?" = "0" ]; then
+                return 0
+            fi
+        fi
+
+        if [ "${1}" != 'debug' ]; then
+            local _txt="$(date "+%b %d %T") $(hostname -s) ${SYSLOG_TAG}: ${2}"
+
+            local _log=/var/log/messages
+            if [ -f /var/log/syslog ]; then
+                _log=/var/log/syslog
+            fi
+
+            echo "${_txt}" >>"${_log}" 2>/dev/null
+        fi
+    fi
+
+    return 0
+}
+
+function export_rc_vars
+{
+    if [ -f $1 ] ; then
+        ONE_VARS=$(cat $1 | egrep -e '^[a-zA-Z\-\_0-9]*=' | sed 's/=.*$//')
+
+        . $1
+
+        for v in $ONE_VARS; do
+            export $v
+        done
+    fi
+}
+
+function execute_scripts {
+    local _type="$1"
+    local _command="$2"
+
+    # choose
+    case "${_type}" in
+        local|online)
+            # VH-TODO: separate online scripts? have onl- for online only with onl-10-network symlink pointing to loc-10-network?
+            local _scripts=$(find "${SCRIPTS_DIR}" \
+                                -maxdepth 1 -mindepth 1 -type f \
+                                -name 'loc-*' \
+                                2>/dev/null | sort)
+            ;;
+        network)
+            local _scripts=$(find "${SCRIPTS_DIR}" \
+                                -maxdepth 1 -mindepth 1 -type f \
+                                \! \( -name 'net-*' -o -name 'loc-*' \) \
+                                -o -name 'net-*' \
+                                2>/dev/null | sort)
+            ;;
+    esac
+
+    export MOUNT_DIR
+    export RUNTIME_DIR
+
+    log info "Processing ${_type} scripts"
+    for _script in ${_scripts}; do
+        local _name=$(basename "${_script}")
+
+        # run script and catch output and exit code
+        log debug "Script ${_name}: Starting ..."
+        cat /dev/null > "${SCRIPT_OUTPUT}"
+        "${_script}" "${_type}" "${_command}" > "${SCRIPT_OUTPUT}" 2>&1
+        local _rtn=$?
+        _out=$(cat "${SCRIPT_OUTPUT}")
+
+        # log on any output
+        if [ -n "${_out}" ]; then
+            log info "Script ${_name} output: ${_out}"
+        fi
+
+        # set log level to error if script failed
+        if [ ${_rtn} -eq 0 ]; then
+            local _level=debug
+        else
+            local _level=err
+        fi
+
+        log "${_level}" "Script ${_name}: Finished with exit code ${_rtn}"
+    done
+    log debug 'Finished scripts processing'
+}
+
+function vmware_context {
+    if type vmtoolsd >/dev/null 2>&1; then
+        if vmtoolsd --cmd 'info-get guestinfo.opennebula.context' >/dev/null 2>&1 ; then
+            return 0
+        else
+            log debug "VMware ONE context not found"
+        fi
+    fi
+
+    log debug "Command vmtoolsd not found"
+    return 1
+}
+
+function get_new_context {
+    local dev_context
+
+    case "${distro}" in
+        Linux)
+            # on C6, "blkid" without -l doesn't return anything
+            dev_context=$(
+                {
+                    blkid -l -t LABEL='CONTEXT' -o device;
+                    blkid    -t LABEL='CONTEXT' -o device;
+                    blkid | grep "LABEL=['\"]CONTEXT['\"]" | cut -d: -f1;
+                } | grep -v '^/dev/loop' | head -n1
+            )
+            ;;
+        BSD)
+            # glabel returns relative device name (e.g., cd0) or nothing
+            local glabel_dev
+            glabel_dev=$(glabel status | grep CONTEXT | awk '{print $3}')
+
+            if [ -n "${glabel_dev}" ] && [ -e "/dev/${glabel_dev}" ]; then
+                dev_context="/dev/${glabel_dev}"
+            fi
+            ;;
+    esac
+
+    _mount_dir_mounted=no
+    if [ -e "${dev_context}" ]; then
+        mount_dir
+
+        if ! [ -d "${MOUNT_DIR}" ]; then
+            log err 'Error: Failed to create mountpoint' 2
+            exit 1
+        fi
+
+        log debug "Mounting CD-ROM ${dev_context} on ${MOUNT_DIR}"
+
+        # Retry mounting several times
+        # https://github.com/OpenNebula/addon-context-linux/issues/247
+        _timeout=6
+        while [ "$_timeout" -gt 0 ] ; do
+            case "${distro}" in
+                Linux)
+                    mount -o ro "${dev_context}" "${MOUNT_DIR}" 2>/dev/null
+                    ;;
+                BSD)
+                    mount_cd9660 "${dev_context}" "${MOUNT_DIR}" 2>/dev/null
+                    ;;
+                *)
+                    echo "ERROR: Unsupported distribution - ${distro}" >&2
+                    exit 1
+            esac
+
+            if [ $? -eq 0 ] ;then
+                _mount_dir_mounted=yes
+                break
+            else
+                # sleep and retry
+                _timeout=$(( _timeout - 1 ))
+                log debug "Mount failed (retries left: (${_timeout})"
+                sleep 1
+            fi
+        done
+
+        if [ "${_timeout}" -eq 0 ] || [ "${_mount_dir_mounted}" != 'yes' ]; then
+            log err "Error: Failed to mount ${dev_context}" 2
+            exit 1
+        fi
+
+        context_sh $MOUNT_DIR
+
+    elif find '/context' -mindepth 1 -print 2>/dev/null | grep -q .; then
+        mount_dir
+        cp /context/* "${MOUNT_DIR}"
+        context_sh "${MOUNT_DIR}"
+
+    elif vmware_context ; then
+        log debug "Reading context via vmtoolsd"
+        vmtoolsd --cmd 'info-get guestinfo.opennebula.context' | \
+            base64 -d > ${CONTEXT_NEW}
+
+        mount_dir
+        file_id=0
+        while : ; do
+            name=$(vmtoolsd --cmd "info-get guestinfo.opennebula.file.$file_id" | head -n 1)
+            if [ -z "${name}" ]; then
+                break
+            else
+                vmtoolsd --cmd "info-get guestinfo.opennebula.file.$file_id" |\
+                    tail -n+2 |\
+                    base64 -d > ${MOUNT_DIR}/${name}
+            fi
+            file_id=$((file_id+1))
+        done
+
+    elif curl -sf -m 30 -o ${CONTEXT_NEW} http://169.254.169.254/latest/user-data; then
+        log debug "Reading EC2 user-data"
+        echo -n "" >>"${CONTEXT_NEW}"
+
+        # enable EC2 hostname configuration
+        export EC2_HOSTNAME=YES
+    else
+        log err 'Error: No contextualization found' 2
+        exit 1
+    fi
+
+    chmod 0400 "${CONTEXT_NEW}"
+}
+
+function mount_dir
+{
+    MOUNT_DIR=$(mktemp -d "${RUNTIME_DIR}/mount.XXXXXX" 2>/dev/null)
+}
+
+function context_sh {
+    local fn_mnt_context="${1}/context.sh"
+    if [ -f "${fn_mnt_context}" ]; then
+        log debug "Found context ${fn_mnt_context}"
+        cp "${fn_mnt_context}" "${CONTEXT_NEW}"
+    fi
+}
+
+function check_context {
+    local _f_new=$1
+    local _f_old=$2
+    local _rtn=1
+
+    log debug "Comparing ${_f_new} and ${_f_old} for changes"
+    if [ -s "${_f_new}" ]; then
+        diff "${_f_old}" "${_f_new}" >/dev/null 2>&1 || _rtn=0
+    fi
+
+    if [ ${_rtn} -eq 0 ]; then
+        log debug "New context with changes"
+    else
+        log info "No changes in context, skipping"
+    fi
+
+    return ${_rtn}
+}
+
+function run_context {
+    local _type=$1
+    local _command=$2
+
+    export CONTEXT_FILE="${CONTEXT_BASE}.${_type}"
+
+    if [ "${COMMAND}" == 'force' ] || check_context "${CONTEXT_NEW}" "${CONTEXT_FILE}"; then
+        cp -f "${CONTEXT_NEW}" "${CONTEXT_FILE}"
+        export_rc_vars "${CONTEXT_FILE}"
+        execute_scripts "${_type}" "${_command}"
+    fi
+}
+
+function acquire_lock {
+    local _retry=120
+
+    # acquire for execution lock
+    log debug "Acquiring lock ${LOCK_FILE}"
+    while true; do
+        if mkdir "${LOCK_FILE}" 2>/dev/null; then
+            trap 'cleanup' EXIT
+            log debug "Acquired lock ${LOCK_FILE}"
+            break
+        fi
+
+        _retry=$((_retry - 1))
+        if [ ${_retry} -le 0 ]; then
+            log err "Error: Could not acquire lock ${LOCK_FILE}" 2
+            exit 1
+        fi
+
+        sleep 1
+    done
+}
+
+function cleanup {
+    # unmount context
+    if [ -d "${MOUNT_DIR}" ]; then
+        if [ "x${_mount_dir_mounted}" = 'xyes' ]; then
+            log debug "Unmounting ${MOUNT_DIR}"
+
+            if [ "$distro" = 'Linux' ]; then
+                umount -l "${MOUNT_DIR}"
+            elif [ "$distro" = 'BSD' ]; then
+                umount "${MOUNT_DIR}"
+            fi
+        fi
+
+        rm -rf "${MOUNT_DIR}"
+    fi
+
+    # remove remporary files
+    if [ -f "${CONTEXT_NEW}" ]; then
+        unlink "${CONTEXT_NEW}"
+    fi
+
+    # remove lock
+    log debug "Releasing lock ${LOCK_FILE}"
+    rm -rf "${LOCK_FILE}"
+
+    # remove scripts output
+    rm -f "${SCRIPT_OUTPUT}"
+}
+
+#####
+
+if ! [[ ${TYPE} =~ ^(local|online|network|all)$ ]]; then
+    log err "Error: Invalid or missing execution type ${TYPE}" 2
+    exit 1
+fi
+
+# detect distribution type
+case "$(uname)" in
+    *BSD*)
+        distro='BSD'
+        ;;
+    *)
+        distro='Linux'
+        ;;
+esac
+
+log info "Started ${TYPE:+for type $TYPE} ${COMMAND:+to $COMMAND}"
+acquire_lock
+get_new_context
+
+if [ "${TYPE}" = 'all' ]; then
+    run_context 'local' "${COMMAND}"
+    run_context 'online' "${COMMAND}"
+    run_context 'network' "${COMMAND}"
+else
+    run_context "${TYPE}" "${COMMAND}"
+fi
+
+log info "Done"

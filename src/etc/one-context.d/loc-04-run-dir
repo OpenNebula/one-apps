@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+set -e
+
+# THIS IS A CONTEXTUALIZATION GUARD
+if [ "$1" != 'local' ] ; then
+    exit 0
+fi
+
+# Umount the directory and remove it
+cleanup()
+{
+    [ "$MOUNTED" = "yes" ] && umount -l "${ROOTFS_DIR}"
+    rm -r "${TMP_DIR}"
+}
+
+if [ "${RECREATE_RUN^^}" = "YES" ] && [ "$(uname -s)" = 'Linux' ]; then
+    # Detection of real run-time variable data directory in case there
+    # would be images with (unusual) reverse symlink /run -> /var/run
+    if [ -d /run ] && ! [ -L /run ]; then
+       RUN_DIR=/run
+    elif [ -d /var/run ] && ! [ -L /var/run ]; then
+       RUN_DIR=/var/run
+    else
+       # this shouldn't happen
+       echo 'ERROR: No suitable run-time data directory in image!' >&2
+       exit 1
+    fi
+
+    ###
+
+    TMP_DIR=$(mktemp -d "/tmp/one-context.XXXXXX")
+    ROOTFS_DIR="${TMP_DIR}/rootfs"
+    trap cleanup EXIT
+    chmod 0700 "${TMP_DIR}"
+    mkdir "${ROOTFS_DIR}"
+
+    mount --bind -o ro,nodev,noexec,nosuid / "${ROOTFS_DIR}"
+    MOUNTED=yes
+
+    # copy, but don't overwrite
+    # NOTE: using -i </dev/null is a workaround for silly cp in busybox without -n support
+    cp -aiv "${ROOTFS_DIR}/${RUN_DIR}" "$(dirname "${RUN_DIR}")" 2>/dev/null </dev/null
+fi

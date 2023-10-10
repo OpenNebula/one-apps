@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# THIS IS A CONTEXTUALIZATION GUARD
+if [ "$1" != 'local' ] ; then
+    exit 0
+fi
+
+if [ -z "${TIMEZONE}" ]; then
+    exit 0
+fi
+
+if ! timedatectl set-timezone "${TIMEZONE}" 2>/dev/null; then
+    _tz_base='/usr/share/zoneinfo/'
+    _tz_dest=$(readlink -f "${_tz_base}${TIMEZONE}" 2>/dev/null)
+
+    # if timezone file path is resolvable file and
+    # real path is inside the timezone directory
+    if [ -n "${_tz_dest}" ] &&
+       [ -f "${_tz_dest}" ] &&
+       [[ "${_tz_dest}" =~ ^${_tz_base} ]];
+    then
+        ln -sf "${_tz_dest}" /etc/localtime
+    else
+        echo "ERROR: Invalid timezone '${TIMEZONE}'" >&2
+        exit 1
+    fi
+fi

@@ -1,0 +1,5 @@
+out/
+*.rpm
+*.deb
+.vagrant*/
+*~bak

@@ -1,0 +1,430 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+is_network_supported()
+{
+    case "${os_id}" in
+        alpine)
+            return 0
+            ;;
+        debian|ubuntu|devuan)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+configure_network()
+{
+    gen_resolvconf
+    gen_network_configuration > /etc/network/interfaces
+}
+
+stop_network()
+{
+    case "${os_id}" in
+        alpine)
+            service networking stop || true
+
+            for _iface in $(get_interfaces); do
+                if [ "${_iface}" != 'lo' ]; then
+                    /sbin/ip link set dev "${_iface}" down || true
+                    /sbin/ip addr flush dev "${_iface}" || true
+                fi
+            done
+            ;;
+        debian|ubuntu|devuan)
+            if [ -f "/usr/sbin/ifreload" ] ; then
+                return 0
+            fi
+
+            for _iface in $(get_interfaces); do
+                if [ "${_iface}" != 'lo' ] ; then
+                    /sbin/ifdown "${_iface}"
+                    /sbin/ip link set dev "${_iface}" down || true
+                    /sbin/ip addr flush dev "${_iface}" || true
+                fi
+            done
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+}
+
+start_network()
+{
+    case "${os_id}" in
+        alpine)
+            service networking start
+
+            # alpine 3.16+ might fail to set the interface configuration of an interface that was removed
+            # from /etc/network/interfaces. This results in the interface having a definition
+            # in the configuration file, but no actual interface configuration.
+
+            for _iface in $(get_interfaces); do
+                ip link show "$_iface"  | grep -q 'state DOWN' && service networking restart && break
+            done
+
+            ;;
+        debian|ubuntu|devuan)
+            if [ -f "/usr/sbin/ifreload" ] ; then
+                /usr/sbin/ifreload -a
+                return 0
+            fi
+
+            for _iface in $(get_interfaces); do
+                /sbin/ifup "${_iface}"
+            done
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+}
+
+reload_network()
+{
+    stop_network
+    start_network
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+gen_iface_conf()
+{
+    cat <<EOT
+iface ${dev} inet static
+  address ${ip}
+  network ${network}
+  netmask ${mask}
+EOT
+
+    if [ -n "$gateway" ]; then
+        echo "  gateway ${gateway}"
+
+        if [ -n "$metric" ]; then
+            echo "  metric ${metric}"
+        fi
+    fi
+
+    # Add static routes
+    if [ -n "${static_routes}" ]; then
+
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        for route in "${routes[@]}"
+        do
+            rsplit=( ${route} )
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+            echo "  up ip route add ${dst} via ${gw}"
+        done
+
+    fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        echo "  up ip route replace ${onegate_host} dev ${dev}"
+
+        unset onegate_proxy_route_missing
+    fi
+
+    if [ -n "$mtu" ]; then
+        echo "  mtu ${mtu}"
+    fi
+
+    echo ""
+}
+
+gen_dhcp_conf()
+{
+    echo "iface ${dev} inet dhcp"
+
+    if [ -n "$mtu" ]; then
+        case "${os_id}" in
+            alpine)
+                echo "  mtu ${mtu}"
+                ;;
+            debian|ubuntu|devuan)
+                echo "  pre-up ip link set dev ${dev} mtu ${mtu}"
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    fi
+
+    echo ""
+}
+
+gen_alias_conf()
+{
+    cat <<EOT
+iface ${dev} inet static
+  address ${ip}
+  network ${network}
+  netmask ${mask}
+EOT
+
+echo ""
+}
+
+gen_iface6_conf()
+{
+    case "${os_id}" in
+        alpine)
+            cat <<EOT
+iface ${dev} inet6 static
+  address ${ip6}
+  netmask ${ip6_prefix_length:-64}
+  pre-up echo 0 > /proc/sys/net/ipv6/conf/${dev}/autoconf
+  pre-up echo 0 > /proc/sys/net/ipv6/conf/${dev}/accept_ra
+EOT
+            ;;
+        debian|ubuntu|devuan)
+            cat <<EOT
+iface ${dev} inet6 static
+  address ${ip6}
+  netmask ${ip6_prefix_length:-64}
+  autoconf 0
+  accept_ra 0
+EOT
+            ;;
+    esac
+
+    # On Alpine Linux when using IPv6 gateway/metric options,
+    # they override the metric on IPv4 routes. We better configure
+    # default route via up script.
+    if [ "${os_id}" = 'alpine' ] && \
+       [ -n "${ip6_gateway}" ] && [ -n "${ip6_metric}" ];
+    then
+        echo "  up ip -6 route add default via ${ip6_gateway} dev ${dev} metric ${ip6_metric}"
+
+    elif [ -n "${ip6_gateway}" ]; then
+        echo "  gateway ${ip6_gateway}"
+
+        if [ -n "${ip6_metric}" ]; then
+            echo "  metric ${ip6_metric}"
+        fi
+    fi
+
+    if [ -n "${mtu}" ]; then
+        case "${os_id}" in
+            alpine)
+                echo "  mtu ${mtu}"
+                ;;
+            debian|ubuntu|devuan)
+                # Ignores "mtu x", IPv6-only interfaces would not be configured
+                echo "  pre-up ip link set dev ${dev} mtu ${mtu}"
+                echo "  pre-up echo ${mtu} > /proc/sys/net/ipv6/conf/${dev}/mtu"
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    fi
+
+    echo ""
+
+    if [ -n "${ip6_ula}" ]; then
+        cat <<EOT
+iface ${dev} inet6 static
+  address ${ip6_ula}
+  netmask 64
+EOT
+    fi
+
+    echo ""
+}
+
+gen_dhcp6_conf()
+{
+    if [ "${ip6_method}" = "auto" ] ; then
+        echo "iface ${dev} inet6 auto"
+    else
+        echo "iface ${dev} inet6 dhcp"
+    fi
+
+    case "${os_id}" in
+        alpine)
+            if [ -n "${mtu}" ]; then
+                echo "  mtu ${mtu}"
+            fi
+
+            echo "  pre-up echo 0 > /proc/sys/net/ipv6/conf/${dev}/use_tempaddr"
+            ;;
+        debian|ubuntu|devuan)
+            # Privext might not be effective in "dhcp" mode, so we better
+            # directly configure also sysctl parameters. Also, there might
+            # be a race condition between activating IPv4 and IPv6 part of
+            # interface if IPv4 is dhcp. As a aresult, IPv6 SLAAC privacy
+            # address might appear. So, for safety we better drop any global
+            # IPv6 addresses as part of pre-up.
+            echo "  privext 0"
+            echo "  pre-up echo 0 > /proc/sys/net/ipv6/conf/${dev}/use_tempaddr"
+            echo "  pre-up ip -6 addr flush dev ${dev} scope global || /bin/true"
+
+            if [ -n "${mtu}" ]; then
+                # Ignores "mtu x", IPv6-only interfaces would not be configured
+                echo "  pre-up ip link set dev ${dev} mtu ${mtu}"
+                echo "  pre-up echo ${mtu} > /proc/sys/net/ipv6/conf/${dev}/mtu"
+            fi
+            ;;
+        *)
+            exit 1
+            ;;
+    esac
+
+    echo ""
+}
+
+gen_alias6_conf()
+{
+    case "${os_id}" in
+        alpine)
+            cat <<EOT
+iface ${dev} inet6 static
+  address ${ip6}
+  netmask ${ip6_prefix_length:-64}
+EOT
+            ;;
+        debian|ubuntu|devuan)
+            cat <<EOT
+iface ${dev} inet6 static
+  address ${ip6}
+  netmask ${ip6_prefix_length:-64}
+EOT
+            ;;
+    esac
+
+    echo ""
+
+    if [ -n "${ip6_ula}" ]; then
+        cat <<EOT
+
+iface ${dev} inet6 static
+  address ${ip6_ula}
+  netmask 64
+EOT
+    fi
+
+    echo ""
+}
+
+gen_network_configuration()
+{
+    cat <<EOT
+# Generated by one-context
+auto lo
+iface lo inet loopback
+
+EOT
+
+    _context_interfaces=$(get_context_interfaces)
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        echo "auto ${dev}"
+
+        case "${method}" in
+            ''|static)
+                [ -n "${ip}" ] && gen_iface_conf
+                ;;
+            dhcp)
+                gen_dhcp_conf
+                ;;
+        esac
+
+        case "${ip6_method}" in
+            ''|static)
+                [ -n "${ip6}" ] && gen_iface6_conf
+                ;;
+            auto|dhcp)
+                gen_dhcp6_conf
+                ;;
+            disable)
+                :
+                ;;
+        esac
+
+        _aliases=$(get_interface_alias "$_iface")
+
+        for _nic_alias in $_aliases ; do
+            setup_ipadr_vars "$_nic_alias"
+            setup_ip6adr_vars "$_nic_alias"
+            setup_alias_vars "$_nic_alias"
+
+            if [ -z "${detach}" ]; then
+                if ! is_true "${external}" ; then
+                    [ -n "${ip}"  ] && gen_alias_conf
+                    [ -n "${ip6}" ] && gen_alias6_conf
+                fi
+            fi
+        done
+    done
+
+    case "${os_id}" in
+        debian|ubuntu|devuan)
+            echo "source /etc/network/interfaces.d/*.cfg"
+            ;;
+    esac
+}
+
+# took from find_ifaces in the networking service
+get_interfaces() {
+    /sbin/ifquery --list -a
+}

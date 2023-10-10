@@ -1,0 +1,406 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+is_network_supported()
+{
+    command -v networkctl >/dev/null
+
+    return $?
+}
+
+configure_network()
+{
+    gen_resolvconf
+    gen_network_configuration
+}
+
+stop_network()
+{
+    systemctl stop systemd-networkd.service
+}
+
+start_network()
+{
+    systemctl start systemd-networkd.service
+
+    # Dummy query waits until networkd is running
+    networkctl list &>/dev/null || :
+}
+
+reload_network()
+{
+    # TODO: for newer systemd-networkd use
+    # networkctl reload && networkctl reconfigure ethX
+    # and fallback to service restart only if needed
+    systemctl restart systemd-networkd.service
+
+    # Dummy query waits until networkd is running
+    networkctl list &>/dev/null || :
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+gen_iface_conf()
+{
+    cat <<EOT
+[Network]
+Address=${ip}/${cidr}
+EOT
+
+    if [ -n "$dns" ]; then
+        for _domain in $dns; do
+            echo "DNS=${_domain}"
+        done
+    fi
+
+    if [ -n "$search_domains" ]; then
+        for _search_domain in $search_domains; do
+            echo "Domains=${_search_domain}"
+        done
+    fi
+
+    echo "[Route]"
+
+    if [ -n "$gateway" ]; then
+        echo "Gateway=${gateway}"
+
+        if [ -n "$metric" ]; then
+            echo "Metric=${metric}"
+        fi
+    fi
+
+    # Add static routes
+    if [ -n "${static_routes}" ]; then
+
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        for route in "${routes[@]}"
+        do
+            rsplit=( ${route} )
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+            echo "[Route]"
+            echo "Destination=$dst"
+            echo "Gateway=$gw"
+
+        done
+
+    fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        echo "[Route]"
+        echo "Destination=${onegate_host}"
+        echo "Scope=link"
+
+        unset onegate_proxy_route_missing
+    fi
+
+    echo ""
+}
+
+gen_dhcp_conf()
+{
+    case "${dhcp_conf}" in
+        ipv4)
+            cat <<EOT
+[Network]
+DHCP=ipv4
+EOT
+            ;;
+        ipv4+auto)
+            cat <<EOT
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=yes
+
+[IPv6AcceptRA]
+DHCPv6Client=no
+EOT
+            ;;
+        ipv6)
+            cat <<EOT
+[Network]
+DHCP=ipv6
+IPv6AcceptRA=yes
+EOT
+            ;;
+        both)
+            cat <<EOT
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+EOT
+            ;;
+        auto)
+            cat <<EOT
+[Network]
+DHCP=no
+IPv6AcceptRA=yes
+
+[IPv6AcceptRA]
+DHCPv6Client=no
+EOT
+            ;;
+    esac
+
+    cat <<EOT
+[Network]
+IPv6PrivacyExtensions=no
+EOT
+
+    echo ""
+}
+
+gen_alias_conf()
+{
+    cat <<EOT
+[Address]
+Address=${ip}/${cidr}
+EOT
+
+    echo ""
+}
+
+gen_iface6_conf()
+{
+    cat <<EOT
+[Network]
+Address=${ip6}/${ip6_prefix_length:-64}
+EOT
+
+    echo "IPv6AcceptRA=false"
+
+    if [ -n "$dns" ]; then
+        for _domain in $dns; do
+            echo "DNS=${_domain}"
+        done
+    fi
+
+    if [ -n "$search_domains" ]; then
+        for _search_domain in $search_domains; do
+            echo "Domains=${_search_domain}"
+        done
+    fi
+
+    cat <<EOT
+[Route]
+EOT
+
+    if [ -n "$ip6_gateway" ]; then
+        echo "Gateway=${ip6_gateway}"
+
+        if [ -n "$ip6_metric" ]; then
+            echo "Metric=${ip6_metric}"
+        fi
+    fi
+
+    if [ -n "$ip6_ula" ]; then
+        cat <<EOT
+[Network]
+Address=${ip6_ula}/64
+EOT
+    fi
+
+    echo ""
+}
+
+gen_alias6_conf()
+{
+    cat <<EOT
+[Address]
+Address=${ip6}/${ip6_prefix_length:-64}
+EOT
+
+    echo ""
+}
+
+gen_ipv6_disable()
+{
+    cat <<EOT
+[Network]
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+EOT
+
+    echo ""
+}
+
+# arg: <interface>
+is_networkd_iface_managed()
+(
+    _managed=$(LANG=C networkctl list -al --no-pager --no-legend | \
+        awk -v dev="$1" '{if ($2 == dev) print $NF;}' | \
+        tr '[:upper:]' '[:lower:]')
+
+    case "${_managed}" in
+        ''|unmanaged)
+            return 1
+            ;;
+    esac
+
+    return 0
+)
+
+gen_network_configuration()
+{
+    _context_interfaces=$(get_context_interfaces)
+
+    _networkd_version=$(networkctl --version | head -1 | awk '{print $2}')
+
+    if [ -n "$_networkd_version" ]; then
+        # put some dummy low version if not detected
+        _networkd_version="100"
+    fi
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        # NOTE: This is needed to workaround issue with the networkd metrics.
+        #
+        # When attaching new NIC from the same vnet on a running system then
+        # the networkd will assign some metric to the prefix route of the first
+        # NIC but leave out metric for the same prefix route of the new NIC.
+        #
+        # What happens is that outgoing packets on this subnet will now always
+        # use the second NIC even while the incoming packets were targeted for
+        # the IP on the first NIC - the result is a broken connection.
+        #
+        # This occurs at least with systemd/networkd version 248, which is on
+        # Cent OS 8 for example.
+
+
+        if [ $_networkd_version -le 250 ]; then
+            if is_networkd_iface_managed "${dev}" ; then
+                # networkctl up/down is not on ubuntu <21.04
+                networkctl down "$dev" 2>/dev/null || true
+
+                # this is still necessary to really unconfigure the interface
+                ip addr flush "$dev"
+            fi
+        fi
+
+        {
+            cat <<EOT
+# Generated by one-context
+[Match]
+Name=${dev}
+EOT
+
+            if [ -n "${mtu}" ]; then
+                cat <<EOT
+[Link]
+MTUBytes=${mtu}
+
+## Supported since Debian 10, Ubuntu 18.04, CentOS 8
+# [Network]
+# IPv6MTUBytes=${mtu}
+EOT
+            fi
+
+            dhcp_conf=''
+
+            case "${method}" in
+                ''|static)
+                    [ -n "${ip}" ] && gen_iface_conf
+                    ;;
+                dhcp)
+                    dhcp_conf='ipv4'
+                    ;;
+            esac
+
+            case "${ip6_method}" in
+                ''|static)
+                    [ -n "${ip6}" ] && gen_iface6_conf
+                    ;;
+                auto)
+                    if [ -n "${dhcp_conf}" ] ; then
+                        dhcp_conf='ipv4+auto'
+                    else
+                        dhcp_conf='auto'
+                    fi
+                    ;;
+                dhcp)
+                    if [ -n "${dhcp_conf}" ] ; then
+                        dhcp_conf='both'
+                    else
+                        dhcp_conf='ipv6'
+                    fi
+                    ;;
+                disable)
+                    gen_ipv6_disable
+                    ;;
+            esac
+
+            [ -n "${dhcp_conf}" ] && gen_dhcp_conf
+
+            _aliases=$(get_interface_alias "$_iface")
+
+            for _nic_alias in $_aliases ; do
+                setup_ipadr_vars "$_nic_alias"
+                setup_ip6adr_vars "$_nic_alias"
+                setup_alias_vars "$_nic_alias"
+
+                if [ -z "${detach}" ]; then
+                    if ! is_true "${external}" ; then
+                        [ -n "${ip}"  ] && gen_alias_conf
+                        [ -n "${ip6}" ] && gen_alias6_conf
+                    fi
+                fi
+            done
+
+        } > "/etc/systemd/network/${dev}.network"
+
+    done
+}

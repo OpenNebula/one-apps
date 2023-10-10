@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+
+SERVICES=${SERVICES:-one-context-local one-context-online one-context}
+TIMERS=${TIMERS:-one-context-reconfigure.timer}
+
+rm -f /etc/udev/rules.d/70-persistent-cd.rules
+rm -f /etc/udev/rules.d/70-persistent-net.rules
+
+# Reload udev rules
+udevadm control --reload >/dev/null 2>&1 || :
+
+
+### Enable services ########################################
+
+if which systemctl >/dev/null 2>&1 && \
+    [ -d /etc/systemd ] && \
+    [ -f /usr/lib/systemd/system/one-context.service ];
+then
+    systemctl daemon-reload >/dev/null 2>&1 || :
+
+    for S in ${SERVICES} ${TIMERS}; do
+        systemctl enable "${S}" >/dev/null 2>&1
+    done
+fi
+
+if which chkconfig >/dev/null 2>&1; then
+    for S in ${SERVICES}; do
+        chkconfig --add "${S}" >/dev/null 2>&1
+    done
+
+    # EL6: refresh initramfs via dracut for growroot module
+    if [ -f /usr/share/dracut/modules.d/50growroot/install ]; then
+        for I in $(find /boot -name 'initramfs-*.img'); do
+            KERNEL_VERS=$(echo "${I}" | sed -e 's/.*initramfs-\(.*\)\.img/\1/')
+            dracut -f "${I}" "${KERNEL_VERS}" || :
+        done
+    fi
+
+elif which update-rc.d >/dev/null 2>&1; then
+    for S in ${SERVICES}; do
+        update-rc.d "${S}" enable   >/dev/null 2>&1
+        update-rc.d "${S}" defaults >/dev/null 2>&1
+    done
+
+elif which rc-update >/dev/null 2>&1; then
+    for S in ${SERVICES}; do
+        rc-update add "${S}" boot >/dev/null 2>&1
+    done
+
+    # Add crontab action for 1min schedules
+    if ! crontab -l -u root | grep -qF '/etc/periodic/1min'; then
+        (
+            crontab -l -u root
+            echo -e '\n# Added by one-context'
+            echo -e '*	*	*	*	*	run-parts /etc/periodic/1min'
+        ) | crontab -u root -
+    fi
+
+    # When existing file is changed, the new one might be created with
+    # .apk-new suffix. Such files need to be processed by update-conf.
+    if update-conf -al 2>/dev/null | grep -q context; then
+        echo 'WARNING: Run update-conf to process any updated one-context files in /etc!' >&2
+    fi
+
+elif [ -x /bin/freebsd-version ]; then
+    :
+
+else
+    echo 'WARNING: Contextualization service not enabled automatically' >&2
+fi
+
+
+### Cleanup network configuration ##########################
+
+if [ -f /etc/sysctl.d/50-one-context.conf ]; then
+    rm -f /etc/sysctl.d/50-one-context.conf
+fi
+
+# Debian based distros
+if [ -d /etc/network ]; then
+    # Prepare network files
+    cp /etc/network/interfaces "/etc/network/interfaces.$(date '+%s')"
+    rm -rf /etc/network/interfaces.d
+
+    cat > /etc/network/interfaces <<EOT
+# The loopback network interface
+auto lo
+iface lo inet loopback
+EOT
+
+    # Do not reconfigure network interfaces on boot
+#    if [ -f /etc/default/networking ]; then
+#        if ! grep -q ^CONFIGURE_INTERFACES /etc/default/networking; then
+#            echo 'CONFIGURE_INTERFACES=no' >> /etc/default/networking
+#        fi
+#    fi
+fi
+
+# Red Hat based distros
+if [ -d /etc/sysconfig/network-scripts/ ]; then
+    # Prepare network files
+    find /etc/sysconfig/network-scripts -type f \
+        \( -name 'ifcfg-*' -o -name 'route-*' -o -name 'route6-*' \) \
+        ! -name 'ifcfg-lo' ! -name 'route-lo' ! -name 'route6-lo' \
+        -exec rm -f {} \;
+fi
+
+# openSUSE based distros
+if [ -d /etc/sysconfig/network/ ]; then
+    # Prepare network files
+    find /etc/sysconfig/network -type f \
+        \( -name 'ifcfg-*' -o -name 'ifroute-*' -o -name 'ifsysctl-*' \) \
+        ! -name 'ifcfg-lo' ! -name 'ifroute-lo' ! -name 'ifsysctl-lo' \
+        -exec rm -f {} \;
+
+    rm -f /etc/sysconfig/network/routes /etc/sysconfig/network/ifsysctl
+
+    sed -i '/^NETCONFIG_DNS_STATIC_SERVERS=/ s/=.*$/=""/' /etc/sysconfig/network/config
+    sed -i '/^NETCONFIG_DNS_STATIC_SEARCHLIST=/ s/=.*$/=""/' /etc/sysconfig/network/config
+fi
+
+# Netplan
+if [ -d /etc/netplan/ ]; then
+    rm -f /etc/netplan/*
+fi
+
+# NetworkManager
+if [ -d /etc/NetworkManager/system-connections/ ]; then
+    rm -f /etc/NetworkManager/system-connections/*
+fi
+
+# systemd-networkd
+if [ -d /etc/systemd/network/ ]; then
+    rm -f \
+        /etc/systemd/networkd/*.network \
+        /etc/systemd/networkd/*.link
+fi
+
+# FreeBSD based distros
+#TODO: pfsense paths?
+if [ -x /bin/freebsd-version ]; then
+    rm -f /etc/rc.conf.d/network /etc/rc.conf.d/routing
+
+    if [ -f /etc/rc.conf ]; then
+        sed -i '' \
+            -e '/^ifconfig_/d' \
+            -e '/^route_/d' \
+            -e '/^static_routes/d' \
+            -e '/^defaultrouter/d' \
+            /etc/rc.conf
+    fi
+fi

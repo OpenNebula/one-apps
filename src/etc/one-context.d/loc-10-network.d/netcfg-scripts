@@ -1,0 +1,423 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+is_network_supported()
+{
+    if [ -x /etc/sysconfig/network-scripts/ifup ]; then
+        # On EL8, the network-scripts (package) is legacy
+        # and network service is not even enabled by default.
+        # For safety we check if network service is enabled
+        # and if not, we better choose different renderer.
+        if command -v systemctl &>/dev/null; then
+            systemctl is-enabled network &>/dev/null && return 0
+
+        # NOTE: Probably not necessary test on old systems
+        elif chkconfig network --level 3 &>/dev/null || \
+             chkconfig network --level 5 &>/dev/null;
+        then
+            return 0
+        fi
+
+    elif is_net_suse; then
+        return 0
+    fi
+
+    return 1
+}
+
+configure_network()
+{
+    gen_resolvconf
+    gen_network_configuration
+}
+
+stop_network()
+{
+    service network stop
+}
+
+start_network()
+{
+    service network start
+}
+
+reload_network()
+{
+    service network restart
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+gen_iface_conf()
+{
+    cat <<EOT
+NETMASK="${mask}"
+IPADDR="${ip}"
+EOT
+
+    if is_net_suse; then
+        echo 'BOOTPROTO=static'
+
+        config_path_routes="${config_path}/ifroute-${dev}"
+
+        if [ -n "${gateway}" ]; then
+            echo "default ${gateway} - ${dev} ${metric:+metric ${metric}}" >> "$config_path_routes"
+        fi
+
+    else
+        echo 'BOOTPROTO=none'
+
+        config_path_routes="${config_path}/route-${dev}"
+
+        if [ -n "${gateway}" ]; then
+            echo "default via ${gateway} dev ${dev} ${metric:+metric ${metric}}" >> "$config_path_routes"
+        fi
+    fi
+
+    # Add static routes
+    if [ -n "${static_routes}" ]; then
+
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        for route in "${routes[@]}"
+        do
+            rsplit=( ${route} )
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+            if is_net_suse; then
+                echo "${dst} ${gw} - ${dev}" >> "$config_path_routes"
+            else
+                echo "$route" >> "$config_path_routes"
+            fi
+        done
+
+    fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        if is_net_suse; then
+            route="${onegate_host} - - ${dev}"
+        else
+            route="${onegate_host} dev ${dev}"
+        fi
+
+        echo "$route" >> "$config_path_routes"
+
+        unset onegate_proxy_route_missing
+    fi
+
+    if [ -n "${mtu}" ]; then
+        echo "MTU=${mtu}"
+    fi
+}
+
+gen_dhcp_conf()
+{
+    if is_net_suse; then
+        if [ "${ip6_method}" = 'dhcp' ]; then
+            echo 'BOOTPROTO=dhcp'
+        else
+            echo 'BOOTPROTO=dhcp4'
+        fi
+
+    else
+        cat <<EOT
+BOOTPROTO=dhcp
+PERSISTENT_DHCLIENT=1
+EOT
+    fi
+
+    if [ -n "${mtu}" ]; then
+        echo "MTU=${mtu}"
+    fi
+}
+
+gen_alias_conf() {
+    cat <<EOT
+IPADDR${alias_num}="${ip}"
+NETMASK${alias_num}="${mask}"
+EOT
+}
+
+gen_iface6_conf()
+{
+    if is_net_suse; then
+        echo "IPADDR_6A=${ip6}/${ip6_prefix_length:-64}"
+
+        cat <<EOT >> "/etc/sysconfig/network/ifsysctl-${dev}"
+net.ipv6.conf.\$SYSCTL_IF.autoconf = 0
+net.ipv6.conf.\$SYSCTL_IF.accept_ra = 0
+EOT
+
+        if [ -n "${mtu}" ]; then
+            # place only if not set via IPv4 parts
+            if [ -z "${_set_ipv4}" ]; then
+                echo "MTU=${mtu}"
+            fi
+
+            cat <<EOT >> "/etc/sysconfig/network/ifsysctl-${dev}"
+net.ipv6.conf.\$SYSCTL_IF.mtu = ${mtu}
+EOT
+        fi
+
+    else
+        cat <<EOT
+IPV6INIT=yes
+IPV6ADDR=${ip6}/${ip6_prefix_length:-64}
+IPV6_AUTOCONF=no
+EOT
+
+        if [ -n "${mtu}" ]; then
+            echo "IPV6_MTU=${mtu}"
+        fi
+    fi
+
+    if [ -n "${ip6_ula}" ]; then
+        if [ "${config_path}" = "/etc/sysconfig/network" ]; then
+            echo "IPADDR_6B=${ip6_ula}/64"
+        else
+            ipv6addr_secondaries="${ipv6addr_secondaries} ${ip6_ula}/64"
+        fi
+    fi
+
+    if [ -n "${ip6_gateway}" ]; then
+        if [ "${config_path}" = "/etc/sysconfig/network" ]; then
+            echo "default ${ip6_gateway} - ${dev} ${ip6_metric:+metric ${ip6_metric}}" \
+                >> "/etc/sysconfig/network/ifroute-${dev}"
+        else
+            echo "default via ${ip6_gateway} dev ${dev} ${ip6_metric:+metric ${ip6_metric}}" \
+                >> "${config_path}/route6-${dev}"
+        fi
+    fi
+}
+
+gen_dhcp6_conf()
+{
+    if is_net_suse; then
+        # On SUSE the BOOTPROTO is shared for both IPv4/6,
+        # in case IPv4 is not dhcp we configure DHCPv6 only here
+        # (if IPv4 is static, we unforunately overwrite that)
+        if [ "${ip6_method}" = 'dhcp' ] && [ "${method}" != 'dhcp' ]; then
+            echo 'BOOTPROTO=dhcp6'
+        fi
+
+        cat <<EOT >> "/etc/sysconfig/network/ifsysctl-${dev}"
+net.ipv6.conf.\$SYSCTL_IF.autoconf = 1
+net.ipv6.conf.\$SYSCTL_IF.accept_ra = 1
+net.ipv6.conf.\$SYSCTL_IF.use_tempaddr = 0
+EOT
+
+        if [ -n "${mtu}" ]; then
+            # place only if not set via IPv4 parts
+            if [ -z "${_set_ipv4}" ]; then
+                echo "MTU=${mtu}"
+            fi
+
+            cat <<EOT >> "/etc/sysconfig/network/ifsysctl-${dev}"
+net.ipv6.conf.\$SYSCTL_IF.mtu = ${mtu}
+EOT
+        fi
+
+    else
+        if [ "${ip6_method}" = "auto" ] ; then
+            cat <<EOT
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+EOT
+        else
+            cat <<EOT
+IPV6INIT=yes
+IPV6_AUTOCONF=yes
+DHCPV6C=yes
+EOT
+        fi
+
+        if [ -n "${mtu}" ]; then
+            echo "IPV6_MTU=${mtu}"
+        fi
+
+        echo 'IPV6_PRIVACY=no'
+    fi
+}
+
+gen_alias6_conf()
+{
+    if [ "${config_path}" = "/etc/sysconfig/network" ]; then
+        echo "IPADDR_A6A${alias_num}=${ip6}/${ip6_prefix_length:-64}"
+    else
+        ipv6addr_secondaries="${ipv6addr_secondaries} ${ip6}/${ip6_prefix_length:-64}"
+    fi
+
+    if [ -n "${ip6_ula}" ]; then
+        if [ "${config_path}" = "/etc/sysconfig/network" ]; then
+            echo "IPADDR_A6B${alias_num}=${ip6_ula}/64"
+        else
+            ipv6addr_secondaries="${ipv6addr_secondaries} ${ip6_ula}/64"
+        fi
+    fi
+}
+
+gen_network_configuration()
+{
+    if is_net_rhel; then
+        config_path=/etc/sysconfig/network-scripts
+
+        # if disabled, enable networking via network scripts
+        if [ -f /etc/sysconfig/network ] &&
+           ! grep -qx 'NETWORKING=yes' /etc/sysconfig/network;
+        then
+            sed -i -e '/^NETWORKING=/d' /etc/sysconfig/network
+            echo 'NETWORKING=yes' >>/etc/sysconfig/network
+        fi
+
+    elif is_net_suse; then
+        config_path=/etc/sysconfig/network
+    fi
+
+    _context_interfaces=$(get_context_interfaces)
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        # in IPv6 sections we might need to know if
+        # any IPv4 configuration was already placed
+        _set_ipv4=
+
+        # cumulative variable
+        ipv6addr_secondaries=''
+
+        {
+            rm -f "/etc/sysconfig/network-scripts/route-${dev}"
+            rm -f "/etc/sysconfig/network-scripts/route6-${dev}"
+            rm -f "/etc/sysconfig/network/ifroute-${dev}"
+            rm -f "/etc/sysconfig/network/ifsysctl-${dev}"
+
+            cat <<EOT
+# Generated by one-context
+DEVICE=${dev}
+NM_CONTROLLED=no
+TYPE=Ethernet
+EOT
+
+            if is_net_suse; then
+                echo "STARTMODE=auto"
+            else
+                echo "ONBOOT=yes"
+            fi
+
+            case "${method}" in
+                ''|static)
+                    if [ -n "${ip}" ]; then
+                        gen_iface_conf
+                        _set_ipv4=yes
+                    fi
+                    ;;
+                dhcp)
+                    gen_dhcp_conf
+                    _set_ipv4=yes
+                    ;;
+            esac
+
+            case "${ip6_method}" in
+                ''|static)
+                    [ -n "${ip6}" ] && gen_iface6_conf
+                    ;;
+                auto|dhcp)
+                    gen_dhcp6_conf
+                    ;;
+                disable)
+                    :
+                    ;;
+            esac
+
+            _aliases=$(get_interface_alias "$_iface")
+            alias_num=0
+
+            for _nic_alias in $_aliases; do
+                setup_ipadr_vars "$_nic_alias"
+                setup_ip6adr_vars "$_nic_alias"
+                setup_alias_vars "$_nic_alias"
+
+                if [ -z "${detach}" ]; then
+                    if ! is_true "${external}" ; then
+                        [ -n "${ip}"  ] && gen_alias_conf
+                        [ -n "${ip6}" ] && gen_alias6_conf
+
+                        if [ -n "${ip}${ip6}" ]; then
+                            alias_num=$((alias_num + 1))
+                        fi
+                    fi
+                fi
+            done
+
+            # on Red Hats, we need just a single configuration
+            # entry with all additional IPv6 addresses
+            if [ -n "${ipv6addr_secondaries}" ]; then
+                echo "IPV6ADDR_SECONDARIES='${ipv6addr_secondaries## }'"
+            fi
+        } > "${config_path}/ifcfg-${dev}"
+
+        # TODO: do we want this here?
+        ifup "${dev}"
+
+    done
+}
+
+is_net_rhel() {
+    [ -d /etc/sysconfig/network-scripts ]
+}
+
+is_net_suse() {
+    [ -d /etc/sysconfig/network ]
+}

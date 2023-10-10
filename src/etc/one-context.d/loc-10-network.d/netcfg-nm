@@ -1,0 +1,352 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+#
+# network module implementation
+#
+
+export required_context_type=online
+
+is_network_supported()
+{
+    command -v nmcli >/dev/null
+
+    return $?
+}
+
+configure_network()
+{
+    wait_for_nm
+    gen_resolvconf
+    gen_network_configuration
+
+    # address race condition on el8
+    # https://github.com/OpenNebula/addon-context-linux/issues/282
+    nmcli general reload
+}
+
+stop_network()
+{
+    service NetworkManager stop
+}
+
+start_network()
+{
+    service NetworkManager start
+}
+
+reload_network()
+{
+    # VH-TODO: It only reloads configuration from a disk,
+    # but we don't directly generate configuration files
+    nmcli connection reload
+}
+
+#
+# helper functions
+#
+
+# TODO: remove global variables and get rid off exports
+#
+# to satisfy shellcheck SC2154:
+export os_id
+export ip
+export network
+export mask
+export cidr
+export ip6
+export ip6_prefix_length
+export ip6_ula
+export mac
+export dev
+export mtu
+export gateway
+export ip6_gateway
+export method
+export ip6_method
+export metric
+export ip6_metric
+export dns
+export search_domains
+export external
+export detach
+export all_nameservers
+export all_search_domains
+
+wait_for_nm()
+{
+    nm_enable
+
+    _timeout=30
+    while [ "$_timeout" -gt 0 ] ; do
+        if _nm_networking=$(nmcli networking 2>/dev/null) ; then
+            break
+        fi
+
+        _timeout=$(( _timeout - 1 ))
+        sleep 1
+    done
+
+    if [ "${_timeout}" -eq 0 ] ; then
+        echo "ERROR [!]: NetworkManager is not running" >&2
+        exit 1
+    elif [ "${_nm_networking}" = 'enabled' ] ; then
+        return 0
+    else
+        echo "ERROR [!]: NetworkManager is disabled" >&2
+        exit 1
+    fi
+}
+
+gen_iface_conf()
+{
+    nmcli con mod "${dev}" ipv4.method manual ipv4.addresses "${ip}/${cidr}"
+
+    if [ -n "$gateway" ]; then
+        nmcli con mod "${dev}" ipv4.gateway "${gateway}"
+    else
+        nmcli con mod "${dev}" ipv4.gateway ""
+    fi
+
+    # Add static routes
+    if [ -n "${static_routes}" ]; then
+
+        IFS=',' read -r -a routes <<< "$static_routes"
+
+        for route in "${routes[@]}"
+        do
+            rsplit=( ${route} )
+            dst="${rsplit[0]}"
+            gw="${rsplit[2]}"
+
+            nmcli con mod "$dev" +ipv4.routes "${dst} ${gw}"
+        done
+
+    fi
+
+    # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
+    if missing_onegate_proxy_route; then
+        nmcli con mod "$dev" +ipv4.routes "$onegate_host"
+
+        unset onegate_proxy_route_missing
+    fi
+
+    if [ -n "$metric" ]; then
+        nmcli con mod "${dev}" ipv4.route-metric "${metric}"
+    else
+        # Force default Linux IPv4 metric (man 8 route) to override
+        # automatic metrics calculation done by NetworkManager and unify
+        # behavior among different renderers.
+        nmcli con mod "${dev}" ipv4.route-metric "0"
+    fi
+}
+
+reset_iface()
+{
+    # the order is significant - ip.addresses cannot be erased while gateway is set
+    nmcli con mod "${dev}" ipv4.route-metric ""
+    nmcli con mod "${dev}" ipv4.gateway ""
+    nmcli con mod "${dev}" ipv4.addresses ""
+}
+
+gen_dhcp_conf()
+{
+    nmcli con mod "${dev}" ipv4.method auto
+
+    # cleanup any leftover from the static method
+    reset_iface
+}
+
+gen_alias_conf()
+{
+    nmcli con mod "${dev}" +ipv4.addresses "${ip}/${cidr}"
+}
+
+gen_iface6_conf()
+{
+    nmcli con mod "${dev}" ipv6.method manual \
+        ipv6.addresses "${ip6}/${ip6_prefix_length:-64}"
+
+    if [ -n "$ip6_ula" ]; then
+        nmcli con mod "${dev}" +ipv6.addresses "${ip6_ula}/64"
+    fi
+
+    if [ -n "$ip6_gateway" ]; then
+        nmcli con mod "${dev}" ipv6.gateway "${ip6_gateway}"
+    else
+        nmcli con mod "${dev}" ipv6.gateway ""
+    fi
+
+    if [ -n "$ip6_metric" ]; then
+        nmcli con mod "${dev}" ipv6.route-metric "${ip6_metric}"
+    else
+        # Force default Linux IPv6 metric (man 8 route) to override
+        # automatic metrics calculation done by NetworkManager and unify
+        # behavior among different renderers.
+        nmcli con mod "${dev}" ipv6.route-metric "1"
+    fi
+
+    # We need this to ensure link-local address has expected form
+    nmcli con mod "${dev}" ipv6.addr-gen-mode eui64
+}
+
+reset_iface6()
+{
+    # the order is significant - ipv6.addresses cannot be erased while gateway is set
+    nmcli con mod "${dev}" ipv6.route-metric ""
+    nmcli con mod "${dev}" ipv6.gateway ""
+    nmcli con mod "${dev}" ipv6.addresses ""
+}
+
+gen_alias6_conf()
+{
+    nmcli con mod "${dev}" +ipv6.addresses "${ip6}/${ip6_prefix_length:-64}"
+
+    if [ -n "$ip6_ula" ]; then
+        nmcli con mod "${dev}" +ipv6.addresses "${ip6_ula}/64"
+    fi
+}
+
+gen_dhcp6_conf()
+{
+    if [ "${ip6_method}" = "auto" ] ; then
+        # Method "ignore" relies only on SLAAC configured by the kernel,
+        # while the "auto" might optionally trigger also DHCPv6 client!
+        # https://unix.stackexchange.com/questions/440076/disable-dhcpv6-while-not-disabling-slaac-in-network-manager
+        _dhcp=ignore
+    else
+        # Method "auto" optionally triggers DHCPv6 client if RA has relevant
+        # flags (also netplan+nm configures "auto")! Method "dhcp" could
+        # ignore RA.
+        _dhcp=auto
+    fi
+
+    nmcli con mod "${dev}" ipv6.method "${_dhcp}"
+    nmcli con mod "${dev}" ipv6.addr-gen-mode eui64
+    nmcli con mod "${dev}" ipv6.ip6-privacy 0
+
+    # cleanup any leftover from the static method
+    reset_iface6
+}
+
+# arg: <interface-connection>
+nm_connection_exist()
+(
+    # VH-TODO: We should be better checking across all connections, if there
+    # isn't any with our device to avoid clashes and drop/rename that one
+    _iface=$(nmcli --field connection.interface-name con show "$1" | awk '{print $2}')
+    if [ "${_iface}" = "$1" ] ; then
+        return 0
+    fi
+
+    return 1
+)
+
+gen_network_configuration()
+{
+    _context_interfaces=$(get_context_interfaces)
+
+    # nm renderer is required_context_type=online and it skips initialize_network
+    # this flag is set for all other renderers in there
+    export onegate_proxy_route_missing="yes" # flag route not setup
+    get_onegate_ip
+
+    for _iface in $_context_interfaces; do
+        setup_iface_vars "$_iface"
+
+        skip_interface && continue
+
+        # We might need to disable IPv6 and privacy directly by sysctl
+        _disable_ipv6=''
+        _disable_ipv6_privacy=''
+
+        if ! nm_connection_exist "${dev}" ; then
+            nmcli con add type ethernet \
+                con-name "${dev}" ifname "${dev}" \
+                ipv4.method disabled \
+                ipv6.method ignore
+        fi
+
+        nmcli con mod "${dev}" connection.autoconnect yes
+
+        if [ -n "${mtu}" ]; then
+            nmcli con mod "${dev}" ethernet.mtu "${mtu}"
+        else
+            nmcli con mod "${dev}" ethernet.mtu ""
+        fi
+
+        case "${method}" in
+            ''|static)
+                [ -n "${ip}" ] && gen_iface_conf
+                ;;
+            dhcp)
+                gen_dhcp_conf
+                ;;
+        esac
+
+        case "${ip6_method}" in
+            ''|static)
+                [ -n "${ip6}" ] && gen_iface6_conf
+                ;;
+            auto)
+                gen_dhcp6_conf
+
+                # NOTE: Hot plugged NICs configured with IPv6 method ignore
+                # doesn't have to properly update the IPv6 privacy.
+                # We better enforce them via direct sysctl.
+                # VH-TODO: limit only for reconfigure action?
+                _disable_ipv6_privacy='yes'
+                ;;
+            dhcp)
+                gen_dhcp6_conf
+                ;;
+            disable)
+                # NOTE: Older NMs don't support ipv6.method disabled,
+                # in that case we rely on hard disablemenets via sysctl
+                nmcli con mod "${dev}" ipv6.method disabled ||
+                    _disable_ipv6='yes'
+                ;;
+        esac
+
+        _aliases=$(get_interface_alias "$_iface")
+
+        for _nic_alias in $_aliases; do
+            setup_ipadr_vars "$_nic_alias"
+            setup_ip6adr_vars "$_nic_alias"
+            setup_alias_vars "$_nic_alias"
+
+            if [ -z "${detach}" ]; then
+                if ! is_true "${external}" ; then
+                    [ -n "${ip}"  ] && gen_alias_conf
+                    [ -n "${ip6}" ] && gen_alias6_conf
+                fi
+            fi
+        done
+
+        # 'nmcli con reload' is not enough
+        nmcli con up "${dev}"
+
+        if [ -n "${_disable_ipv6}" ]; then
+            disable_ipv6 "${dev}"
+        fi
+
+        if [ -n "${_disable_ipv6_privacy}" ]; then
+            disable_ipv6_privacy "${dev}"
+        fi
+    done
+}

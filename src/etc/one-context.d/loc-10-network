@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2021, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# shellcheck disable=SC1091,SC1090
+
+. /etc/one-context.d/loc-10-network.d/functions
+
+context_type="$1"
+action="$2"
+os_id=$(detect_os)
+
+if [ -z "${action}" ] ; then
+    action="configure"
+fi
+
+# update detect_os function if new distro is added
+if [ -z "${NETCFG_TYPE}" ] ; then
+    case "${os_id}" in
+        alpine)
+            NETCFG_TYPE='interfaces'
+            ;;
+        altlinux)
+            NETCFG_TYPE='networkd nm'
+            ;;
+        debian|devuan|ubuntu)
+            NETCFG_TYPE='interfaces netplan nm networkd'
+            ;;
+        fedora|centos|rhel|almalinux|ol|rocky)
+            NETCFG_TYPE='scripts nm networkd'
+            ;;
+        opensuse*|sles|sled)
+            NETCFG_TYPE='scripts'
+            ;;
+        amzn)
+            NETCFG_TYPE='scripts'
+            ;;
+        freebsd)
+            NETCFG_TYPE='bsd'
+            ;;
+        *)
+            NETCFG_TYPE='none'
+            ;;
+    esac
+else
+    # trim and lowercase
+    NETCFG_TYPE=$(echo "$NETCFG_TYPE" | \
+        sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | \
+        tr '[:upper:]' '[:lower:]')
+
+    # support alternative names for some configuration renderers
+    case "${NETCFG_TYPE}" in
+        networkmanager)
+            NETCFG_TYPE='nm'
+            ;;
+        systemd-networkd|systemd-network|systemd)
+            NETCFG_TYPE='networkd'
+            ;;
+        redhat)
+            NETCFG_TYPE='scripts'
+            ;;
+        debian)
+            NETCFG_TYPE='interfaces'
+            ;;
+        freebsd)
+            NETCFG_TYPE='bsd'
+            ;;
+    esac
+fi
+
+if [ "${NETCFG_TYPE}" != 'none' ] ; then
+    _found_valid_netcfg='no'
+
+    # from a space separated list of $NETCFG_TYPE candidates check one
+    # by one and select the first suitable one for current environment
+    for _cfgtype in ${NETCFG_TYPE} ; do
+        _cfgtype_file="/etc/one-context.d/loc-10-network.d/netcfg-$(basename "${_cfgtype}")"
+
+        if [ -e "${_cfgtype_file}" ] ; then
+            # reload functions to reset back any overrides from prev. netcfg-X
+            .  /etc/one-context.d/loc-10-network.d/functions
+            . "${_cfgtype_file}"
+        else
+            echo "ERROR [!]: Requested network type is not implemented: ${_cfgtype}" >&2
+            exit 1
+        fi
+
+        if is_network_supported ; then
+            _found_valid_netcfg='yes'
+            break
+        fi
+    done
+
+    if [ "${_found_valid_netcfg}" = 'no' ] ; then
+        echo "ERROR [!]: None of the requested network types is supported on: ${os_id}" >&2
+        exit 1
+    fi
+else
+    # any action is meaningless without functioning network type
+    action='none'
+fi
+
+# regardless of the required_context_type we need cleanup in the 'local' stage
+#
+# TODO: currently we must skip cleanup during reconfigure action (check-out the
+# initialize_network function) otherwise we would wiped-out running config and
+# broke the system
+if [ "${context_type}" = 'local' ] ; then
+    case "$action" in
+        configure|reconfigure)
+            initialize_network
+            ;;
+        *)
+            echo "ERROR [!]: Unknown ACTION: ${action}" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# this is a contextualization guard
+# shellcheck disable=SC2154
+case "${required_context_type}" in
+    ''|local|online)
+        if [ "${required_context_type:-local}" != "${context_type}" ] ; then
+            # skip this netcfg at this stage
+            exit 0
+        fi
+        ;;
+    *)
+        echo "ERROR [!]: Unknown required context type: ${required_context_type}" >&2
+        exit 1
+        ;;
+esac
+
+case "$action" in
+    none)
+        echo "INFO: Network will not be configured" >&2
+        ;;
+    configure)
+        configure_network
+        ;;
+    reconfigure)
+        configure_network
+        reload_network
+        ;;
+    *)
+        echo "ERROR [!]: Unknown ACTION: ${action}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
