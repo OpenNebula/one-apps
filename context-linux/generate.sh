@@ -41,7 +41,7 @@ fi
 
 ###
 
-VERSION=${VERSION:-6.6.1}
+VERSION=${VERSION:-6.6.1} # no need to bump, it's exported from the Makefile
 RELEASE=${RELEASE:-1}
 MAINTAINER=${MAINTAINER:-OpenNebula Systems <contact@opennebula.io>}
 LICENSE=${LICENSE:-Apache 2.0}
