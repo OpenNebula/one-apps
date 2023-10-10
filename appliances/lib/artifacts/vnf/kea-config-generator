@@ -1,0 +1,902 @@
+#!/usr/bin/env python3
+
+# --------------------------------------------------------------------------- #
+# Copyright 2018-2019, OpenNebula Project, OpenNebula Systems                 #
+#                                                                             #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may     #
+# not use this file except in compliance with the License. You may obtain     #
+# a copy of the License at                                                    #
+#                                                                             #
+# http://www.apache.org/licenses/LICENSE-2.0                                  #
+#                                                                             #
+# Unless required by applicable law or agreed to in writing, software         #
+# distributed under the License is distributed on an "AS IS" BASIS,           #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.    #
+# See the License for the specific language governing permissions and         #
+# limitations under the License.                                              #
+# --------------------------------------------------------------------------- #
+
+__all__ = [
+    "__title__",
+    "__summary__",
+    "__uri__",
+    "__version__",
+    "__author__",
+    "__email__",
+    "__license__",
+    "__copyright__",
+]
+
+__title__ = "kea-config-generator"
+__summary__ = "ISC Kea configuration generator"
+__uri__ = "https://github.com/OpenNebula/addon-kea-hooks"
+__version__ = "1.1.3"
+__author__ = "Petr Ospalý"
+__email__ = "pospaly@opennebula.io"
+__license__ = "Apache License, Version 2.0"
+__copyright__ = "2019-2021 %s" % __author__
+
+
+import sys
+import argparse
+import re
+import json
+import base64
+import psutil
+import ipaddress
+import textwrap
+import functools
+
+
+#
+# global defaults
+#
+
+JSON_INDENT = 4
+DEFAULT_LOGFILE = "/var/log/kea-dhcp4.log"
+DEFAULT_LEASE_TIME = 3600
+SUBNET_ID_MAX = 4294967294  # greater than zero and less than 4294967295
+
+
+#
+# functions
+#
+
+def msg(*args, columns=80):
+    """ Prints a message on stderr.
+
+    It is a wrapper for print() function, it adds an error category to the
+    message and wraps the line to not exceed a certain column width.
+
+    Examples:
+        > msg('ERROR', "Some string", "and another...")
+        ERROR: Some string and another...
+
+        > msg('If no category is specified:',
+              "then the message is automatically prefixed with the 'UNKNOWN'",
+              columns=40)
+        UNKNOWN: If no category is specified:
+                 then the message is
+                 automatically prefixed with the
+                 'UNKNOWN'
+
+    Attributes:
+        *args (tuple of strings):
+            It concatenates (join with a space) all the strings but with the
+            exception of the first which can be used as an error category:
+                ERROR, WARNING, OK, UNKNOWN
+            If such string is not used: 'UNKNOWN' will be prefixed implicitly.
+
+        columns (int):
+            Column width after which the text is wrapped.
+    """
+
+    if len(args) and args[0].upper() in ('ERROR', 'WARNING', 'OK', 'UNKNOWN'):
+        msg_type = args[0].upper() + ':'
+        text = list(args[1:])
+    else:
+        msg_type = 'UNKNOWN:'
+        text = list(args)
+
+    text.insert(0, msg_type)
+
+    indent = ' ' * (len(msg_type) + 1)
+    text = ' '.join(text)
+    text = textwrap.fill(text, width=columns, subsequent_indent=indent)
+    print(text, file=sys.stderr)
+
+
+def get_networks():
+    """ Returns all interfaces and all their addresses, like this:
+        [
+          {
+            "iface": "lo",
+            "addrs": [
+              {
+                "addr": "127.0.0.1",
+                "network": "127.0.0.0",
+                "prefix": 8,
+                "broadcast": null
+              }
+            ]
+          },
+          ...
+        ]
+    """
+    all_netinfs = []
+
+    for iface_name, addrs in psutil.net_if_addrs().items():
+        iface = {
+            "iface": iface_name
+        }
+        ips = []
+
+        for addr in addrs:
+            ip = {}
+            if addr.family.name == "AF_INET":
+                ip["addr"] = addr.address
+                ip["network"] = str(ipaddress.IPv4Interface(addr.address
+                  + '/' + addr.netmask).network.network_address)
+                ip["prefix"] = ipaddress.IPv4Interface(addr.address
+                  + '/' + addr.netmask).network.prefixlen
+                ip["broadcast"] = addr.broadcast
+                ips.append(ip)
+            elif addr.family.name in ("AF_LINK", "AF_PACKET"):
+                iface["hwaddr"] = addr.address
+
+        if ips != []:
+            iface["addrs"] = ips
+            all_netinfs.append(iface)
+
+    return all_netinfs
+
+
+def gen_subnets(params):
+    """ Returns subnets with a pool.
+
+        - Subnet is deducted from network address and prefix.
+        - Pool is created as the whole subnet range minus:
+            1. network address
+            2. one above network address - the lowest address
+            3. broadcast address/highest address
+            Broadcast address and the highest address are mostly the same.
+    """
+
+    def get_interface_map(interfaces):
+        """ Returns a map of interfaces. """
+
+        interface_map = {}
+        for iface in interfaces:
+            if iface == '*':
+                continue
+
+            iface = iface.split("/")
+            if not interface_map.get(iface[0], []):
+                interface_map[iface[0]] = []
+            if len(iface) > 1:
+                interface_map[iface[0]].append(iface[1])
+
+        return interface_map
+
+    subnets = []
+    subnet_list = []    # to simply lookup if subnet is already created
+    interfaces_map = get_interface_map(params.get("interfaces", []))
+
+    for netinf in params.get("my-network", []):
+        if interfaces_map:
+            # if explicit interfaces used then skip the others...
+            if netinf["iface"] not in interfaces_map:
+                continue
+        elif netinf["iface"] == "lo":
+            # if no explicit interfaces then skip loopback at least
+            continue
+
+        for addr in netinf["addrs"]:
+            # if explicit interfaces used then verify used address...
+            if interfaces_map and interfaces_map[netinf["iface"]]:
+                if addr["addr"] not in interfaces_map[netinf["iface"]]:
+                    continue
+
+            subnet = {}
+            pools = []
+
+            new_subnet = addr["network"] + '/' + str(addr["prefix"])
+
+            # skip this if relevant subnet was already configured
+            if new_subnet in subnet_list:
+                continue
+
+            # create list of all ips
+            subnet_range = ipaddress.ip_network(new_subnet)
+
+            if subnet_range.num_addresses >= 4:
+                pool_start = subnet_range[2]    # skip 0 and first ip
+                pool_end = subnet_range[-2]     # exempt the broadcast ip
+            else:
+                msg('WARNING', "This subnet '%s' has no valid pool..."
+                    "SKIPPED" % new_subnet)
+                continue
+
+            if pool_start <= pool_end:
+                pool = {"pool": str(pool_start) + '-' + str(pool_end)}
+                pools.append(pool)
+            else:
+                msg('WARNING', "This subnet '%s' has no valid pool..."
+                    "SKIPPED" % new_subnet)
+                continue
+
+            # add the interface to be on the safe side - this is undocumented
+            # and I have found only one reference in official documentation:
+            # https://kea.readthedocs.io/en/v1_6_0/arm/dhcp4-srv.html#host-reservation-in-dhcpv4
+            #
+            # this has a dubious usage when more than one interface share the
+            # same network...
+            # subnet["interface"] = netinf["iface"]
+
+            # everything should be ok
+            subnet_list.append(new_subnet)
+            subnet["subnet"] = new_subnet
+            subnet["pools"] = pools
+            subnets.append(subnet)
+
+    return subnets
+
+
+def return_globaloptions(params):
+
+    def fix_nameservers(options=[], nameservers=[]):
+        """ Returns options with unified nameserver option-data.
+
+        It leaves all option-data items intact except 'domain-name-servers'.
+        Those will be filtered and appended to the 'nameservers' argument.
+        Found nameservers are deduplicated (except the argument 'nameservers').
+        """
+
+        # filter-out domain-name-servers option-data
+        # and append new nameservers to nameservers from argument
+        filtered_options = []
+        for option in options:
+            if option.get("name") == "domain-name-servers":
+                option_nameservers = re.sub(r'\s+',
+                                            '',
+                                            option["data"]).split(",")
+                for nameserver in option_nameservers:
+                    if nameserver not in nameservers:
+                        nameservers.append(nameserver)
+            else:
+                filtered_options.append(option)
+
+        option = {}
+        option["name"] = "domain-name-servers"
+        option["data"] = ", ".join(nameservers)
+
+        # put all together
+        options = filtered_options
+        options.append(option)
+
+        return options
+
+    def fix_routers(options=[], routers=[]):
+        """ Returns options with global routers option-data (if used). """
+
+        option = {}
+        option["name"] = "routers"
+        option["data"] = ", ".join(routers)
+
+        options.append(option)
+
+        return options
+
+    # explicitly configured option-data or empty list
+    options = params.get("option-data", [])
+
+    # explicitly configured nameservers - merge and extend
+    if params.get("domain-name-servers"):
+        options = fix_nameservers(options, params["domain-name-servers"])
+
+    # explicitly configured routers
+    if params.get("routers"):
+        options = fix_routers(options, params["routers"])
+
+    return options
+
+
+def return_subnets(params):
+    """ Returns list of subnets.
+
+    It also optionally supports subnet-id and workaround problem with Kea
+    leasing its own addresses - this is done via flex-id reservation
+    (in this case more of a blacklist). Flex-id trick is a strange hack and
+    I am not sure how future-proof it is - but other solution is to break the
+    one pool into many fragmented...
+
+    Output example:
+    [
+        {
+            "id": <subnet-id>,
+            "interface": "eth1",
+            "subnet": "192.0.2.0/24",
+            "pools": [ { "pool": "192.0.2.1 - 192.0.2.200" } ],
+            "reservations": [
+                {
+                    "flex-id": "'DO-NOT-LEASE-192.0.2.202'",
+                    "ip-address": "192.0.2.202"
+                }
+            ]
+        },...
+    ]
+    """
+
+    def fix_subnets(subnets=[], subnet_id=None):
+        """ Returns sorted subnets so subnet IDs can grow consistently. """
+
+        # list all subnets and sort them
+        subnet_list = []
+        for subnet in subnets:
+            if subnet["subnet"] not in subnet_list:
+                subnet_list.append(subnet["subnet"])
+            else:
+                msg('ERROR', "Duplicated subnet: '%s'" % subnet["subnet"])
+                sys.exit(1)
+
+        subnet_list.sort()
+
+        # put subnet objects in the right order
+        sorted_subnets = []
+        for subnet in subnet_list:
+            sorted_subnets.append(next(x for x in subnets
+                                       if x["subnet"] == subnet))
+
+            # add subnet-id if requested in args
+            if isinstance(subnet_id, int):
+                sorted_subnets[-1]["id"] = subnet_id
+                subnet_id += 1
+
+        return sorted_subnets
+
+    def get_reservation_map(netinfs, vips):
+        """ Returns a map of reservations. """
+
+        reservations_map = {}
+
+        for netinf in netinfs:
+            for addr in netinf["addrs"]:
+                new_subnet = addr["network"] + '/' + str(addr["prefix"])
+
+                # add reservation
+                if reservations_map.get(new_subnet):
+                    reservations_map[new_subnet].append(addr["addr"])
+                else:
+                    reservations_map[new_subnet] = [addr["addr"]]
+
+        for vip in vips:
+            vip_object = ipaddress.IPv4Address(vip)
+            for subnet in reservations_map:
+                subnet_object = ipaddress.ip_network(subnet)
+                if vip_object in subnet_object:
+                    if vip not in reservations_map[subnet]:
+                        reservations_map[subnet].append(vip)
+
+        return reservations_map
+
+    def fix_reservations(subnets, netinfs, vips):
+        """ Returns subnets with added reservations. """
+
+        # we gather all addresses and map them to subnets
+        reservations_map = get_reservation_map(netinfs, vips)
+
+        # and we add flex-id reservations
+        for subnet in subnets:
+            addrs = reservations_map.get(subnet["subnet"], [])
+            for found_subnet in reservations_map:
+                subnet_range = ipaddress.ip_network(subnet["subnet"])
+                for addr in reservations_map.get(found_subnet, []):
+                    ip_addr = ipaddress.ip_address(addr)
+                    if ip_addr in subnet_range and addr not in addrs:
+                        addrs.append(addr)
+
+            addrs.sort()
+            reservations = subnet.get("reservations", [])
+            for addr in addrs:
+                reservation = {
+                    "flex-id": "'DO-NOT-LEASE-%s'" % addr,
+                    "ip-address": addr
+                }
+                reservations.append(reservation)
+
+            subnet["reservations"] = reservations
+            subnet["reservation-mode"] = "all"
+
+        return subnets
+
+    # explicitly configured subnets or generated
+    subnets = params.get("subnet4", [])
+    if not len(subnets):
+        subnets = gen_subnets(params)
+
+    # sort subnets
+    subnets = fix_subnets(subnets, params.get("subnet-id"))
+
+    # Here follows a hack to forbid Kea to lease its own addresses...
+    subnets = fix_reservations(subnets, params.get("my-network", []),
+                               params.get("vips", []))
+
+    return subnets
+
+
+def return_hooks(params):
+    return params.get("hooks-libraries", [])
+
+
+def return_interfaces(params):
+    """ Returns list of interfaces.
+
+    Interface name: e.g. "eth0" or "eth0/192.0.2.1"
+
+    Output example:
+        [ "eth0", "eth1" ]
+        or
+        ["*"] for all (and all ips...)
+    """
+
+    # explicitly configured interfaces
+    if params.get("interfaces") is not None:
+        interfaces = []
+        for iface in params["interfaces"]:
+            if iface not in interfaces:
+                interfaces.append(iface)
+        return interfaces
+
+    # failsafe with listen-on-all interfaces (and IPs)...
+    if not len(params.get("my-network", [])):
+        return ["*"]
+
+    # parse networks and listen only on one address per interface (!)
+    # we expect that all listed interfaces are those with at least one ip...
+    interfaces = []
+    for netinf in params["my-network"]:
+        interfaces.append(netinf["iface"] + "/" + netinf["addrs"][0]["addr"])
+
+    # extend the interface list with VIPs
+    for vip in params.get("vips", []):
+        vip_object = ipaddress.IPv4Address(vip)
+        found = False
+        for netinf in params.get("my-network", []):
+            for addr in netinf["addrs"]:
+                subnet = addr["network"] + '/' + str(addr["prefix"])
+                subnet_object = ipaddress.ip_network(subnet)
+                if vip_object in subnet_object:
+                    new_iface = netinf["iface"] + "/" + vip
+                    if new_iface not in interfaces:
+                        interfaces.append(new_iface)
+                        found = True
+                        break
+            if found:
+                break
+
+    interfaces.sort()
+
+    return interfaces
+
+
+def return_database(params):
+    # explicitly configured lease database
+    if params.get("lease-database") is not None:
+        return params["lease-database"]
+
+    lfc_interval = 2 * return_leasetime(params)
+    database = {
+        "type": "memfile",
+        "persist": True,
+        "lfc-interval": lfc_interval
+    }
+
+    return database
+
+
+def return_leasetime(params):
+    return params.get("lease-time", DEFAULT_LEASE_TIME)
+
+
+def return_authoritative(params):
+    return params.get("authoritative", False)
+
+
+def return_loggers(params):
+    # explicitly configured loggers
+    if params.get("loggers") is not None:
+        return params["loggers"]
+
+    logfile = params.get("logfile", DEFAULT_LOGFILE)
+    loggers = [
+        {
+            "name": "kea-dhcp4",
+            "output_options": [
+                {
+                    "output": logfile
+                }
+            ],
+            "severity": "INFO",
+            "debuglevel": 0
+        }
+    ]
+
+    return loggers
+
+
+def return_dhcp4(params):
+    # lease_time = return_leasetime(params)
+    # rebind_timer = lease_time // 2  # rebind is T2
+    # renew_timer = rebind_timer // 2 # renew is T1
+
+    dhcp4 = {
+        "interfaces-config": {
+            "interfaces": return_interfaces(params)
+        },
+        "authoritative": return_authoritative(params),
+        "option-data": return_globaloptions(params),
+        "subnet4": return_subnets(params),
+        "lease-database": return_database(params),
+        "sanity-checks": {
+            "lease-checks": "fix-del"
+        },
+        "valid-lifetime": return_leasetime(params),
+        "calculate-tee-times": True,
+        "loggers": return_loggers(params),
+        "hooks-libraries": return_hooks(params)
+    }
+
+    if params.get("unix-socket"):
+        dhcp4["control-socket"] = {
+            "socket-type": "unix",
+            "socket-name": params["unix-socket"]
+        }
+
+    return dhcp4
+
+
+def generate_config(params):
+    config = {
+        "Dhcp4": return_dhcp4(params)
+    }
+
+    return config
+
+
+def get_params():
+    """ Returns params object if CLI arguments are valid or None.
+
+    It will do simple sanity checks for a few things:
+        1. that we have valid JSON values
+        2. that those JSON values have correct type
+        3. that the content of the value has at least some mandatory things
+
+    The authoritative validation is done by Kea itself when it will try to run
+    with our created config. But this way we can at least hint the user if
+    there are obvious errors in parameters.
+    """
+
+    def validate_ipv4(arg_str):
+        try:
+            ipaddress.IPv4Address(arg_str)
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                "'%s' is not a valid IPv4 address!" % arg_str)
+
+        return arg_str
+
+    def validate_interface(arg_str):
+        # <iface>/<ip>
+        iface = arg_str.split("/")
+
+        # just interface name
+        if len(iface) == 1:
+            return arg_str
+        # interface name and ip
+        elif len(iface) == 2:
+            pass
+        # something else
+        else:
+            raise argparse.ArgumentTypeError(
+                "'%s' is not a valid interface designation!" % arg_str)
+
+        # is interface an empty string?
+        if not len(iface[0]):
+            raise argparse.ArgumentTypeError(
+                "'%s' has empty interface name!" % arg_str)
+
+        try:
+            ipaddress.IPv4Address(iface[1])
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                "'%s' is not a valid IPv4 address!" % iface[1])
+
+        return arg_str
+
+    def validate_subnet_id(arg_str):
+        try:
+            subnet_id = int(arg_str)
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                "'%s' is not a valid integer number!" % arg_str)
+
+        if (subnet_id < 1) or (subnet_id > SUBNET_ID_MAX):
+            raise argparse.ArgumentTypeError(
+                "Subnet ID must be in the range: 1-%d!" % SUBNET_ID_MAX)
+
+        return subnet_id
+
+    def validate_json_decorator(fu):
+        @functools.wraps(fu)
+        def wrap_validate_json(json_str, *args, **kwargs):
+            # first we try to decode base64
+            try:
+                json_base64 = base64.b64decode(json_str, validate=True)
+                json_object = json.loads(json_base64)
+                json_str = json_base64
+            except Exception:
+                # now we try plain json
+                try:
+                    json_object = json.loads(json_str)
+                except json.JSONDecodeError:
+                    raise argparse.ArgumentTypeError(
+                        "'%s' is not a valid JSON (or base64 encoded JSON)!"
+                        % json_str)
+
+            return fu(json_str, json_object, *args, **kwargs)
+
+        return wrap_validate_json
+
+    @validate_json_decorator
+    def validate_json(arg_str, json_object=None):
+        return json_object
+
+    @validate_json_decorator
+    def validate_lease_database(arg_str, database=None):
+        if not isinstance(database.get("type"), str):
+            raise argparse.ArgumentTypeError(
+                "Lease database object has to have at least the 'type' field"
+                " with a database backend!")
+
+        return database
+
+    @validate_json_decorator
+    def validate_option_data(arg_str, option_data=None):
+        if (not (((isinstance(option_data.get("name"), str)
+            and len(option_data["name"]))
+            or isinstance(option_data.get("code"), int))
+            and (isinstance(option_data.get("data"), str)))):
+            # ugly python syntax
+            raise argparse.ArgumentTypeError(
+                "Option-data object has to have 'name' or 'code' field and"
+                " 'data'!")
+
+        if (option_data.get("name") == "domain-name-servers" or
+            option_data.get("code") == 6):
+            # ugly python syntax
+            ips = [ip.strip() for ip in option_data["data"].split(",")]
+            for ip in ips:
+                validate_ipv4(ip)
+
+        if (option_data.get("name") == "routers" or
+            option_data.get("code") == 3):
+            # ugly python syntax
+            ips = [ip.strip() for ip in option_data["data"].split(",")]
+            for ip in ips:
+                validate_ipv4(ip)
+
+        return option_data
+
+    @validate_json_decorator
+    def validate_subnet4(arg_str, subnet=None):
+        if (not ((isinstance(subnet.get("subnet"), str)
+            and len(subnet["subnet"]))
+            and (isinstance(subnet.get("pools"), list)
+            and len(subnet["pools"])))):
+            # ugly python syntax
+            raise argparse.ArgumentTypeError(
+                "Subnet4 object has to have at least 'subnet' and 'pools'"
+                " (non-empty list) fields!")
+
+        try:
+            ipaddress.ip_network(subnet["subnet"])
+        except ValueError:
+            raise argparse.ArgumentTypeError(
+                "Subnet '%s' is not a valid network designation."
+                % subnet["subnet"])
+
+        for pool in subnet["pools"]:
+            if (not (isinstance(pool, dict) and
+                isinstance(pool.get("pool"), str))):
+                # ugly python syntax
+                raise argparse.ArgumentTypeError(
+                    "Pools must contain a list of dicts with a value 'pool'!")
+
+            pool = pool["pool"]
+
+            ips = [pool.strip() for pool in pool.split("-")]
+            if len(ips) != 2:
+                raise argparse.ArgumentTypeError(
+                    "Pool '%s' is not in '<start IP> - <end IP>' format!"
+                    % pool)
+
+            validate_ipv4(ips[0])
+            validate_ipv4(ips[1])
+
+            start_ip = ipaddress.IPv4Address(ips[0])
+            end_ip = ipaddress.IPv4Address(ips[1])
+
+            if start_ip > end_ip:
+                raise argparse.ArgumentTypeError(
+                    "Start IP in the pool is greater than the end IP!")
+
+        option_data = subnet.get("option-data", [])
+        for option in option_data:
+            validate_option_data(json.dumps(option))
+
+        return subnet
+
+    @validate_json_decorator
+    def validate_hook(arg_str, hook=None):
+        if (not (isinstance(hook.get("library"), str)
+            and len(hook["library"]))):
+            # ugly python syntax
+            raise argparse.ArgumentTypeError(
+                "Hook object has to have at least the 'library' field"
+                " with a filename!")
+
+        return hook
+
+    # parse CLI arguments
+    parser = argparse.ArgumentParser(
+        description="ISC Kea dhcp4 config generator - it generates dhcp4"
+        " config file and its content can be modified by varies options."
+        " The result is then simply printed into stdout.")
+
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s ' + __version__)
+
+    parser.add_argument("-t", "--lease-time",
+                        required=False,
+                        metavar="<lease-time-seconds>",
+                        type=int,
+                        help="Life time of a lease in seconds"
+                        " (Default: %d)" % DEFAULT_LEASE_TIME)
+    parser.add_argument("-a", "--authoritative",
+                        required=False,
+                        action='store_const',
+                        const=True,
+                        help="Start Kea server as authoritative for all"
+                        " networks (Global, Default: false)")
+    parser.add_argument("-l", "--logfile",
+                        required=False,
+                        metavar="<logfile-name>",
+                        help="Name of the file for log messages"
+                        " (Default: %s)" % DEFAULT_LOGFILE)
+    parser.add_argument("-d", "--lease-database",
+                        required=False,
+                        metavar="<lease-database-json>",
+                        type=validate_lease_database,
+                        help="JSON value representing lease database object"
+                        " (Default: type=memfile). The whole JSON can be"
+                        " encoded in base64.")
+    parser.add_argument("-i", "--interface",
+                        dest="interfaces",
+                        required=False,
+                        metavar="<iface[/<ipv4>]>",
+                        action='append',
+                        type=validate_interface,
+                        help="Name of the interface on which to listen"
+                        " (Global, Default: '*'; e.g.: 'eth0' or better yet:"
+                        " 'eth0/<ipv4>'). This argument can be used multiple"
+                        " of times.")
+    parser.add_argument("-n", "--domain-name-server",
+                        dest="domain_name_servers",
+                        required=False,
+                        metavar="<nameserver-ipv4>",
+                        action='append',
+                        type=validate_ipv4,
+                        help="Domain name server IPv4 address (Global,"
+                        " Default: None). This argument can be used multiple"
+                        " of times. These nameservers take precedence over"
+                        " others found in option-data (if used).")
+    parser.add_argument("-r", "--router",
+                        dest="routers",
+                        required=False,
+                        metavar="<router-ipv4>",
+                        action='append',
+                        type=validate_ipv4,
+                        help="Router's IPv4 address (Global, Default: None)."
+                        " This argument can be used multiple of times.")
+    parser.add_argument("-o", "--option-data",
+                        required=False,
+                        metavar="<option-data-json>",
+                        action='append',
+                        type=validate_option_data,
+                        help="JSON value representing option-data object"
+                        " (Global, Default: None). This argument can be used"
+                        " multiple of times. The whole JSON can be encoded in"
+                        " base64.")
+    parser.add_argument("-s", "--subnet4",
+                        required=False,
+                        metavar="<subnet4-json>",
+                        action='append',
+                        type=validate_subnet4,
+                        help="JSON value representing subnet4 object"
+                        " (Default: Auto-Generated). This argument can be"
+                        " used multiple of times. The whole JSON can be"
+                        " encoded in base64.")
+    parser.add_argument("-x", "--hook",
+                        dest="hooks_libraries",
+                        required=False,
+                        metavar="<hook-json>",
+                        action='append',
+                        type=validate_hook,
+                        help="JSON value representing hook object"
+                        " (Default: None). This argument can be used multiple"
+                        " of times. The whole JSON can be encoded in base64.")
+    parser.add_argument("-L", "--logger",
+                        dest="loggers",
+                        required=False,
+                        metavar="<logger-json>",
+                        action='append',
+                        type=validate_json,
+                        help="JSON value representing logger object"
+                        " (Default: file='%s'). This argument can be used"
+                        " multiple of times. If used then --logfile is"
+                        " ignored. The whole JSON can be encoded in base64."
+                        % DEFAULT_LOGFILE)
+    parser.add_argument("-I", "--subnet-id",
+                        required=False,
+                        metavar="<id-number>",
+                        type=validate_subnet_id,
+                        help="Starting ID number for subnets (all configured"
+                        " subnets are incremented by one from this value -"
+                        " when the highest id is reached then it will reset"
+                        " and start from one again)."
+                        " (Default: None/Auto, Min-Max: 1-%d)"
+                        % SUBNET_ID_MAX)
+    parser.add_argument("-F", "--floating-ip",
+                        dest="vips",
+                        required=False,
+                        metavar="<virtual-ipv4>",
+                        action='append',
+                        type=validate_ipv4,
+                        help="Virtual floating IPv4 address (Default: None)."
+                        " This argument can be used multiple of times.")
+    parser.add_argument("-u", "--unix-socket",
+                        required=False,
+                        metavar="<socket>",
+                        help="Filename for the unix control socket"
+                        " (Default: None)")
+
+    # validate arguments and feed them to the params object
+    args = parser.parse_args()
+
+    params = {}
+
+    # we are replacing underscore created by python with '-' to align with
+    # the actual config names
+    for key, value in vars(args).items():
+        if value:
+            params[key.replace('_', '-')] = value
+
+    return params
+
+
+def main():
+    # parse arguments, quasi-validate content and feed it to params object
+    params = get_params()
+
+    # examine this machine networks and store it to params too
+    params["my-network"] = get_networks()
+
+    # generate and print config
+    # print(json.dumps(params, indent=JSON_INDENT), file = sys.stderr)
+    print(json.dumps(generate_config(params), indent=JSON_INDENT))
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
