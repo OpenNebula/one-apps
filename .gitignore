@@ -1,3 +1,9 @@
+build/
+export/
+Makefile.local
+version
+packer/*/*-cloud-init.iso
+packer/*/*-userdata
 context-windows/out/
 context-windows/*.msi
 context-windows/rhsrvany.exe
