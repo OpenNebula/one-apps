@@ -1,0 +1,118 @@
+source "null" "null" {
+  communicator = "none"
+}
+
+build {
+  sources = ["source.null.null"]
+
+  provisioner "shell-local" {
+    inline = [
+      "${var.input_dir}/gen_context.sh > ${var.input_dir}/context/context.sh",
+      "mkisofs -o ${var.input_dir}/${var.appliance_name}-context.iso -V CONTEXT -J -R ${var.input_dir}/context",
+    ]
+  }
+}
+
+# Build VM image
+source "qemu" "wordpress" {
+  cpus             = 2
+  memory           = 2048
+  accelerator      = "kvm"
+
+  iso_url          = "export/alma8.qcow2"
+  iso_checksum     = "none"
+
+  headless         = var.headless
+
+  disk_image       = true
+  disk_cache       = "unsafe"
+  disk_interface   = "virtio"
+  net_device       = "virtio-net"
+  format           = "qcow2"
+
+  output_directory = var.output_dir
+
+  qemuargs         = [ ["-serial", "stdio"],
+                       ["-cpu", "host"],
+                       ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
+                       # MAC addr needs to mach ETH0_MAC from context iso
+                       ["-netdev", "user,id=net0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
+                       ["-device", "virtio-net-pci,netdev=net0,mac=00:11:22:33:44:55"]
+                     ]
+  ssh_username     = "root"
+  ssh_password     = "opennebula"
+  ssh_wait_timeout = "900s"
+  vm_name          = "${var.appliance_name}"
+}
+
+build {
+  sources = ["source.qemu.wordpress"]
+
+  # revert insecure ssh options done by context start_script
+  provisioner "shell" {
+    scripts = ["${var.input_dir}/81-configure-ssh.sh"]
+  }
+
+  provisioner "shell" {
+    inline = [
+      "mkdir -p /etc/one-appliance/service.d",
+      "chmod 0750 /etc/one-appliance",
+      "mkdir -p /opt/one-appliance/bin",
+      "chmod -R 0755 /opt/one-appliance/"
+    ]
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/net-90"
+    source      = "appliances/scripts/context_service_net-90.sh"
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/net-99"
+    source      = "appliances/scripts/context_service_net-99.sh"
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/service"
+    source      = "appliances/service"
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/service.d/common.sh"
+    source      = "appliances/lib/common.sh"
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/service.d/functions.sh"
+    source      = "appliances/lib/functions.sh"
+  }
+
+  provisioner "file" {
+    destination = "/opt/one-appliance/bin/context-helper"
+    source      = "appliances/lib/context-helper.py"
+  }
+
+  provisioner "file" {
+    destination = "/etc/one-appliance/service.d/appliance.sh"
+    source      = "${var.appliance_script}"
+  }
+
+  provisioner "shell" {
+    inline = [
+        "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
+        "chmod 0755 /opt/one-appliance/bin/*",
+        "chmod 0740 /etc/one-appliance/service",
+        "chmod 0640 /etc/one-appliance/service.d/*",
+        "/etc/one-appliance/service install"
+    ]
+  }
+
+  post-processor "shell-local" {
+    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    environment_vars = [
+      "OUTPUT_DIR=${var.output_dir}",
+      "APPLIANCE_NAME=${var.appliance_name}",
+      ]
+    scripts = [ "packer/postprocess.sh" ]
+  }
+}
