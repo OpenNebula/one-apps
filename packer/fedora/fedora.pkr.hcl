@@ -61,6 +61,7 @@ build {
       [for s in fileset(".", "*.sh") : "${var.input_dir}/${s}"],
       [for s in fileset(".", "*.sh.${var.version}") : "${var.input_dir}/${s}"]
     ))
+    remote_folder = "/var/tmp" # /tmp is tempfs
     expect_disconnect = true
   }
 
