@@ -1,5 +1,5 @@
 # Build cloud init iso
-source "null" "null" {}
+source "null" "null" { communicator  = "none" }
 
 build {
   sources = ["sources.null.null"]
