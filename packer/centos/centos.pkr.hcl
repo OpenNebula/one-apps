@@ -1,15 +1,12 @@
 # Build cloud init iso
-source "file" "user_data" {
-  source = "${var.input_dir}/cloud-init.yml"
-  target = "${var.input_dir}/${var.appliance_name}-userdata"
-}
+source "null" "null" {}
 
 build {
-  sources = ["sources.file.user_data"]
+  sources = ["sources.null.null"]
 
   provisioner "shell-local" {
     inline = [
-      "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/${var.appliance_name}-userdata",
+      "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/cloud-init.yml",
     ]
   }
 }
