@@ -18,7 +18,7 @@ packer build -force \
     "$INPUT_DIR"                       # loads all *.pkr.hcl from dir
 
 # delete potential temporary cloud-init files
-rm -f "$INPUT_DIR"/"$DISTRO_NAME"-{cloud-init.iso,userdata} ||:
+rm -f "$INPUT_DIR"/"$DISTRO_NAME"-cloud-init.iso
 
 # convert working image to the destination
 qemu-img convert -c -O qcow2 "$OUTPUT_DIR/$DISTRO" "$DST"
