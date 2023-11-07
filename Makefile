@@ -7,18 +7,20 @@ include Makefile.config
 # all, aliases
 all: $(patsubst %, packer-%, $(DISTROS)) $(patsubst %, packer-%, $(SERVICES))
 distros: $(patsubst %, packer-%, $(DISTROS))
-services: $(patsubst %, service-%, $(SERVICES))
+services: $(patsubst %, packer-%, $(SERVICES))
 
 # allow individual distribution targets (e.g., "make debian11")
-$(DISTROS):  %: packer-% ;
-$(SERVICES): %: service-% ;
+$(DISTROS) $(SERVICES):  %: packer-% ;
 
 # aliases + dependency
 packer-%: context-linux ${DIR_EXPORT}/%.qcow2
 	@${INFO} "Packer ${*} done"
 
-service-service_wordpress: packer-alma8 ${DIR_EXPORT}/service_wordpress.qcow2
+packer-service_wordpress: packer-alma8 ${DIR_EXPORT}/service_wordpress.qcow2
 	@${INFO} "Packer service_wordpress done"
+
+packer-service_OneKE: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKE.qcow2
+	@${INFO} "Packer service_OneKE done"
 
 # run packer build for given distro or service
 ${DIR_EXPORT}/%.qcow2:

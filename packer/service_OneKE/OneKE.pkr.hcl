@@ -5,7 +5,7 @@ build {
 
   provisioner "shell-local" {
     inline = [
-      "mkdir -p ${var.input_dir}/context",
+      "mkdir ${var.input_dir}/context",
       "${var.input_dir}/gen_context.sh > ${var.input_dir}/context/context.sh",
       "mkisofs -o ${var.input_dir}/${var.appliance_name}-context.iso -V CONTEXT -J -R ${var.input_dir}/context",
     ]
@@ -13,12 +13,12 @@ build {
 }
 
 # Build VM image
-source "qemu" "wordpress" {
+source "qemu" "OneKE" {
   cpus             = 2
   memory           = 2048
   accelerator      = "kvm"
 
-  iso_url          = "export/alma8.qcow2"
+  iso_url          = "export/ubuntu2204.qcow2"
   iso_checksum     = "none"
 
   headless         = var.headless
@@ -45,7 +45,7 @@ source "qemu" "wordpress" {
 }
 
 build {
-  sources = ["source.qemu.wordpress"]
+  sources = ["source.qemu.OneKE"]
 
   # revert insecure ssh options done by context start_script
   provisioner "shell" {
@@ -54,10 +54,11 @@ build {
 
   provisioner "shell" {
     inline = [
+      "apt-get update",
       "mkdir -p /etc/one-appliance/service.d",
       "chmod 0750 /etc/one-appliance",
       "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/"
+      "chmod -R 0755 /opt/one-appliance/",
     ]
   }
 
@@ -92,17 +93,17 @@ build {
   }
 
   provisioner "file" {
-    source      = "appliances/wordpress.sh"
-    destination = "/etc/one-appliance/service.d/appliance.sh"
+    source      = "appliances/OneKE/"
+    destination = "/etc/one-appliance/service.d/"
   }
 
   provisioner "shell" {
     inline = [
-        "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
-        "chmod 0755 /opt/one-appliance/bin/*",
-        "chmod 0740 /etc/one-appliance/service",
-        "chmod 0640 /etc/one-appliance/service.d/*",
-        "/etc/one-appliance/service install"
+      "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
+      "chmod 0755 /opt/one-appliance/bin/*",
+      "chmod 0740 /etc/one-appliance/service",
+      "chmod 0640 /etc/one-appliance/service.d/*",
+      "/etc/one-appliance/service install",
     ]
   }
 

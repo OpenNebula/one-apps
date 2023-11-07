@@ -1,6 +1,6 @@
 variable "appliance_name" {
   type    = string
-  default = "service_wordpress"
+  default = "service_OneKE"
 }
 
 variable "input_dir" {
@@ -20,4 +20,3 @@ variable "version" {
   type    = string
   default = ""
 }
-
