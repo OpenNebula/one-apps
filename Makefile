@@ -35,24 +35,33 @@ context-linux: $(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES))
 context-linux/out/%:
 	cd context-linux; ./generate-all.sh
 
+context-windows: $(patsubst %, context-windows/out/%, $(WINDOWS_CONTEXT_PACKAGES))
+	@${INFO} "Generate context-windows done"
+
+context-windows/out/%:
+	cd context-windows; ./generate-all.sh
+
 clean:
 	-rm -rf ${DIR_EXPORT}/*
 
 help:
+	@echo 'Usage examples:'
+	@echo '    make <distro>          -- build just one distro'
+	@echo '    make <service>         -- build just one service'
+	@echo
+	@echo '    make all               -- build all distros and services'
+	@echo '    make distros           -- build all distros'
+	@echo '    make services          -- build all services'
+	@echo
+	@echo '    make context-linux     -- build context linux packages'
+	@echo '    make context-windows   -- build windows linux packages'
+	@echo
 	@echo 'Available distros:'
 	@echo "$(shell echo "${DISTROS}" | fmt -w 65 | tr '\n' '\1' )" \
 		           | tr '\1' '\n' | sed 's/^/    /'
 	@echo 'Available services:'
 	@echo '    $(SERVICES)'
 	@echo
-	@echo 'Usage examples:'
-	@echo '    make all               -- build all distros and services'
-	@echo '    make distros           -- build all distros'
-	@echo '    make services          -- build all services'
-	@echo
-	@echo '    make <distro>          -- build just one distro'
-	@echo '    make context-linux     -- build context linux packages'
-	@echo '    make context-windows   -- TODO'
 
 version:
 	@echo $(VERSION)-$(RELEASE) > version
