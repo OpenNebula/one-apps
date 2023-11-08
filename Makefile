@@ -28,7 +28,7 @@ packer-service_OneKE: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKE.qcow2
 # run packer build for given distro or service
 ${DIR_EXPORT}/%.qcow2:
 	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9].*//'))
-	$(eval DISTRO_VER  := $(shell echo ${*} | sed 's/[a-z_]*//'))
+	$(eval DISTRO_VER  := $(shell echo ${*} | sed 's/^.[^0-9]*\(.*\)/\1/'))
 	packer/build.sh "${DISTRO_NAME}" "${DISTRO_VER}" ${@}
 
 # context packages
