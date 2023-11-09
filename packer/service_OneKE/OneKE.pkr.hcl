@@ -6,7 +6,7 @@ build {
   provisioner "shell-local" {
     inline = [
       "mkdir ${var.input_dir}/context",
-      "${var.input_dir}/gen_context.sh > ${var.input_dir}/context/context.sh",
+      "${var.input_dir}/gen_context > ${var.input_dir}/context/context.sh",
       "mkisofs -o ${var.input_dir}/${var.appliance_name}-context.iso -V CONTEXT -J -R ${var.input_dir}/context",
     ]
   }
