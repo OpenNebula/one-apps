@@ -27,12 +27,12 @@ variable "freebsd" {
   default = {
     "12" = {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.4/FreeBSD-12.4-RELEASE-amd64-disc1.iso"
-      iso_checksum = "606435637b76991f96df68f561badf03266f3d5452e9f72ed9b130d96b188800"
+      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.4/CHECKSUM.SHA256-FreeBSD-12.4-RELEASE-amd64"
     }
 
     "13" = {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/FreeBSD-13.2-RELEASE-amd64-disc1.iso"
-      iso_checksum = "b76ab084e339ee05f59be81354c8cb7dfadf9518e0548f88017d2759a910f17c"
+      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/CHECKSUM.SHA256-FreeBSD-13.2-RELEASE-amd64"
     }
   }
 }

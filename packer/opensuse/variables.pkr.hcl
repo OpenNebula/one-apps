@@ -27,7 +27,7 @@ variable "opensuse" {
   default = {
     "15" = {
       iso_url      = "https://download.opensuse.org/distribution/leap/15.5/appliances/openSUSE-Leap-15.5-Minimal-VM.x86_64-Cloud.qcow2"
-      iso_checksum = "ac40aa1069b244c4c17272994e8a5325863f9945d199eff1e2ed1ba525b52541"
+      iso_checksum = "file:https://download.opensuse.org/distribution/leap/15.5/appliances/openSUSE-Leap-15.5-Minimal-VM.x86_64-Cloud.qcow2.sha256"
     }
   }
 }

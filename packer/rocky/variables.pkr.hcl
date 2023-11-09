@@ -27,12 +27,12 @@ variable "rocky" {
   default = {
     "8" = {
       iso_url      = "https://download.rockylinux.org/pub/rocky/8/isos/x86_64/Rocky-x86_64-boot.iso"
-      iso_checksum = "96c9d96c33ebacc8e909dcf8abf067b6bb30588c0c940a9c21bb9b83f3c99868"
+      iso_checksum = "file:https://download.rockylinux.org/pub/rocky/8/isos/x86_64/Rocky-x86_64-boot.iso.CHECKSUM"
     }
 
     "9" = {
       iso_url      = "https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-x86_64-boot.iso"
-      iso_checksum = "11e42da96a7b336de04e60d05e54a22999c4d7f3e92c19ebf31f9c71298f5b42"
+      iso_checksum = "file:https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-x86_64-boot.iso.CHECKSUM"
     }
   }
 }

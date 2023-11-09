@@ -32,7 +32,7 @@ variable "centos" {
 
     "8stream" = {
       iso_url      = "https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-latest.x86_64.qcow2"
-      iso_checksum = "3292b464a50f7461273141767b12405b57ae1ca76aa4276f183ef87c7eb8bb10"
+      iso_checksum = "file:https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-latest.x86_64.qcow2.SHA256SUM"
     }
   }
 }

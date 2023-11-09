@@ -27,12 +27,12 @@ variable "alma" {
   default = {
     "8" = {
       iso_url      = "https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-latest.x86_64.qcow2"
-      iso_checksum = "c0ad09255d91288dac590d99c95197d83a2846f1bcbec3f4222fb04265a2a4d7"
+      iso_checksum = "file:https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/CHECKSUM"
     }
 
     "9" = {
       iso_url      = "https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2"
-      iso_checksum = "207d885ca8140e3106098e946cfc04088b0e21f50d24815051520d452eae0a50"
+      iso_checksum = "file:https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/CHECKSUM"
     }
   }
 }
