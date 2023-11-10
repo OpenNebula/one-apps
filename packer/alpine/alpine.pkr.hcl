@@ -22,6 +22,7 @@ source "qemu" "alpine" {
   net_device       = "virtio-net"
   disk_size        = 256
   format           = "qcow2"
+  disk_compression = true
 
   output_directory = "${var.output_dir}"
 

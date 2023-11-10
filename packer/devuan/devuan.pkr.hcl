@@ -17,6 +17,7 @@ source "qemu" "devuan" {
   net_device       = "virtio-net"
   disk_size        = 4096
   format           = "qcow2"
+  disk_compression = true
 
   output_directory = "${var.output_dir}"
 

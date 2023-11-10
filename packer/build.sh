@@ -22,8 +22,8 @@ rm -rf "$INPUT_DIR"/"$DISTRO"-cloud-init.iso  \
        "$INPUT_DIR"/"$DISTRO"-context.iso  \
        "$INPUT_DIR"/context/
 
-# convert working image to the destination
-qemu-img convert -c -O qcow2 "$OUTPUT_DIR/$DISTRO" "$DST"
+# move from build to export
+mv "$OUTPUT_DIR/$DISTRO" "$DST"
 
 # delete workig directory
 rm -rf "$OUTPUT_DIR"

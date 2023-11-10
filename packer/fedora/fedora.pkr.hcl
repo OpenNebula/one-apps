@@ -27,6 +27,7 @@ source "qemu" "fedora" {
   disk_interface   = "virtio"
   net_device       = "virtio-net"
   format           = "qcow2"
+  disk_compression = true
 
   output_directory = var.output_dir
 
