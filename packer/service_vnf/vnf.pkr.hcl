@@ -114,6 +114,10 @@ build {
     ]
   }
 
+  provisioner "shell" {
+    scripts = [ "${var.input_dir}/82-configure-context.sh" ]
+  }
+
   post-processor "shell-local" {
     execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
