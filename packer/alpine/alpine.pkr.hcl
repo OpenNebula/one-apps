@@ -32,6 +32,7 @@ source "qemu" "alpine" {
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_wait_timeout = "900s"
+  shutdown_command = "poweroff"
   vm_name          = "${var.appliance_name}"
 }
 
