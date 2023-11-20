@@ -94,7 +94,7 @@ ONEAPP_SITE_HOSTNAME="${ONEAPP_SITE_HOSTNAME:-$(get_local_ip)}"
 
 MARIADB_CREDENTIALS=/root/.my.cnf
 MARIADB_CONFIG=/etc/my.cnf.d/wordpress.cnf
-DEP_PKGS="coreutils httpd mod_ssl mariadb mariadb-server php php-common php-mysqlnd php-gd php-xml php-mbstring unzip wget curl openssl expect ca-certificates"
+DEP_PKGS="coreutils httpd mod_ssl mariadb mariadb-server php php-common php-mysqlnd php-json php-gd php-xml php-mbstring unzip wget curl openssl expect ca-certificates"
 
 
 ###############################################################################
