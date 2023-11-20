@@ -40,10 +40,10 @@ if [ -z "${NETCFG_TYPE}" ] ; then
         debian|devuan)
             NETCFG_TYPE='interfaces netplan nm networkd'
         ubuntu)
-            NETCFG_TYPE='networkd netplan interfaces nm'
+            NETCFG_TYPE='netplan networkd interfaces nm'
             ;;
         fedora|centos|rhel|almalinux|ol|rocky)
-            NETCFG_TYPE='scripts nm networkd'
+            NETCFG_TYPE='nm networkd scripts'
             ;;
         opensuse*|sles|sled)
             NETCFG_TYPE='scripts'
