@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -ex
 
 timeout 5m virt-sysprep \
     --add ${OUTPUT_DIR}/${APPLIANCE_NAME} \
@@ -8,8 +9,6 @@ timeout 5m virt-sysprep \
     --run-command 'truncate -s0 -c /etc/machine-id' \
     --delete /etc/resolv.conf
 
-# virt-sparsify was haning sometimes
-for I in 1 2 3; do
-    timeout 5m virt-sparsify \
-        --in-place ${OUTPUT_DIR}/${APPLIANCE_NAME} && break
-done
+# virt-sparsify hang badly sometimes, when this happends
+# kill + start again
+timeout -s9 5m virt-sparsify --in-place ${OUTPUT_DIR}/${APPLIANCE_NAME}
