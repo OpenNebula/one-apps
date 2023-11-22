@@ -543,8 +543,13 @@ class Haproxy < Appliance::Plugin
         found_roles = oneflow_service['SERVICE']['roles']
         found_roles.each do |role|
             role['nodes'].each do |node|
-                _vmid = node['vm_info']['VM']['ID']
-                found_vms.append(_vmid.to_i) if !_vmid.to_s.strip.empty?
+                vmid = begin
+                    node['vm_info']['VM']['ID']
+                rescue StandardError
+                    ''
+                end
+
+                found_vms.append(vmid.to_i) unless vmid.to_s.strip.empty?
             end
         end
 
