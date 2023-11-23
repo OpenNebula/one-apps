@@ -579,6 +579,10 @@ check_wordpress_wizard()
 
 run_wordpress_wizard()
 {
+    # install.php could give 503 for a while
+    curl --retry 3 --retry-delay 1 --retry-max-time 10 \
+        http://${ONEAPP_SITE_HOSTNAME}/wp-admin/install.php
+
     msg info "WordPress wizard..."
 
     msg info "Running the wizard"
