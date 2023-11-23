@@ -38,6 +38,9 @@ configure_network()
     # address race condition on el8
     # https://github.com/OpenNebula/addon-context-linux/issues/282
     nmcli general reload
+
+    # something weird is happening on centos7
+    grep -qi 'centos linux release 7' /etc/redhat-release  && systemctl restart NetworkManager
 }
 
 stop_network()
