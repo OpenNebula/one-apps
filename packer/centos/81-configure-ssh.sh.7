@@ -33,4 +33,6 @@ END { if (!found) print update >> FILENAME }
 EOF
 mv /etc/ssh/sshd_config{.new,}
 
+rm -rf /etc/ssh/sshd_config.d/*-cloud-init.conf
+
 sync
