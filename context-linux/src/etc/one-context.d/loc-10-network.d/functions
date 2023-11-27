@@ -230,6 +230,18 @@ detect_os()
     fi
 )
 
+# return OS VERSION
+detect_os_version()
+(
+    if [ -f /etc/os-release ] ; then
+        VERSION_ID=
+        # shellcheck disable=SC1091
+        . /etc/os-release
+
+        echo "$VERSION_ID"
+    fi
+)
+
 # arg: <iface>
 disable_ipv6()
 (

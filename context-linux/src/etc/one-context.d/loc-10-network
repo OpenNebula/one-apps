@@ -23,6 +23,7 @@
 context_type="$1"
 action="$2"
 os_id=$(detect_os)
+os_ver=$(detect_os_version)
 
 if [ -z "${action}" ] ; then
     action="configure"
@@ -30,26 +31,29 @@ fi
 
 # update detect_os function if new distro is added
 if [ -z "${NETCFG_TYPE}" ] ; then
-    case "${os_id}" in
-        alpine)
+    case "${os_id}${os_ver}" in
+        alpine*)
             NETCFG_TYPE='interfaces'
             ;;
-        altlinux)
+        altlinux*)
             NETCFG_TYPE='networkd nm'
             ;;
-        debian|devuan)
-            NETCFG_TYPE='interfaces netplan nm networkd'
-            ;;
-        ubuntu)
+        debian12)
             NETCFG_TYPE='netplan networkd interfaces nm'
             ;;
-        fedora|centos|rhel|almalinux|ol|rocky)
+        devuan*|debian*)
+            NETCFG_TYPE='interfaces netplan nm networkd'
+            ;;
+        ubuntu*)
+            NETCFG_TYPE='netplan networkd interfaces nm'
+            ;;
+        fedora*|centos*|rhel*|almalinux*|ol*|rocky*)
             NETCFG_TYPE='nm networkd scripts'
             ;;
-        opensuse*|sles|sled)
+        opensuse*|sles*|sled*)
             NETCFG_TYPE='scripts'
             ;;
-        amzn)
+        amzn*)
             NETCFG_TYPE='scripts'
             ;;
         freebsd)
