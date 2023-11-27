@@ -46,6 +46,8 @@ context-windows/out/%:
 
 clean:
 	-rm -rf ${DIR_EXPORT}/*
+	-rm -rf context-linux/out/*
+	-rm -rf context-windows/out/*
 
 help:
 	@echo 'Usage examples:'
