@@ -44,6 +44,10 @@ gawk -i inplace -f- /etc/default/grub <<'EOF'
 { print }
 EOF
 
+# RockyLinux9 does not update /boot/loader/entries from /etc/default/grub, use grubby instead
+grubby --update-kernel=ALL --args="net.ifnames=0"
+grubby --update-kernel=ALL --args="biosdevname=0"
+
 dnf install -y dracut-config-generic dracut-network
 
 INITRAMFS_IMG=$(find /boot/ -maxdepth 1 -name 'initramfs-*.img' ! -name '*rescue*' ! -name '*kdump*' | sort -V | tail -1)
