@@ -56,7 +56,7 @@ if [ -z "${NETCFG_TYPE}" ] ; then
         amzn*)
             NETCFG_TYPE='scripts'
             ;;
-        freebsd)
+        freebsd*)
             NETCFG_TYPE='bsd'
             ;;
         *)
