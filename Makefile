@@ -35,13 +35,13 @@ ${DIR_EXPORT}/%.qcow2:
 context-linux: $(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES))
 	@${INFO} "Generate context-linux done"
 
-context-linux/out/%:
+context-linux/out/%: ${CONTEXT_LINUX_SOURCES}
 	cd context-linux; ./generate-all.sh
 
 context-windows: $(patsubst %, context-windows/out/%, $(WINDOWS_CONTEXT_PACKAGES))
 	@${INFO} "Generate context-windows done"
 
-context-windows/out/%:
+context-windows/out/%: ${CONTEXT_WINDOWS_SOURCES}
 	cd context-windows; ./generate-all.sh
 
 clean:
