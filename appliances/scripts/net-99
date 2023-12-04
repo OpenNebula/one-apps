@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+: "${ENV_FILE:=/var/run/one-context/one_env}"
+
+set -o errexit
+
+if [[ "$REPORT_READY" != "YES" ]]; then
+    exit
+fi
+
+# $TOKENTXT is available only through the env. file
+if [[ -f "${ENV_FILE}" ]]; then
+    . "${ENV_FILE}"
+fi
+
+# Reports only if ONE service appliance bootstrapped successfully
+if [[ -x '/etc/one-appliance/service' ]]; then
+    _STATUS=$(cat '/etc/one-appliance/status' 2>/dev/null)
+    if [[ "$_STATUS" != 'bootstrap_success' ]]; then
+        exit
+    fi
+fi
+
+###
+
+if which onegate >/dev/null 2>&1; then
+    if onegate vm update --data READY=YES; then
+        exit
+    fi
+fi
+
+if which curl >/dev/null 2>&1; then
+    if curl -X PUT "$ONEGATE_ENDPOINT/vm" \
+            --header "X-ONEGATE-TOKEN: $TOKENTXT" \
+            --header "X-ONEGATE-VMID: $VMID" \
+            -d READY=YES; then
+        exit
+    fi
+fi
+
+if which wget >/dev/null 2>&1; then
+    if wget --method PUT "$ONEGATE_ENDPOINT/vm" \
+            --header "X-ONEGATE-TOKEN: $TOKENTXT" \
+            --header "X-ONEGATE-VMID: $VMID" \
+            --body-data READY=YES; then
+        exit
+    fi
+fi
