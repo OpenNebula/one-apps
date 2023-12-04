@@ -65,37 +65,37 @@ build {
   }
 
   provisioner "file" {
-    source      = "appliances/scripts/context_service_net-90.sh"
+    source      = "appliances/legacy/scripts/context_service_net-90.sh"
     destination = "/etc/one-appliance/net-90"
   }
 
   provisioner "file" {
-    source      = "appliances/scripts/context_service_net-99.sh"
+    source      = "appliances/legacy/scripts/context_service_net-99.sh"
     destination = "/etc/one-appliance/net-99"
   }
 
   provisioner "file" {
-    source      = "appliances/service"
+    source      = "appliances/legacy/service"
     destination = "/etc/one-appliance/service"
   }
 
   provisioner "file" {
-    source      = "appliances/lib/common.sh"
+    source      = "appliances/legacy/lib/common.sh"
     destination = "/etc/one-appliance/service.d/common.sh"
   }
 
   provisioner "file" {
-    source      = "appliances/lib/functions.sh"
+    source      = "appliances/legacy/lib/functions.sh"
     destination = "/etc/one-appliance/service.d/functions.sh"
   }
 
   provisioner "file" {
-    source      = "appliances/lib/context-helper.py"
+    source      = "appliances/legacy/lib/context-helper.py"
     destination = "/opt/one-appliance/bin/context-helper"
   }
 
   provisioner "file" {
-    source      = "appliances/wordpress.sh"
+    source      = "appliances/legacy/wordpress.sh"
     destination = "/etc/one-appliance/service.d/appliance.sh"
   }
 
