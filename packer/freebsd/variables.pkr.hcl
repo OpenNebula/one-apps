@@ -59,7 +59,7 @@ variable "boot_cmd" {
       "F<wait>",                   # Finish
       "C<wait>",                   # Commit
 
-      "<wait2m30s>",
+      "<wait5m>",
 
       "opennebula<enter><wait>",   # Root password
       "opennebula<enter><wait>",

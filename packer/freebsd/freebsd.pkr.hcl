@@ -9,7 +9,7 @@ source "qemu" "freebsd" {
 
   headless         = var.headless
 
-  boot_wait        = "45s"
+  boot_wait        = "60s"
   boot_command    =  lookup(var.boot_cmd, var.version, [])
 
   disk_cache       = "unsafe"
