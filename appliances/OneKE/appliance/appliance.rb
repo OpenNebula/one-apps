@@ -19,6 +19,8 @@ require_relative 'cleaner.rb'
 if caller.empty?
     case ARGV[0].to_sym
     when :install
+        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
+
         install_packages PACKAGES
 
         with_policy_rc_d_disabled do
@@ -36,6 +38,8 @@ if caller.empty?
         msg :info, 'Installation completed successfully'
 
     when :configure
+        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
+
         prepare_dedicated_storage unless ONEAPP_STORAGE_DEVICE.nil?
 
         configure_vnf
@@ -43,6 +47,8 @@ if caller.empty?
         if ONE_SERVICE_AIRGAPPED
             include_images 'rke2-images-core'
             include_images 'rke2-images-multus' if ONEAPP_K8S_MULTUS_ENABLED
+            include_images 'rke2-images-calico' if ONEAPP_K8S_CNI_PLUGIN == 'calico'
+            include_images 'rke2-images-canal'  if ONEAPP_K8S_CNI_PLUGIN == 'canal'
             include_images 'rke2-images-cilium' if ONEAPP_K8S_CNI_PLUGIN == 'cilium'
 
             include_images 'one-longhorn' if ONEAPP_K8S_LONGHORN_ENABLED

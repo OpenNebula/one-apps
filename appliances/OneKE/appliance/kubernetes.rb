@@ -16,19 +16,29 @@ def install_kubernetes(airgap_dir = ONE_AIRGAP_DIR)
     curl -fsSL '#{rke2_release_url}/rke2.linux-amd64.tar.gz' | tar -xz -f- -C /usr/local/
     SCRIPT
 
-    msg :info, "Download RKE2 airgapped image archives: #{ONE_SERVICE_RKE2_VERSION}"
-    bash <<~SCRIPT
-    curl -fsSL '#{rke2_release_url}/rke2-images-core.linux-amd64.tar.zst' \
-    | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-core/rke2-images-core.linux-amd64.tar.zst'
-    SCRIPT
-    bash <<~SCRIPT
-    curl -fsSL '#{rke2_release_url}/rke2-images-multus.linux-amd64.tar.zst' \
-    | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-multus/rke2-images-multus.linux-amd64.tar.zst'
-    SCRIPT
-    bash <<~SCRIPT
-    curl -fsSL '#{rke2_release_url}/rke2-images-cilium.linux-amd64.tar.zst' \
-    | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-cilium/rke2-images-cilium.linux-amd64.tar.zst'
-    SCRIPT
+    if ONE_SERVICE_AIRGAPPED
+        msg :info, "Download RKE2 airgapped image archives: #{ONE_SERVICE_RKE2_VERSION}"
+        bash <<~SCRIPT
+        curl -fsSL '#{rke2_release_url}/rke2-images-core.linux-amd64.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-core/rke2-images-core.linux-amd64.tar.zst'
+        SCRIPT
+        bash <<~SCRIPT
+        curl -fsSL '#{rke2_release_url}/rke2-images-multus.linux-amd64.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-multus/rke2-images-multus.linux-amd64.tar.zst'
+        SCRIPT
+        bash <<~SCRIPT
+        curl -fsSL '#{rke2_release_url}/rke2-images-calico.linux-amd64.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-calico/rke2-images-calico.linux-amd64.tar.zst'
+        SCRIPT
+        bash <<~SCRIPT
+        curl -fsSL '#{rke2_release_url}/rke2-images-canal.linux-amd64.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-canal/rke2-images-canal.linux-amd64.tar.zst'
+        SCRIPT
+        bash <<~SCRIPT
+        curl -fsSL '#{rke2_release_url}/rke2-images-cilium.linux-amd64.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-cilium/rke2-images-cilium.linux-amd64.tar.zst'
+        SCRIPT
+    end
 
     msg :info, "Install Helm binary: #{ONE_SERVICE_HELM_VERSION}"
     bash <<~SCRIPT

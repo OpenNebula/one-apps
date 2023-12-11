@@ -25,6 +25,11 @@ packer-service_wordpress: packer-alma8 ${DIR_EXPORT}/service_wordpress.qcow2
 packer-service_OneKE: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKE.qcow2
 	@${INFO} "Packer service_OneKE done"
 
+# airgapped version
+packer-service_OneKEa: PKR_VAR_airgapped := YES
+packer-service_OneKEa: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKEa.qcow2
+	@${INFO} "Packer service_OneKEa done"
+
 # run packer build for given distro or service
 ${DIR_EXPORT}/%.qcow2:
 	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9].*//'))
