@@ -49,7 +49,7 @@ to your `Makefile.local`
 * dpkg utils
 * rpm utils
 
-### context-linux packages build
+### context-windows packages build
 * latest [msitools](https://wiki.gnome.org/msitools)
 * binary [nssm.exe](https://nssm.cc/) [present]
 * binary [rhsrvany.exe](https://github.com/rwmjones/rhsrvany) [optional]
