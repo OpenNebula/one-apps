@@ -14,6 +14,13 @@ END { if (!found) print update >> FILENAME }
 EOF
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
+BEGIN { update = "ChallengeResponseAuthentication no" }
+/^[#\s]*ChallengeResponseAuthentication\s*/ { $0 = update; found = 1 }
+{ print }
+END { if (!found) print update >> FILENAME }
+EOF
+
+gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PermitRootLogin without-password" }
 /^[#\s]*PermitRootLogin\s*/ { $0 = update; found = 1 }
 { print }
