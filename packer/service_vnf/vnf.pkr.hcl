@@ -1,4 +1,4 @@
-source "null" "null" { communicator  = "none" }
+source "null" "null" { communicator = "none" }
 
 build {
   sources = ["source.null.null"]
@@ -14,14 +14,14 @@ build {
 
 # Build VM image
 source "qemu" "vnf" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = "export/alpine318.qcow2"
-  iso_checksum     = "none"
+  iso_url      = "export/alpine318.qcow2"
+  iso_checksum = "none"
 
-  headless         = var.headless
+  headless = var.headless
 
   disk_image       = true
   disk_cache       = "unsafe"
@@ -33,13 +33,13 @@ source "qemu" "vnf" {
 
   output_directory = var.output_dir
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"],
-                       ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
-                       # MAC addr needs to mach ETH0_MAC from context iso
-                       ["-netdev", "user,id=net0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
-                       ["-device", "virtio-net-pci,netdev=net0,mac=00:11:22:33:44:55"]
-                     ]
+  qemuargs = [["-serial", "stdio"],
+    ["-cpu", "host"],
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
+    # MAC addr needs to mach ETH0_MAC from context iso
+    ["-netdev", "user,id=net0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
+    ["-device", "virtio-net-pci,netdev=net0,mac=00:11:22:33:44:55"]
+  ]
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_wait_timeout = "900s"
@@ -54,7 +54,7 @@ build {
   provisioner "shell" {
     scripts = [
       "${var.input_dir}/10-update.sh",
-      "${var.input_dir}/81-configure-ssh.sh"]
+    "${var.input_dir}/81-configure-ssh.sh"]
   }
 
   provisioner "shell" {
@@ -62,7 +62,7 @@ build {
       "mkdir -p /etc/one-appliance/service.d",
       "chmod 0750 /etc/one-appliance",
       "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/"]
+    "chmod -R 0755 /opt/one-appliance/"]
   }
 
   provisioner "file" {
@@ -116,15 +116,15 @@ build {
   }
 
   provisioner "shell" {
-    scripts = [ "${var.input_dir}/82-configure-context.sh" ]
+    scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
 
   post-processor "shell-local" {
-    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
       "OUTPUT_DIR=${var.output_dir}",
       "APPLIANCE_NAME=${var.appliance_name}",
-      ]
-    scripts = [ "packer/postprocess.sh" ]
+    ]
+    scripts = ["packer/postprocess.sh"]
   }
 }

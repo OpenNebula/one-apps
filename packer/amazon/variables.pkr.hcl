@@ -9,11 +9,11 @@ variable "version" {
 }
 
 variable "input_dir" {
-  type    = string
+  type = string
 }
 
 variable "output_dir" {
-  type    = string
+  type = string
 }
 
 variable "headless" {
@@ -22,11 +22,11 @@ variable "headless" {
 }
 
 variable "amazon" {
-  type   = map(map(string))
+  type = map(map(string))
 
   default = {
     "2" = {
-	               # navigate via https://cdn.amazonlinux.com/os-images/latest/kvm/
+      # navigate via https://cdn.amazonlinux.com/os-images/latest/kvm/
       iso_url      = "https://cdn.amazonlinux.com/os-images/2.0.20231101.0/kvm/amzn2-kvm-2.0.20231101.0-x86_64.xfs.gpt.qcow2"
       iso_checksum = "file:https://cdn.amazonlinux.com/os-images/2.0.20231101.0/kvm/SHA256SUMS"
     }
