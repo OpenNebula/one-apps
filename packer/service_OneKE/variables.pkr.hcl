@@ -11,6 +11,11 @@ variable "output_dir" {
   type    = string
 }
 
+variable "airgapped" {
+  type    = string
+  default = "NO"
+}
+
 variable "headless" {
   type    = bool
   default = false
