@@ -1,5 +1,5 @@
 # Build cloud init iso
-source "null" "null" { communicator  = "none" }
+source "null" "null" { communicator = "none" }
 
 build {
   sources = ["sources.null.null"]
@@ -13,14 +13,14 @@ build {
 
 # Build VM image
 source "qemu" "opensuse" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = lookup(lookup(var.opensuse, var.version, {}), "iso_url", "")
-  iso_checksum     = lookup(lookup(var.opensuse, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.opensuse, var.version, {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.opensuse, var.version, {}), "iso_checksum", "")
 
-  headless         = var.headless
+  headless = var.headless
 
   disk_image       = true
   disk_cache       = "unsafe"
@@ -32,10 +32,10 @@ source "qemu" "opensuse" {
 
   output_directory = var.output_dir
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"],
-                       ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"]
-                     ]
+  qemuargs = [["-serial", "stdio"],
+    ["-cpu", "host"],
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"]
+  ]
 
   ssh_username     = "root"
   ssh_password     = "opennebula"
@@ -68,11 +68,11 @@ build {
   }
 
   post-processor "shell-local" {
-    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
       "OUTPUT_DIR=${var.output_dir}",
       "APPLIANCE_NAME=${var.appliance_name}",
-      ]
-    scripts = [ "packer/postprocess.sh" ]
+    ]
+    scripts = ["packer/postprocess.sh"]
   }
 }

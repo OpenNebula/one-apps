@@ -1,21 +1,21 @@
 source "qemu" "alpine" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = lookup(lookup(var.alpine, var.version, {}), "iso_url", "")
-  iso_checksum     = lookup(lookup(var.alpine, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.alpine, var.version, {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.alpine, var.version, {}), "iso_checksum", "")
 
-  headless         = var.headless
+  headless = var.headless
 
-  http_directory   = "${var.input_dir}"
-  boot_command     = [
+  http_directory = "${var.input_dir}"
+  boot_command = [
     "root<enter>",
     "ifconfig eth0 up && udhcpc -i eth0<enter><wait1>",
     "wget -qO alpine.init http://{{ .HTTPIP }}:{{ .HTTPPort }}/alpine.init<enter><wait1>",
     "/bin/ash alpine.init<enter><wait20>"
   ]
-  boot_wait        = "20s"
+  boot_wait = "20s"
 
   disk_cache       = "unsafe"
   disk_interface   = "virtio"
@@ -26,9 +26,9 @@ source "qemu" "alpine" {
 
   output_directory = "${var.output_dir}"
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"]
-                     ]
+  qemuargs = [["-serial", "stdio"],
+    ["-cpu", "host"]
+  ]
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_wait_timeout = "900s"
@@ -58,11 +58,11 @@ build {
   }
 
   post-processor "shell-local" {
-    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
       "OUTPUT_DIR=${var.output_dir}",
       "APPLIANCE_NAME=${var.appliance_name}",
-      ]
-    scripts = [ "packer/postprocess.sh" ]
+    ]
+    scripts = ["packer/postprocess.sh"]
   }
 }

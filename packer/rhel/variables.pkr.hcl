@@ -9,11 +9,11 @@ variable "version" {
 }
 
 variable "input_dir" {
-  type    = string
+  type = string
 }
 
 variable "output_dir" {
-  type    = string
+  type = string
 }
 
 variable "headless" {
@@ -32,7 +32,7 @@ variable "rhel_password" {
 }
 
 variable "rhel" {
-  type   = map(map(string))
+  type = map(map(string))
 
   default = {
     "8" = {

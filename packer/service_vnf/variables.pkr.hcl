@@ -4,11 +4,11 @@ variable "appliance_name" {
 }
 
 variable "input_dir" {
-  type    = string
+  type = string
 }
 
 variable "output_dir" {
-  type    = string
+  type = string
 }
 
 variable "headless" {

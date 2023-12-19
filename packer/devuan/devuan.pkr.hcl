@@ -1,16 +1,16 @@
 source "qemu" "devuan" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = lookup(lookup(var.devuan, var.version, {}), "iso_url", "")
-  iso_checksum     = lookup(lookup(var.devuan, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.devuan, var.version, {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.devuan, var.version, {}), "iso_checksum", "")
 
-  headless         = var.headless
+  headless = var.headless
 
-  http_directory   = "${var.input_dir}"
-  boot_command     = ["<tab><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>  auto=true url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/${var.appliance_name}.preseed hostname=localhost domain=localdomain interface=auto <enter>"]
-  boot_wait        = "10s"
+  http_directory = "${var.input_dir}"
+  boot_command   = ["<tab><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>  auto=true url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/${var.appliance_name}.preseed hostname=localhost domain=localdomain interface=auto <enter>"]
+  boot_wait      = "10s"
 
   disk_cache       = "unsafe"
   disk_interface   = "virtio-scsi"
@@ -21,9 +21,9 @@ source "qemu" "devuan" {
 
   output_directory = "${var.output_dir}"
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"]
-                     ]
+  qemuargs = [["-serial", "stdio"],
+    ["-cpu", "host"]
+  ]
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_wait_timeout = "900s"
@@ -53,11 +53,11 @@ build {
   }
 
   post-processor "shell-local" {
-    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
       "OUTPUT_DIR=${var.output_dir}",
       "APPLIANCE_NAME=${var.appliance_name}",
-      ]
-    scripts = [ "packer/postprocess.sh" ]
+    ]
+    scripts = ["packer/postprocess.sh"]
   }
 }

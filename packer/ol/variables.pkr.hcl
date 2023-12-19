@@ -9,11 +9,11 @@ variable "version" {
 }
 
 variable "input_dir" {
-  type    = string
+  type = string
 }
 
 variable "output_dir" {
-  type    = string
+  type = string
 }
 
 variable "headless" {
@@ -22,7 +22,7 @@ variable "headless" {
 }
 
 variable "ol" {
-  type   = map(map(string))
+  type = map(map(string))
 
   default = {
     "8" = {
