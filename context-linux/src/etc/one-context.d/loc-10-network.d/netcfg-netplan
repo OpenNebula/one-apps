@@ -169,7 +169,7 @@ EOT
     # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
     if missing_onegate_proxy_route; then
         cat <<EOT
-        - to: "${onegate_host}"
+        - to: "${onegate_host}/32"
           scope: link
 EOT
 
