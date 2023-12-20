@@ -23,10 +23,12 @@ Both of them were merged here, together with the image building tools. The origi
   * [Developer information](../../wiki/tool_dev)
 * Linux Contextualization Packages
   * [Release Notes](../../wiki/linux_release)
+  * [Installation](../../wiki/linux_installation)
   * [Features and usage](../../wiki/linux_feature)
   * [Developer information](../../wiki/linux_dev)
 * Windows Contextualization Packages
   * [Release Notes](../../wiki/win_release)
+  * [Installation](../../wiki/win_installation)
   * [Features and usage](../../wiki/win_feature)
   * [Developer information](../../wiki/win_dev)
 * OneKE (OpenNebula Kubernetes Edition)
