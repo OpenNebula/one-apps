@@ -29,17 +29,17 @@ List of tested platforms only:
 | Platform                        | Versions                                 |
 |---------------------------------|------------------------------------------|
 | AlmaLinux                       | 8, 9                                     |
-| Alpine Linux                    | 3.15, 3.16, 3.17                         |
+| Alpine Linux                    | 3.16, 3.17, 3.18                         |
 | ALT Linux                       | 9, 10                                    |
 | Amazon Linux                    | 2                                        |
 | CentOS                          | 7, 8 Stream                              |
-| Debian                          | 10, 11                                   |
+| Debian                          | 10, 11, 12                               |
 | Devuan                          | 3, 4                                     |
-| Fedora                          | 37                                       |
+| Fedora                          | 37, 38                                   |
 | FreeBSD                         | 12, 13                                   |
 | openSUSE                        | 15                                       |
-| Oracle Linux                    | 7, 8, 9                                  |
-| Red Hat Enterprise Linux        | 7, 8, 9                                  |
+| Oracle Linux                    | 8, 9                                     |
+| Red Hat Enterprise Linux        | 8, 9                                     |
 | Rocky Linux                     | 8, 9                                     |
 | Ubuntu                          | 20.04, 22.04                             |
 | Ubuntu Minimal                  | 20.04, 22.04                             |
@@ -80,17 +80,17 @@ Selectable configuration types and IP configuration methods are **supported only
 | Platform                                                      | Network Type (`NETCFG_TYPE`)              |
 |---------------------------------------------------------------|-------------------------------------------|
 | Alpine Linux 3.15+                                            | `interfaces`                              |
-| ALT Linux p10, Sisyphus                                       | `networkd`, `nm`                          |
+| ALT Linux p9, p10                                             | `networkd`, `nm`                          |
 | Amazon Linux 2                                                | `scripts`                                 |
 | Debian 10+                                                    | `interfaces`, `netplan`, `nm`, `networkd` |
-| Devuan 3                                                      | `interfaces`                              |
+| Devuan 3,4                                                    | `interfaces`                              |
 | Fedora 36+                                                    | `scripts`, `nm`, `networkd`               |
 | FreeBSD 12+                                                   | `bsd`                                     |
 | openSUSE 15                                                   | `scripts`                                 |
 | RHEL-like 7 (CentOS, Oracle Linux)                            | `scripts`                                 |
-| RHEL-like 8 (CentOS, Oracle/Rocky/AlmaLinux)                  | `scripts`, `nm`, `networkd`               |
+| RHEL-like 8 (CentOS, Oracle/Rocky/AlmaLinux)                  | `nm`, `scripts`, `networkd`               |
 | RHEL-like 9 (CentOS Stream 9, Oracle/Rocky/AlmaLinux)         | `nm`, `networkd`                          |
-| Ubuntu 18.04, 20.04, 22.04                                    | `interfaces`, `netplan`, `nm`, `networkd` |
+| Ubuntu 20.04, 22.04                                           | `netplan`, `networkd`, `nm`, `interfaces` |
 
 (other than listed platforms are not supported for using `NETCFG_TYPE` nor `METHOD`/`IP6_METHOD`!):
 
@@ -155,11 +155,11 @@ More info:
 * [How to Contribute](http://opennebula.org/addons/contribute/)
 * Support: [OpenNebula user forum](https://forum.opennebula.org/c/support)
 * Development: [OpenNebula developers forum](https://forum.opennebula.org/c/development)
-* Issues Tracking: Github issues (https://github.com/OpenNebula/addon-context-linux/issues)
+* Issues Tracking: Github issues (https://github.com/OpenNebula/one-apps/issues)
 
 ### Repository structure
 
-All code is located under `src/` and structure follows the installation
+All code is located under `context-linux/src/` and structure follows the installation
 directory structure. Files for different environments/targets are picked
 by the tag, tags are part of the filename separated from the installation
 name by 2 hashes (`##`). Tags are dot-separated.
@@ -173,7 +173,7 @@ Examples:
 ### Contextualization scripts
 
 Contextualization scripts, which are executed on every boot and during
-the reconfiguration, are located in `src/etc/one-context.d/`. Scripts are
+the reconfiguration, are located in `context-linux/src/etc/one-context.d/`. Scripts are
 divided into following 2 parts:
 
 * local - pre-networking, prefixed with `loc-`
@@ -184,7 +184,7 @@ executed as a first during the post-networking contextualization stage.
 
 ## License
 
-Copyright 2002-2022, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
+Copyright 2002-2023, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain
