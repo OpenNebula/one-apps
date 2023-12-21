@@ -37,7 +37,12 @@ Both of them were merged here, together with the image building tools. The origi
   * [Overview](../../wiki/apps_intro)
   * OneKE (OpenNebula Kubernetes Edition)
     * [Release Notes](../../wiki/oneke_release)
-    * [Features and usage](../../wiki/oneke_feature)
+    * [Overview](../../wiki/oneke_intro)
+    * [Architecture](../../wiki/oneke_architecture)
+    * [Kubernetes Components](../../wiki/oneke_components)
+    * [Deploying a OneKE cluster](../../wiki/oneke_deploy)
+    * [Operating OneKE](../../wiki/oneke_ops)
+    * [Troubleshooting](../../wiki/oneke_troubleshoot)
   * Virtual Router
     * [Release Notes](../../wiki/vr_release)
     * [Features and usage](../../wiki/vr_feature)
