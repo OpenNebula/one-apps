@@ -35,12 +35,12 @@ Both of them were merged here, together with the image building tools. The origi
   * [Developer information](../../wiki/win_dev)
 * OpenNebula Apps
   * [Overview](../../wiki/apps_intro)
-* OneKE (OpenNebula Kubernetes Edition)
-  * [Release Notes](../../wiki/oneke_release)
-  * [Features and usage](../../wiki/oneke_feature)
-* Virtual Router
-  * [Release Notes](../../wiki/vr_release)
-  * [Features and usage](../../wiki/vr_feature)
+  * OneKE (OpenNebula Kubernetes Edition)
+    * [Release Notes](../../wiki/oneke_release)
+    * [Features and usage](../../wiki/oneke_feature)
+  * Virtual Router
+    * [Release Notes](../../wiki/vr_release)
+    * [Features and usage](../../wiki/vr_feature)
 
 ## Contributing
 
