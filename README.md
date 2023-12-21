@@ -26,6 +26,7 @@ Both of them were merged here, together with the image building tools. The origi
   * [Installation](../../wiki/linux_installation)
   * [Features and usage](../../wiki/linux_feature)
   * [Developer information](../../wiki/linux_dev)
+  * [Context Attributes Reference](../../wiki/linux_ref)
 * Windows Contextualization Packages
   * [Release Notes](../../wiki/win_release)
   * [Installation](../../wiki/win_installation)
