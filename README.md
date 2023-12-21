@@ -33,6 +33,8 @@ Both of them were merged here, together with the image building tools. The origi
   * [Features and usage](../../wiki/win_feature)
   * [Context Attributes Reference](../../wiki/win_ref) 
   * [Developer information](../../wiki/win_dev)
+* OpenNebula Apps
+  * [Overview](../../wiki/apps_intro)
 * OneKE (OpenNebula Kubernetes Edition)
   * [Release Notes](../../wiki/oneke_release)
   * [Features and usage](../../wiki/oneke_feature)
