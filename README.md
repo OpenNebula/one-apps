@@ -46,7 +46,7 @@ Both of them were merged here, together with the image building tools. The origi
   * Virtual Router
     * [Release Notes](../../wiki/vr_release)
     * [Features and usage](../../wiki/vr_feature)
-  * Virtual Router
+  * WordPress
     * [Release Notes](../../wiki/wp_release)
     * [Features and usage](../../wiki/wp_feature)
 
