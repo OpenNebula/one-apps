@@ -25,13 +25,13 @@ Both of them were merged here, together with the image building tools. The origi
   * [Release Notes](../../wiki/linux_release)
   * [Installation](../../wiki/linux_installation)
   * [Features and usage](../../wiki/linux_feature)
-  * [Context Attributes Reference](../../wiki/linux_ref) 
+  * [Context Attributes Reference](../../wiki/linux_ref)
   * [Developer information](../../wiki/linux_dev)
 * Windows Contextualization Packages
   * [Release Notes](../../wiki/win_release)
   * [Installation](../../wiki/win_installation)
   * [Features and usage](../../wiki/win_feature)
-  * [Context Attributes Reference](../../wiki/win_ref) 
+  * [Context Attributes Reference](../../wiki/win_ref)
   * [Developer information](../../wiki/win_dev)
 * OpenNebula Apps
   * [Overview](../../wiki/apps_intro)
@@ -46,6 +46,9 @@ Both of them were merged here, together with the image building tools. The origi
   * Virtual Router
     * [Release Notes](../../wiki/vr_release)
     * [Features and usage](../../wiki/vr_feature)
+  * Virtual Router
+    * [Release Notes](../../wiki/wp_release)
+    * [Features and usage](../../wiki/wp_feature)
 
 ## Contributing
 
