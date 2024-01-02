@@ -1,4 +1,12 @@
 #!/usr/bin/env sh
-service haveged stop
+
+exec 1>&2
+set -o errexit -o nounset -o pipefail
+set -x
+
+service haveged stop ||:
+
 apk update
 apk --no-cache add bash
+
+sync

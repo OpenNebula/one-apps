@@ -67,42 +67,42 @@ build {
 
   provisioner "file" {
     destination = "/etc/one-appliance/net-90"
-    source      = "appliances/scripts/context_service_net-90.sh"
+    source      = "appliances/legacy/scripts/context_service_net-90.sh"
   }
 
   provisioner "file" {
     destination = "/etc/one-appliance/net-99"
-    source      = "appliances/scripts/context_service_net-99.sh"
+    source      = "appliances/legacy/scripts/context_service_net-99.sh"
   }
 
   provisioner "file" {
     destination = "/etc/one-appliance/service"
-    source      = "appliances/service"
+    source      = "appliances/legacy/service"
   }
 
   provisioner "file" {
     destination = "/etc/one-appliance/service.d/common.sh"
-    source      = "appliances/lib/common.sh"
+    source      = "appliances/legacy/lib/common.sh"
   }
 
   provisioner "file" {
     destination = "/etc/one-appliance/service.d/functions.sh"
-    source      = "appliances/lib/functions.sh"
+    source      = "appliances/legacy/lib/functions.sh"
   }
 
   provisioner "file" {
     destination = "/opt/one-appliance/bin/context-helper"
-    source      = "appliances/lib/context-helper.py"
+    source      = "appliances/legacy/lib/context-helper.py"
   }
 
   provisioner "file" {
     destination = "/etc/one-appliance/service.d/appliance.sh"
-    source      = "appliances/vnf.sh"
+    source      = "appliances/legacy/vnf.sh"
   }
 
   provisioner "file" {
     destination = "/opt/one-appliance/"
-    source      = "appliances/lib/artifacts/vnf"
+    source      = "appliances/legacy/lib/artifacts/vnf"
   }
 
   provisioner "shell" {

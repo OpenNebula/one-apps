@@ -1,14 +1,14 @@
 variable "appliance_name" {
   type    = string
-  default = "service_vnf"
+  default = "service_VRouter"
 }
 
 variable "input_dir" {
-  type = string
+  type    = string
 }
 
 variable "output_dir" {
-  type = string
+  type    = string
 }
 
 variable "headless" {
