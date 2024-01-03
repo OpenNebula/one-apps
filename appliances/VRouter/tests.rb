@@ -11,23 +11,25 @@ end
 RSpec.describe 'detect_vips' do
     it 'should parse legacy variables' do
         clear_env
+        ENV['ETH0_MASK']                = '255.255.0.0'
         ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
-        ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5'
+        ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5/24'
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
         expect(detect_vips).to eq ({
-            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4',
-                        'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5' },
+            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4/16',
+                        'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5/24' },
             'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' }
         })
     end
 
     it 'should parse legacy variables with lower precedence' do
         clear_env
+        ENV['ETH0_MASK']                = '255.255.0.0'
         ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
-        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '2.3.4.5'
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '2.3.4.5/24'
         ENV['ETH1_VROUTER_IP']          = '3.4.5.6'
         expect(detect_vips).to eq ({
-            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '2.3.4.5' },
+            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '2.3.4.5/24' },
             'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' }
         })
     end

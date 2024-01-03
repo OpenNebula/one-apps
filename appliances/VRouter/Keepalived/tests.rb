@@ -4,7 +4,7 @@ require 'rspec'
 require 'tmpdir'
 
 def clear_env
-    ENV.delete_if { |name| name.include?('VROUTER_') || name.include?('_VNF_') }
+    ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
 def clear_vars(object)
@@ -141,6 +141,8 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_KEEPALIVED_ETH0_PRIORITY'] = '100'
         ENV['ONEAPP_VNF_KEEPALIVED_ETH0_VRID'] = '30'
 
+        ENV['ETH0_GATEWAY'] = '10.2.30.1'
+
         ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '10.2.30.69'
         ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '10.2.30.86'
 
@@ -159,6 +161,8 @@ RSpec.describe self do
         ENV['ONEAPP_VROUTER_ETH2_VIP1'] = '10.2.32.86/24'
 
         ENV['ONEAPP_VNF_KEEPALIVED_ETH3_VRID'] = '32'
+
+        ENV['ONEAPP_VROUTER_ETH3_VIP0'] = '10.2.33.69'
 
         load './main.rb'; include Service::Keepalived
 
@@ -208,6 +212,9 @@ RSpec.describe self do
                     10.2.31.69 dev eth1
                     10.2.31.86 dev eth1
                 }
+                virtual_routes {
+                    0.0.0.0/0 gw 10.2.30.1
+                }
             }
             vrrp_instance ETH3 {
                 state             BACKUP
@@ -216,6 +223,9 @@ RSpec.describe self do
                 priority          100
                 advert_int        1
                 virtual_ipaddress {
+                    10.2.33.69 dev eth3
+                }
+                virtual_routes {
                 }
             }
         VRRP
@@ -281,6 +291,8 @@ RSpec.describe self do
                 advert_int        1
                 virtual_ipaddress {
                 }
+                virtual_routes {
+                }
                 authentication {
                     auth_type PASS
                     auth_pass asd123
@@ -294,6 +306,8 @@ RSpec.describe self do
                 advert_int        1
                 virtual_ipaddress {
                 }
+                virtual_routes {
+                }
                 authentication {
                     auth_type PASS
                     auth_pass asd123
@@ -306,6 +320,8 @@ RSpec.describe self do
                 priority          100
                 advert_int        1
                 virtual_ipaddress {
+                }
+                virtual_routes {
                 }
                 authentication {
                     auth_type PASS

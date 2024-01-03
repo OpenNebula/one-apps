@@ -319,7 +319,7 @@ module DNS
             msg :debug, "DNS::toggle([:#{op}])"
             case op
             when :reload
-                puts bash 'rc-service unbound reload'
+                puts bash 'rc-service --ifstarted unbound reload'
             when :enable
                 puts bash 'rc-update add unbound default'
                 puts bash 'rc-update add one-dns default'

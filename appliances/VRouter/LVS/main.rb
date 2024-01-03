@@ -63,7 +63,7 @@ module LVS
             msg :debug, "LVS::toggle([:#{op}])"
             case op
             when :reload
-                puts bash 'rc-service keepalived reload'
+                puts bash 'rc-service --ifstarted keepalived reload'
             when :enable
                 puts bash 'rc-update add one-lvs default'
             when :disable

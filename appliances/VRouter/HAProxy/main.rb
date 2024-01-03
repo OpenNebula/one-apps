@@ -89,8 +89,7 @@ module HAProxy
             msg :debug, "HAProxy::toggle([:#{op}])"
             case op
             when :reload
-                puts bash 'rc-service haproxy start'
-                puts bash 'rc-service haproxy reload'
+                puts bash 'rc-service --ifstarted haproxy reload'
             when :enable
                 puts bash 'rc-update add haproxy default'
                 puts bash 'rc-update add one-haproxy default'

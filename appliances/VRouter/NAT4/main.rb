@@ -75,7 +75,7 @@ module NAT4
             IPTABLES
         end
 
-        toggle [:save, :reload]
+        toggle [:save, :start, :reload]
     end
 
     def cleanup
@@ -84,7 +84,7 @@ module NAT4
         # Clear dedicated NAT4 chain.
         bash 'iptables -t nat -F NAT4'
 
-        toggle [:save, :reload]
+        toggle [:save, :reload, :stop]
     end
 
     def toggle(operations)
@@ -94,7 +94,7 @@ module NAT4
             when :save
                 puts bash 'rc-service iptables save'
             when :reload
-                puts bash 'rc-service iptables reload'
+                puts bash 'rc-service --ifstarted iptables reload'
             when :enable
                 puts bash 'rc-update add iptables default'
                 puts bash 'rc-update add one-nat4 default'
@@ -104,7 +104,8 @@ module NAT4
                 puts bash 'rc-update -u'
             when :start
                 puts bash 'rc-service iptables start'
-                puts bash 'rc-service one-nat4 start'
+            when :stop
+                puts bash 'rc-service iptables stop'
             else
                 puts bash "rc-service one-nat4 #{op.to_s}"
             end

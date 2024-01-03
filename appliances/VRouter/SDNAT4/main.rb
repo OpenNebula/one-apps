@@ -75,7 +75,7 @@ module SDNAT4
             when :save
                 puts bash 'rc-service iptables save'
             when :reload
-                puts bash 'rc-service iptables reload'
+                puts bash 'rc-service --ifstarted iptables reload'
             when :enable
                 puts bash 'rc-update add iptables default'
                 puts bash 'rc-update add one-sdnat4 default'
@@ -85,7 +85,8 @@ module SDNAT4
                 puts bash 'rc-update -u'
             when :start
                 puts bash 'rc-service iptables start'
-                puts bash 'rc-service one-sdnat4 start'
+            when :stop
+                puts bash 'rc-service iptables stop'
             else
                 puts bash "rc-service one-sdnat4 #{op.to_s}"
             end
