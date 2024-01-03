@@ -157,7 +157,7 @@ module DHCP4
             msg :debug, "DHCP4::toggle([:#{op}])"
             case op
             when :reload
-                puts bash 'rc-service kea-dhcp4 reload'
+                puts bash 'rc-service --ifstarted kea-dhcp4 reload'
             when :enable
                 puts bash 'rc-update add kea-dhcp4 default'
                 puts bash 'rc-update add one-dhcp4 default'

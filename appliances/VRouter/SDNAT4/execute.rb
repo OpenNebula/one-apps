@@ -101,7 +101,7 @@ module SDNAT4
                 iptables -t nat -C PREROUTING -j DNAT4 || iptables -t nat -I PREROUTING 1 -j DNAT4
             IPTABLES
 
-            toggle [:save]
+            toggle [:save, :start]
 
             loop do
                 unless (vnets = get_vrouter_vnets).empty?
@@ -141,7 +141,7 @@ module SDNAT4
             bash "ip address del #{a['local']}/32 dev lo label SDNAT4"
         end
 
-        toggle [:save, :reload]
+        toggle [:save, :reload, :stop]
     end
 end
 end

@@ -42,6 +42,7 @@ module Failover
         puts bash <<~SCRIPT
             if [[ "$(virt-what)" != vmware ]]; then
                 rc-update del open-vm-tools default && rc-update -u ||:
+                rc-service open-vm-tools stop ||:
             fi
         SCRIPT
 
