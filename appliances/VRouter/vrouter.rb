@@ -35,15 +35,21 @@ def detect_nics(items = ip_link_list, pattern: /^eth\d+$/)
 end
 
 def detect_vips
+    def append_mask(eth_index, v)
+        return v if v =~ %r{/([^/]+)$} # nothing to do
+        return v if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
+        cidr = IPAddr.new(mask).to_i.to_s(2).count(%[1])
+        return "#{v}/#{cidr}"
+    end
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when /^ETH(\d+)_VROUTER_IP$/
+        when %r{^ETH(\d+)_VROUTER_IP$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= v
-        when /^ONEAPP_VROUTER_ETH(\d+)_VIP\d+$/
+            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_mask($1, v)
+        when %r{^ONEAPP_VROUTER_ETH(\d+)_VIP\d+$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"][name] = v
+            acc["eth#{$1}"][name] = append_mask($1, v)
         end
     end
 end

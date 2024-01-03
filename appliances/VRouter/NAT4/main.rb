@@ -94,6 +94,7 @@ module NAT4
             when :save
                 puts bash 'rc-service iptables save'
             when :reload
+                puts bash 'rc-service iptables start'
                 puts bash 'rc-service iptables reload'
             when :enable
                 puts bash 'rc-update add iptables default'
@@ -103,7 +104,6 @@ module NAT4
             when :update
                 puts bash 'rc-update -u'
             when :start
-                puts bash 'rc-service iptables start'
                 puts bash 'rc-service one-nat4 start'
             else
                 puts bash "rc-service one-nat4 #{op.to_s}"

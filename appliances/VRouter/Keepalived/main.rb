@@ -29,16 +29,25 @@ module Keepalived
         (@interfaces.keys - @mgmt).each_with_object({}) do |nic, vars|
             vars[:by_nic] ||= {}
             vars[:by_nic][nic] = {
-                password: env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PASSWORD", ONEAPP_VNF_KEEPALIVED_PASSWORD),
-                interval: env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_INTERVAL", ONEAPP_VNF_KEEPALIVED_INTERVAL),
-                priority: env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PRIORITY", ONEAPP_VNF_KEEPALIVED_PRIORITY),
-                vrid:     env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID",     ONEAPP_VNF_KEEPALIVED_VRID),
-                vips:     @vips[nic]&.values || [],
-                noip:     !@nics.include?(nic)
+                password:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PASSWORD", ONEAPP_VNF_KEEPALIVED_PASSWORD),
+                interval:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_INTERVAL", ONEAPP_VNF_KEEPALIVED_INTERVAL),
+                priority:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PRIORITY", ONEAPP_VNF_KEEPALIVED_PRIORITY),
+                vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID",     ONEAPP_VNF_KEEPALIVED_VRID),
+                vips:       @vips[nic]&.values || [],
+                noip:       !@nics.include?(nic),
+                gw:         env("#{nic.upcase}_GATEWAY", ''),
+                gw_default: false
             }
-            vars[:by_vrid] ||= {}
-            vars[:by_vrid][vars[:by_nic][nic][:vrid]] ||= {}
-            vars[:by_vrid][vars[:by_nic][nic][:vrid]][nic] = vars[:by_nic][nic]
+        end.then do |vars|
+            vars[:by_nic].each do |nic, opt|
+                vars[:by_vrid] ||= {}
+                vars[:by_vrid][opt[:vrid]] ||= {}
+                vars[:by_vrid][opt[:vrid]][nic] = opt
+            end
+            unless ((nic, _) = vars[:by_nic].find { |_, opt| opt[:noip] && !opt[:gw].empty? }).nil?
+                vars[:by_nic][nic][:gw_default] = true
+            end
+            vars
         end
     end
 
@@ -69,31 +78,42 @@ module Keepalived
             vrrp_sync_group VRouter {
                 group {
             <%- keepalived_vars[:by_vrid].each do |_, nics| -%>
-            <%- unless (kv = nics.find { |_, opt| !opt[:noip] }).nil? -%>
-                    <%= kv[0].upcase %>
+            <%- unless ((k, _) = nics.find { |_, opt| !opt[:noip] }).nil? -%>
+                    <%= k.upcase %>
             <%- end -%>
             <%- end -%>
                 }
-            }
+            }<%- -%>
+
             <%- keepalived_vars[:by_vrid].each do |vrid, nics| -%>
-            <%- unless (kv = nics.find { |_, opt| !opt[:noip] }).nil? -%>
-            vrrp_instance <%= kv[0].upcase %> {
+            <%- unless ((k, v) = nics.find { |_, opt| !opt[:noip] }).nil? -%>
+            vrrp_instance <%= k.upcase %> {
                 state             BACKUP
-                interface         <%= kv[0].downcase %>
+                interface         <%= k.downcase %>
                 virtual_router_id <%= vrid %>
-                priority          <%= kv[1][:priority] %>
-                advert_int        <%= kv[1][:interval] %>
+                priority          <%= v[:priority] %>
+                advert_int        <%= v[:interval] -%>
+
                 virtual_ipaddress {
             <%- nics.each do |nic, opt| -%>
             <%- opt[:vips].compact.reject(&:empty?).each do |vip| -%>
                     <%= vip %> dev <%= nic.downcase %>
             <%- end -%>
             <%- end -%>
-                }
-            <%- unless kv[1][:password].nil? -%>
+                }<%- -%>
+
+                virtual_routes {
+            <%- nics.each do |_, opt| -%>
+            <%- if opt[:gw_default] -%>
+                    0.0.0.0/0 gw <%= opt[:gw] %>
+            <%- end -%>
+            <%- end -%>
+                }<%- -%>
+
+            <%- unless v[:password].nil? -%>
                 authentication {
                     auth_type PASS
-                    auth_pass <%= kv[1][:password] %>
+                    auth_pass <%= v[:password] %>
                 }
             <%- end -%>
             }
