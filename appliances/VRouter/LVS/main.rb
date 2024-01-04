@@ -51,9 +51,8 @@ module LVS
     def configure(basedir: '/etc/keepalived')
         msg :info, 'LVS::configure'
 
-        if ONEAPP_VNF_LB_ENABLED
-            toggle [:enable]
-        else
+        unless ONEAPP_VNF_LB_ENABLED
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:disable, :reload]
         end
     end
@@ -64,8 +63,6 @@ module LVS
             case op
             when :reload
                 puts bash 'rc-service --ifstarted keepalived reload'
-            when :enable
-                puts bash 'rc-update add one-lvs default'
             when :disable
                 puts bash 'rc-update del one-lvs default ||:'
             when :update

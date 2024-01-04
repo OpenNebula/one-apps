@@ -42,6 +42,7 @@ module Failover
         'STOP'    => :down,
         nil       => :stay
     }
+
     def to_event(line)
         k = [:type, :name, :state, :priority]
         v = line.strip.split.map(&:strip).map{|s| s.delete_prefix('"').delete_suffix('"')}
@@ -118,26 +119,6 @@ module Failover
         process_events
     end
 
-    def update_conf_d(path, key, value)
-        File.open path, File::CREAT | File::RDWR, 0644 do |f|
-            f.flock File::LOCK_EX
-            content = f.read.lines.map(&:strip)
-            if line = content.find { |line| line =~ /^[#\s]*#{key}\s*=/ }
-                if value.nil?
-                    line.replace %[##{line}] unless line.start_with?(%[#])
-                else
-                    line.replace %[#{key}="#{value}"]
-                end
-            else
-                content << %[#{key}="#{value}"]
-            end
-            f.rewind
-            f.puts content.join(%[\n])
-            f.flush
-            f.truncate f.pos
-        end
-    end
-
     def stay
         msg :debug, :STAY
     end
@@ -153,19 +134,9 @@ module Failover
             msg :debug, "#{service}(#{enabled ? ':enabled' : ':disabled'})"
 
             if enabled
-                update_conf_d "/etc/conf.d/#{service}", 'rc_need', nil
-
-                bash <<~SCRIPT, terminate: false
-                    rc-update -u ||:
-                    rc-service #{service} restart ||:
-                SCRIPT
+                bash "rc-service #{service} restart ||:", terminate: false
             else
-                update_conf_d "/etc/conf.d/#{service}", 'rc_need', 'THIS-SERVICE-IS-MASKED'
-
-                bash <<~SCRIPT, terminate: false
-                    rc-update -u ||:
-                    rc-service #{service} stop ||:
-                SCRIPT
+                bash "rc-service #{service} stop ||:" , terminate: false
             end
 
             sleep 1
@@ -178,12 +149,7 @@ module Failover
         SERVICES.each do |service, _|
             msg :debug, "#{service}(:disabled)"
 
-            update_conf_d "/etc/conf.d/#{service}", 'rc_need', 'THIS-SERVICE-IS-MASKED'
-
-            bash <<~SCRIPT, terminate: false
-                rc-update -u ||:
-                rc-service #{service} stop ||:
-            SCRIPT
+            bash "rc-service #{service} stop ||:", terminate: false
 
             sleep 1
         end

@@ -47,9 +47,8 @@ module Router4
     def configure
         msg :info, 'Router4::configure'
 
-        if ONEAPP_VNF_ROUTER4_ENABLED
-            toggle [:enable]
-        else
+        unless ONEAPP_VNF_ROUTER4_ENABLED
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -99,8 +98,6 @@ module Router4
         operations.each do |op|
             msg :info, "Router4::toggle([:#{op}])"
             case op
-            when :enable
-                puts bash 'rc-update add one-router4 default'
             when :disable
                 puts bash 'rc-update del one-router4 default ||:'
             when :update

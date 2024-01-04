@@ -46,8 +46,9 @@ module NAT4
         msg :info, 'NAT4::configure'
 
         if ONEAPP_VNF_NAT4_ENABLED
-            toggle [:save, :enable]
+            toggle [:save]
         else
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -95,9 +96,6 @@ module NAT4
                 puts bash 'rc-service iptables save'
             when :reload
                 puts bash 'rc-service --ifstarted iptables reload'
-            when :enable
-                puts bash 'rc-update add iptables default'
-                puts bash 'rc-update add one-nat4 default'
             when :disable
                 puts bash 'rc-update del one-nat4 default ||:'
             when :update

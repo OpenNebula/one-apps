@@ -77,9 +77,8 @@ module HAProxy
                     timeout client 120s
                     timeout server 120s
             CONFIG
-
-            toggle [:enable]
         else
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -90,9 +89,6 @@ module HAProxy
             case op
             when :reload
                 puts bash 'rc-service --ifstarted haproxy reload'
-            when :enable
-                puts bash 'rc-update add haproxy default'
-                puts bash 'rc-update add one-haproxy default'
             when :disable
                 puts bash 'rc-update del haproxy default ||:'
                 puts bash 'rc-update del one-haproxy default ||:'
