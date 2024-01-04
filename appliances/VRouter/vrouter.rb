@@ -9,6 +9,10 @@ rescue LoadError
     require_relative '../lib/helpers.rb'
 end
 
+def ip_link_set_up(nic)
+    stdout = bash "ip link set '#{nic}' up", terminate: false
+end
+
 def ip_link_list
     stdout = bash 'ip --json link list', terminate: false
     JSON.parse(stdout)
