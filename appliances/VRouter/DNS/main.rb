@@ -307,9 +307,8 @@ module DNS
                 <%- end -%>
                 <%- end -%>
             CONFIG
-
-            toggle [:enable]
         else
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -318,11 +317,6 @@ module DNS
         operations.each do |op|
             msg :debug, "DNS::toggle([:#{op}])"
             case op
-            when :reload
-                puts bash 'rc-service --ifstarted unbound reload'
-            when :enable
-                puts bash 'rc-update add unbound default'
-                puts bash 'rc-update add one-dns default'
             when :disable
                 puts bash 'rc-update del unbound default ||:'
                 puts bash 'rc-update del one-dns default ||:'

@@ -146,8 +146,8 @@ module DHCP4
                                                                             group: 'kea',
                                                                             mode: 'u=rw,g=r,o=',
                                                                             overwrite: true
-            toggle [:enable]
         else
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -156,11 +156,6 @@ module DHCP4
         operations.each do |op|
             msg :debug, "DHCP4::toggle([:#{op}])"
             case op
-            when :reload
-                puts bash 'rc-service --ifstarted kea-dhcp4 reload'
-            when :enable
-                puts bash 'rc-update add kea-dhcp4 default'
-                puts bash 'rc-update add one-dhcp4 default'
             when :disable
                 puts bash 'rc-update del kea-dhcp4 default ||:'
                 puts bash 'rc-update del one-dhcp4 default ||:'

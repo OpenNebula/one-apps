@@ -62,8 +62,9 @@ module SDNAT4
                 iptables -t nat -C PREROUTING -j DNAT4 || iptables -t nat -I PREROUTING 1 -j DNAT4
             IPTABLES
 
-            toggle [:save, :enable]
+            toggle [:save]
         else
+            # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
         end
     end
@@ -76,9 +77,6 @@ module SDNAT4
                 puts bash 'rc-service iptables save'
             when :reload
                 puts bash 'rc-service --ifstarted iptables reload'
-            when :enable
-                puts bash 'rc-update add iptables default'
-                puts bash 'rc-update add one-sdnat4 default'
             when :disable
                 puts bash 'rc-update del one-sdnat4 default ||:'
             when :update
