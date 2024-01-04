@@ -47,6 +47,7 @@ RSpec.describe self do
         expect(Service::Keepalived::VROUTER_KEEPALIVED_ID).to eq '11'
         expect(Service::Keepalived::ONEAPP_VNF_KEEPALIVED_VRID).to eq '11'
 
+        allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
             { 'ifname'    => 'eth0',
@@ -104,6 +105,7 @@ RSpec.describe self do
         expect(Service::Keepalived::VROUTER_KEEPALIVED_ID).to eq '21'
         expect(Service::Keepalived::ONEAPP_VNF_KEEPALIVED_VRID).to eq '21'
 
+        allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
             { 'ifname'    => 'eth0',
@@ -166,6 +168,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
+        allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
             { 'ifname'    => 'eth0',
@@ -251,6 +254,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
+        allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
             { 'ifname'    => 'eth0',

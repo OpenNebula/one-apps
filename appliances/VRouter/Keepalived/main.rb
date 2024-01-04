@@ -122,6 +122,14 @@ module Keepalived
             <%- end -%>
         VRRP
 
+        # NOTE: Unfortunately one-context does not bring up NICs without IP
+        #       addresses assigned, this is exactly what happens with
+        #       "floating only" VIPs. We make sure here below, all such NICs
+        #       are up before we restart Keepalived.
+        keepalived_vars[:by_nic].each do |nic, opt|
+            ip_link_set_up(nic) if opt[:noip]
+        end
+
         # NOTE: It is important to restart keepalived at this point
         #       to properly re-send vrrp fifo updates to one-failover.
         #       Re-configure can be triggered by direct context changes
