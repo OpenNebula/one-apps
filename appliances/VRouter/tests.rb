@@ -163,6 +163,45 @@ RSpec.describe 'render_interface' do
     end
 end
 
+RSpec.describe 'nics_to_addrs' do
+    it 'should map nics to addrs' do
+        allow(self).to receive(:ip_addr_list).and_return([
+            { 'ifname'    => 'eth0',
+              'addr_info' => [ { 'family'    => 'inet',
+                                 'local'     => '10.0.1.1',
+                                 'prefixlen' => 24 },
+                               { 'family'    => 'inet',
+                                 'local'     => '10.0.1.2',
+                                 'prefixlen' => 24 } ] },
+
+            { 'ifname'    => 'eth1',
+              'addr_info' => [ { 'family'    => 'inet',
+                                 'local'     => '172.16.1.1',
+                                 'prefixlen' => 16 } ] },
+
+            { 'ifname'    => 'eth2',
+              'addr_info' => [ { 'family'    => 'inet',
+                                 'local'     => '172.18.1.1',
+                                 'prefixlen' => 24 } ] },
+
+            { 'ifname'    => 'eth3',
+              'addr_info' => [ { 'family'    => 'inet',
+                                 'local'     => '172.18.1.1',
+                                 'prefixlen' => 24 } ] }
+        ])
+        tests = [
+            [ %w[eth0], { 'eth0' => %w[10.0.1.1 10.0.1.2] } ],
+
+            [ %w[eth1 eth2 eth3], { 'eth1' => %w[172.16.1.1],
+                                    'eth2' => %w[172.18.1.1],
+                                    'eth3' => %w[172.18.1.1] } ]
+        ]
+        tests.each do |input, output|
+            expect(nics_to_addrs(input)).to eq output
+        end
+    end
+end
+
 RSpec.describe 'addrs_to_nics' do
     it 'should map addrs to nics' do
         allow(self).to receive(:ip_addr_list).and_return([
@@ -837,39 +876,36 @@ RSpec.describe 'backends.from_vms' do
     end
 end
 
-RSpec.describe 'backends.intersect' do
-    it 'should extract only common endpoints (host/port pairs)' do
+RSpec.describe 'backends.combine' do
+    it 'should filter + merge dynamic endpoints' do
         tests = [
-            [
+            [ # Add dynamic backend.
+                { by_endpoint: {},
+                  options:     { 0 => { ip: '10.2.11.86', port: '5432' } } },
+
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '5432'] =>
-                       { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
                   options: { 0 => { ip: '10.2.11.86', port: '5432' } } },
+
+                { by_endpoint: {
+                    [ 0, '10.2.11.86', '5432'] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
+                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } }
+            ],
+            [ # No change (LB0 IP / PORT mismatch).
+                { by_endpoint: {},
+                  options:     { 0 => { ip: '10.2.11.86', port: '5432' } } },
 
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '1111'] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
-                  options: { 0 => { ip: '10.2.11.86', port: '2345' } } },
+                  options: { 0 => { ip: '10.2.11.86', port: '1111' } } },
 
-                { by_endpoint: {}, options: {} }
+                { by_endpoint: {},
+                  options:     { 0 => { ip: '10.2.11.86', port: '5432' } } }
             ],
-            [
-                { by_endpoint: {
-                    [ 0, '10.2.11.86', '5432'] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
-                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } },
-
-                { by_endpoint: {
-                    [ 0, '10.2.11.86', '5432'] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
-                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } },
-
-                { by_endpoint: {
-                    [ 0, '10.2.11.86', '5432'] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
-                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } }
-            ],
-            [
+            [ # No change (dynamic is a subset of static).
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '5432'] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
@@ -885,10 +921,13 @@ RSpec.describe 'backends.intersect' do
 
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '5432'] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
+                    [ 1, '10.2.11.86', '1111'] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
-                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } }
+                  options: { 0 => { ip: '10.2.11.86', port: '5432' },
+                             1 => { ip: '10.2.11.86', port: '1111' } } },
             ],
-            [
+            [ # No change (LB1 is undefined).
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '5432'] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
@@ -905,48 +944,81 @@ RSpec.describe 'backends.intersect' do
                 { by_endpoint: {
                     [ 0, '10.2.11.86', '5432'] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
+                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } }
+            ],
+            [ # Add second backend.
+                { by_endpoint: {
+                    [ 0, '10.2.11.86', '5432'] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } } },
+                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } },
+
+                { by_endpoint: {
+                    [ 0, '10.2.11.86', '5432'] =>
+                        { [ '10.2.11.202', '1111' ] => { host: '10.2.11.202', port: '1111' } } },
+                  options: { 0 => { ip: '10.2.11.86', port: '5432' } } },
+
+                { by_endpoint: {
+                    [ 0, '10.2.11.86', '5432'] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' },
+                          [ '10.2.11.202', '1111' ] => { host: '10.2.11.202', port: '1111' } } },
                   options: { 0 => { ip: '10.2.11.86', port: '5432' } } }
             ]
         ]
-        tests.each do |a, b, output|
-            expect(backends.intersect(a, b)).to eq output
+        tests.each do |static, dynamic, output|
+            expect(backends.combine(static, dynamic)).to eq output
         end
     end
 end
 
 RSpec.describe 'backends.resolve_vips' do
-    it 'should replace vip placeholders with existing vip ip addresses' do
+    it 'should replace (v)ip placeholders with existing (v)ip addresses' do
         tests = [
             [
                 { 'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4',
                               'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5' },
                   'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' } },
 
-                { by_endpoint: {
-                    [ 0, '<ONEAPP_VROUTER_ETH0_VIP1>', '5432'] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-                    [ 1, '<ONEAPP_VROUTER_ETH1_VIP0>', '5432'] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-                    [ 2, '4.5.6.7', '1111'] =>
-                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } } },
-                  options: { 0 => { ip: '<ONEAPP_VROUTER_ETH0_VIP1>', port: '5432' },
-                             1 => { ip: '<ONEAPP_VROUTER_ETH1_VIP0>', port: '5432' },
-                             2 => { ip: '4.5.6.7', port: '1111' } } },
+                { 'eth1' => %w[1.1.1.1 4.5.6.7 8.8.8.8] },
 
                 { by_endpoint: {
-                    [ 0, '2.3.4.5', '5432'] =>
+                    [ 0, '<ONEAPP_VROUTER_ETH0_VIP1>', '5432' ] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-                    [ 1, '3.4.5.6', '5432'] =>
+
+                    [ 1, '<ONEAPP_VROUTER_ETH1_VIP0>', '5432' ] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-                    [ 2, '4.5.6.7', '1111'] =>
-                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } } },
+
+                    [ 2, '<ETH1_IP1>', '1111' ] =>
+                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } },
+
+                    [ 3, '5.6.7.8', '3333' ] =>
+                        { [ '10.2.11.204', '4444' ] => { host: '10.2.11.204', port: '4444' } } },
+
+                  options: { 0 => { ip: '<ONEAPP_VROUTER_ETH0_VIP1>', port: '5432' },
+                             1 => { ip: '<ONEAPP_VROUTER_ETH1_VIP0>', port: '5432' },
+                             2 => { ip: '<ETH1_IP1>', port: '1111' },
+                             3 => { ip: '5.6.7.8', port: '3333' } } },
+
+                { by_endpoint: {
+                    [ 0, '2.3.4.5', '5432' ] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
+
+                    [ 1, '3.4.5.6', '5432' ] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
+
+                    [ 2, '4.5.6.7', '1111' ] =>
+                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } },
+
+                    [ 3, '5.6.7.8', '3333' ] =>
+                        { [ '10.2.11.204', '4444' ] => { host: '10.2.11.204', port: '4444' } } },
+
                   options: { 0 => { ip: '2.3.4.5', port: '5432' },
                              1 => { ip: '3.4.5.6', port: '5432' },
-                             2 => { ip: '4.5.6.7', port: '1111' } } }
+                             2 => { ip: '4.5.6.7', port: '1111' },
+                             3 => { ip: '5.6.7.8', port: '3333' } } }
             ]
         ]
-        tests.each do |vips, b, output|
-            expect(backends.resolve_vips(b, vips)).to eq output
+        tests.each do |vips, n2a, b, output|
+            expect(backends.resolve_vips(b, vips, n2a)).to eq output
         end
     end
 end

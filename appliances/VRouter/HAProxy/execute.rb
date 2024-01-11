@@ -10,22 +10,26 @@ module HAProxy
     VROUTER_ID = env :VROUTER_ID, nil
 
     def extract_backends(objects = {})
+        @vips ||= detect_vips
+        @n2a  ||= nics_to_addrs family: %w[inet]
+
         static = backends.from_env(prefix: 'ONEAPP_VNF_HAPROXY_LB')
 
         dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB')
                                   : backends.from_vnets(objects, prefix: 'ONEGATE_HAPROXY_LB')
 
-        # NOTE: This ensures that backends can be added dynamically only to statically defined LBs.
-        merged = hashmap.combine static, backends.intersect(static, dynamic)
+        # Replace all "<ONEAPP_VROUTER_ETHx_VIPy>" and "<ETHx_IPy>" placeholders where possible.
+        static  = backends.resolve_vips  static, @vips, @n2a
+        dynamic = backends.resolve_vips dynamic, @vips, @n2a
 
-        # Replace all "<ONEAPP_VROUTER_ETHx_VIPy>" placeholders where possible.
-        backends.resolve_vips merged
+        # NOTE: This ensures that backends can be added dynamically only to statically defined LBs.
+        backends.combine static, dynamic
     end
 
     def render_servers_cfg(haproxy_vars, basedir: '/etc/haproxy')
         @interfaces ||= parse_interfaces ONEAPP_VNF_HAPROXY_INTERFACES
         @mgmt       ||= detect_mgmt_interfaces
-        @addrs      ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %[inet]).keys
+        @addrs      ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %w[inet]).keys
 
         file "#{basedir}/servers.cfg", ERB.new(<<~SERVERS, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- haproxy_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
