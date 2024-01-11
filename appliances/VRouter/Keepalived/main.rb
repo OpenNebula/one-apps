@@ -20,7 +20,7 @@ module Keepalived
 
     ONEAPP_VNF_KEEPALIVED_INTERFACES = env :ONEAPP_VNF_KEEPALIVED_INTERFACES, '' # nil -> none, empty -> all
 
-    def parse_env
+    def parse_env(default_vrid = ONEAPP_VNF_KEEPALIVED_VRID)
         @interfaces ||= parse_interfaces ONEAPP_VNF_KEEPALIVED_INTERFACES
         @mgmt       ||= detect_mgmt_interfaces
         @nics       ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %[inet]).values.flatten.uniq
@@ -32,7 +32,7 @@ module Keepalived
                 password:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PASSWORD", ONEAPP_VNF_KEEPALIVED_PASSWORD),
                 interval:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_INTERVAL", ONEAPP_VNF_KEEPALIVED_INTERVAL),
                 priority:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PRIORITY", ONEAPP_VNF_KEEPALIVED_PRIORITY),
-                vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID",     ONEAPP_VNF_KEEPALIVED_VRID),
+                vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID",     default_vrid),
                 vips:       @vips[nic]&.values || [],
                 noip:       !@nics.include?(nic),
                 gw:         env("#{nic.upcase}_GATEWAY", ''),
@@ -71,7 +71,15 @@ module Keepalived
             }
         GLOBAL
 
-        keepalived_vars = parse_env
+        # NOTE: When running inside OneFlow we construct VRID out of the service's ID.
+        #       To *completely* avoid possible conflicts, deploy each OneFlow service in an isolated VNET.
+        default_vrid = if ONEAPP_VNF_KEEPALIVED_VRID.nil? && !(svcid = onegate_service_show&.dig('SERVICE', 'id')).nil?
+            svcid.to_i % 255 + 1
+        else
+            ONEAPP_VNF_KEEPALIVED_VRID
+        end
+
+        keepalived_vars = parse_env default_vrid
 
         file "#{basedir}/conf.d/vrrp.conf", ERB.new(<<~VRRP, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- unless keepalived_vars[:by_vrid].nil? || keepalived_vars[:by_vrid].empty? -%>

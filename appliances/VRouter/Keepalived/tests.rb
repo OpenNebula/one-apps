@@ -168,6 +168,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
+        allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
@@ -254,6 +255,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
+        allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
