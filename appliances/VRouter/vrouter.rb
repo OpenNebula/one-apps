@@ -128,6 +128,24 @@ def render_interface(parts, name: false, addr: true, port: true)
     tmp.join
 end
 
+def nics_to_addrs(interfaces = detect_nics, family: %w[inet inet6])
+    ip_addr_list.each_with_object({}) do |addr, acc|
+        next if addr['ifname'].nil?
+        next unless interfaces.include?(addr['ifname'])
+
+        next if addr['addr_info'].nil?
+
+        addr['addr_info'].each do |info|
+            next if info['family'].nil?
+            next unless family.include?(info['family'].downcase)
+
+            next if info['local'].nil?
+
+            (acc[addr['ifname']] ||= []) << info['local']
+        end
+    end
+end
+
 def addrs_to_nics(interfaces = detect_nics, family: %w[inet inet6])
     ip_addr_list.each_with_object({}) do |addr, acc|
         next if addr['ifname'].nil?
@@ -366,42 +384,45 @@ def backends
         end
     end
 
-    def intersect(a, b)
-        a[:by_endpoint] ||= {}
-        a[:options]     ||= {}
+    def combine(static, dynamic)
+        keys = static[:options].to_h.map { |lb_idx, opt| [lb_idx, opt[:ip], opt[:port]] }
 
-        b[:by_endpoint] ||= {}
-        b[:options]     ||= {}
-
-        a_keys = a[:options].map { |lb_idx, opt| [lb_idx, opt[:ip], opt[:port]] }
-        b_keys = b[:options].map { |lb_idx, opt| [lb_idx, opt[:ip], opt[:port]] }
-
-        keys = a_keys.intersection(b_keys)
-
-        { by_endpoint: b[:by_endpoint].slice(*keys),
-          options:     b[:options].slice(*keys.map { |key| key[0] }) }
+        { by_endpoint: hashmap.combine(static[:by_endpoint].to_h, dynamic[:by_endpoint].to_h.slice(*keys)),
+          options:     static[:options].to_h }
     end
 
-    def resolve_vips(a, vips = detect_vips)
+    def resolve_vips(a, vips = detect_vips, n2a = nics_to_addrs)
         vips = vips.values.each_with_object({}) do |h, acc|
             hashmap.combine! acc, h
         end
 
-        def interpolate(ip, vips)
-            if ip =~ /^<([A-Z_0-9]+)>$/ && !vips[$1].nil?
-                vips[$1].split('/')[0] # remove the CIDR prefix if present
+        def interpolate(ip, vips, n2a)
+            case ip
+            when /^<(ONEAPP_VROUTER_ETH\d+_VIP\d+)>$/
+                unless (vip = vips[$1]).nil?
+                    vip.split('/')[0] # remove the CIDR prefix if present
+                else
+                    ip
+                end
+            when /^<ETH(\d+)_IP(\d+)>$/ # arbitrary NIC / IP pair
+                unless (addr = n2a.dig("eth#{$1}", $2.to_i)).nil?
+                    addr
+                else
+                    ip
+                end
             else
                 ip
             end
         end
 
         {
-            by_endpoint: a[:by_endpoint].to_h do |(lb_idx, ip, port), v|
-                [ [lb_idx, interpolate(ip, vips), port], v ]
+            by_endpoint: a[:by_endpoint].to_h.each_with_object({}) do |((lb_idx, ip, port), v), acc|
+                k = [lb_idx, interpolate(ip, vips, n2a), port]
+                hashmap.combine! acc, { k => v }
             end,
 
             options: a[:options].to_h do |lb_idx, v|
-                v[:ip] = interpolate(v[:ip], vips)
+                v[:ip] = interpolate(v[:ip], vips, n2a)
                 [ lb_idx, v ]
             end
         }
