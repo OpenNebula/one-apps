@@ -83,8 +83,6 @@ module SDNAT4
                 puts bash 'rc-update -u'
             when :start
                 puts bash 'rc-service iptables start'
-            when :stop
-                puts bash 'rc-service iptables stop'
             else
                 puts bash "rc-service one-sdnat4 #{op.to_s}"
             end

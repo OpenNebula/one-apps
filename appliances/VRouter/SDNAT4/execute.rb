@@ -141,7 +141,7 @@ module SDNAT4
             bash "ip address del #{a['local']}/32 dev lo label SDNAT4"
         end
 
-        toggle [:save, :reload, :stop]
+        toggle [:save, :reload]
     end
 end
 end
