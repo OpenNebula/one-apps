@@ -54,6 +54,7 @@ module LVS
         unless ONEAPP_VNF_LB_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:disable, :reload]
+            return
         end
     end
 

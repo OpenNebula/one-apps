@@ -45,12 +45,13 @@ module NAT4
     def configure
         msg :info, 'NAT4::configure'
 
-        if ONEAPP_VNF_NAT4_ENABLED
-            toggle [:save]
-        else
+        unless ONEAPP_VNF_NAT4_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
+
+        toggle [:save]
     end
 
     def execute

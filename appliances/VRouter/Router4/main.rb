@@ -50,6 +50,7 @@ module Router4
         unless ONEAPP_VNF_ROUTER4_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
     end
 
