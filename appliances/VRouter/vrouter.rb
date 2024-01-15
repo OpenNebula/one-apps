@@ -41,22 +41,26 @@ def detect_mgmt_nics
     end
 end
 
+def append_pfxlen(eth_index, ip)
+    return ip if ip =~ %r{/[^/]+$} # nothing to do
+
+    return ip if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
+
+    pfxlen = IPAddr.new("#{ip}/#{mask}").prefix
+
+    return "#{ip}/#{pfxlen}"
+end
+
 def detect_vips
-    def append_mask(eth_index, v)
-        return v if v =~ %r{/([^/]+)$} # nothing to do
-        return v if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
-        cidr = IPAddr.new(mask).to_i.to_s(2).count(%[1])
-        return "#{v}/#{cidr}"
-    end
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
         when %r{^ETH(\d+)_VROUTER_IP$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_mask($1, v)
+            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_pfxlen($1, v)
         when %r{^ONEAPP_VROUTER_ETH(\d+)_VIP\d+$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"][name] = append_mask($1, v)
+            acc["eth#{$1}"][name] = append_pfxlen($1, v)
         end
     end
 end
@@ -64,7 +68,7 @@ end
 def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
     return {} if interfaces.nil?
 
-    addrs = nil
+    vips, addrs = nil, nil
 
     excluded, included = [], []
 
@@ -91,14 +95,42 @@ def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
                 end
             end
 
-            if parts[:name].nil?
-                next if parts[:addr].nil?
-
-                addrs ||= addrs_to_nics
-                parts[:name] = addrs[parts[:addr].downcase]&.first
+            # Check if the NIC has been defined explicitly.
+            unless (nic = parts[:name]).nil?
+                acc[nic] ||= []
+                acc[nic] << parts
+                next
             end
 
-            acc[parts[:name]] = parts
+            next if parts[:addr].nil?
+
+            # Try to find any IPs in the OS (and infer NIC names).
+            addrs ||= addrs_to_nics
+            unless (nics = addrs[parts[:addr].downcase]).nil?
+                nics.each do |nic|
+                    parts[:name] = nic
+                    acc[nic] ||= []
+                    acc[nic] << parts.dup
+                end
+                next
+            end
+
+            # Try to find any VIPs in context vars (and infer NIC names).
+            vips ||= detect_vips.each_with_object({}) do |(nic, h), acc|
+                h.each do |_, vip|
+                    vip = vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
+                    acc[vip] ||= []
+                    acc[vip] << nic
+                end
+            end
+            unless (nics = vips[parts[:addr].downcase]).nil?
+                nics.each do |nic|
+                    parts[:name] = nic
+                    acc[nic] ||= []
+                    acc[nic] << parts.dup
+                end
+                next
+            end
         end
     end
 
@@ -161,15 +193,31 @@ def addrs_to_subnets(nics = detect_nics)
     end
 end
 
+def vips_to_subnets(nics = detect_nics, vips = detect_vips)
+    vips.each_with_object({}) do |(nic, h), acc|
+        next unless nics.include?(nic)
+        h.each do |_, vip|
+            eth_index = nic.delete_prefix('eth')
+            key       = append_pfxlen(eth_index, vip)
+            subnet    = IPAddr.new(key)
+            acc[key]  = %[#{subnet}/#{subnet.prefix}]
+        end
+    end
+end
+
 def subnets_to_ranges(subnets = addrs_to_subnets.values)
     subnets.each_with_object({}) do |subnet, acc|
         addr  = IPAddr.new(subnet)
         range = addr.to_range
+
+        first, last = range.first.to_i, range.last.to_i
+        next unless last - first > 3
+
         acc[subnet] = [
             # Skip the network and the first usable address.
-            IPAddr.new(range.first.to_i + 2, addr.family).to_s,
+            IPAddr.new(first + 2, addr.family).to_s,
             # Skip the last address (broadcast).
-            IPAddr.new(range.last.to_i - 1, addr.family).to_s
+            IPAddr.new(last - 1, addr.family).to_s
         ].join('-')
     end
 end
@@ -375,7 +423,7 @@ def backends
             case ip
             when /^<(ONEAPP_VROUTER_ETH\d+_VIP\d+)>$/
                 unless (vip = vips[$1]).nil?
-                    vip.split('/')[0] # remove the CIDR prefix if present
+                    vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
                 else
                     ip
                 end
