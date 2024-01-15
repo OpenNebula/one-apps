@@ -120,7 +120,7 @@ module Keepalived
                 virtual_routes {
             <%- nics.each do |_, opt| -%>
             <%- if opt[:gw_default] -%>
-                    0.0.0.0/0 gw <%= opt[:gw] %>
+                    0.0.0.0/0 via <%= opt[:gw] %>
             <%- end -%>
             <%- end -%>
                 }<%- -%>

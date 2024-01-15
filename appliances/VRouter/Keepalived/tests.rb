@@ -188,7 +188,7 @@ RSpec.describe self do
                     10.2.31.86 dev eth1
                 }
                 virtual_routes {
-                    0.0.0.0/0 gw 10.2.30.1
+                    0.0.0.0/0 via 10.2.30.1
                 }
             }
             vrrp_instance ETH3 {
