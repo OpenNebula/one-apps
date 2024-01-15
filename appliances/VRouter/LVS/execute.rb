@@ -35,6 +35,7 @@ module LVS
             <%- lvs_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
             <%- if @addrs.include?(ip) -%>
             virtual_server <%= ip %> <%= port %> {
+                delay_loop 6
                 <%- unless lvs_vars[:options][lb_idx][:scheduler].nil? -%>
                 lb_algo <%= lvs_vars[:options][lb_idx][:scheduler] %>
                 <%- end -%>
@@ -56,9 +57,16 @@ module LVS
                     <%- unless s[:llimit].nil? -%>
                     lthreshold <%= s[:llimit] %>
                     <%- end -%>
+                    <%- if lvs_vars[:options][lb_idx][:protocol].upcase == 'TCP' -%>
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port <%= s[:port] %>
+                    }
+                    <%- else -%>
                     PING_CHECK {
                         retry 4
                     }
+                    <%- end -%>
                 }
             <%- end -%>
             }

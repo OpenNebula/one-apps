@@ -183,34 +183,40 @@ RSpec.describe self do
 
         output = <<~STATIC
             virtual_server 10.2.10.69 1234 {
+                delay_loop 6
                 lb_algo rr
                 lb_kind DR
                 protocol TCP
 
                 real_server 10.2.100.10 12345 {
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 12345
                     }
                 }
                 real_server 10.2.100.20 12345 {
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 12345
                     }
                 }
             }
             virtual_server 10.2.20.69 4321 {
+                delay_loop 6
                 lb_algo rr
                 lb_kind DR
                 protocol TCP
 
                 real_server 10.2.200.10 54321 {
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 54321
                     }
                 }
                 real_server 10.2.200.20 54321 {
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 54321
                     }
                 }
             }
@@ -341,44 +347,51 @@ RSpec.describe self do
 
         output = <<~'DYNAMIC'
             virtual_server 10.2.11.86 6969 {
+                delay_loop 6
                 lb_algo rr
                 lb_kind DR
                 protocol TCP
 
                 real_server 10.2.11.200 6969 {
                     weight 1
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 6969
                     }
                 }
                 real_server 10.2.11.201 6969 {
                     weight 2
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 6969
                     }
                 }
                 real_server 10.2.11.202 6969 {
                     weight 3
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 6969
                     }
                 }
             }
             virtual_server 10.2.11.86 8686 {
+                delay_loop 6
                 lb_algo rr
                 lb_kind DR
                 protocol TCP
 
                 real_server 10.2.11.201 8686 {
                     weight 2
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8686
                     }
                 }
                 real_server 10.2.11.200 8686 {
                     weight 1
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8686
                     }
                 }
             }
@@ -507,20 +520,23 @@ RSpec.describe self do
 
         output = <<~'DYNAMIC'
             virtual_server 10.2.11.86 5432 {
+                delay_loop 6
                 lb_algo rr
                 lb_kind DR
                 protocol TCP
 
                 real_server 10.2.11.202 2345 {
                     weight 1
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 2345
                     }
                 }
                 real_server 10.2.11.203 2345 {
                     weight 2
-                    PING_CHECK {
-                        retry 4
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 2345
                     }
                 }
             }
