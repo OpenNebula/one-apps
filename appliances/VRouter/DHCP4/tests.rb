@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
 require 'rspec'
+require 'tmpdir'
 
 def clear_env
-    ENV.delete_if { |name| name.include?('VROUTER_') || name.include?('_VNF_') }
+    ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
 def clear_vars(object)
@@ -25,7 +26,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_DHCP4_GATEWAY'] = '1.2.3.4'
         ENV['ONEAPP_VNF_DHCP4_DNS'] = '1.1.1.1'
 
-        ENV['ONEAPP_VNF_DHCP4_INTERFACES'] = 'lo/127.0.0.1 eth0 eth1 eth2 eth3'
+        ENV['ONEAPP_VNF_DHCP4_INTERFACES'] = 'eth0 eth1 eth2 eth3'
         ENV['ETH0_VROUTER_MANAGEMENT'] = 'YES'
 
         ENV['ONEAPP_VNF_DHCP4_ETH2'] = '30.0.0.0/8:30.40.50.64-30.40.50.68'
@@ -35,77 +36,208 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_DHCP4_ETH3_GATEWAY'] = '40.50.60.1'
         ENV['ONEAPP_VNF_DHCP4_ETH3_DNS'] = '8.8.4.4'
 
+        ENV['ETH0_IP'] = '10.20.30.40'
+        ENV['ETH0_MASK'] = '255.255.255.0'
+
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        ENV['ETH1_ALIAS0_IP'] = '5.6.7.8' # ignored (unsupported)
+        ENV['ETH1_ALIAS0_MASK'] = '255.255.255.0' # ignored (unsupported)
+
+        ENV['ETH2_IP'] = '30.40.50.60'
+        ENV['ETH2_MASK'] = '255.0.0.0'
+
+        ENV['ETH3_IP'] = '40.50.60.70'
+        ENV['ETH3_MASK'] = '255.255.255.0'
+
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '20.30.40.55'
+        ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '1.2.3.4' # ignored (not in the subnet)
+
         load './main.rb'; include Service::DHCP4
-
-        allow(Service::DHCP4).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'lo',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '127.0.0.1',
-                                 'prefixlen' => 8 } ] },
-
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.20.30.40',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '20.30.40.50',
-                                 'prefixlen' => 16 } ] },
-
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '30.40.50.60',
-                                 'prefixlen' => 8 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '40.50.60.70',
-                                 'prefixlen' => 24 } ] },
-        ])
 
         allow(Service::DHCP4).to receive(:ip_link_show).and_return(
             { 'mtu' => 1111 },
             { 'mtu' => 2222 },
-            { 'mtu' => 3333 },
-            { 'mtu' => 4444 },
+            { 'mtu' => 3333 }
         )
 
         clear_vars Service::DHCP4
 
         expect(Service::DHCP4.parse_env).to eq ({
-            'lo' => {
-                address: '127.0.0.1',
-                dns:     '1.1.1.1',
-                gateway: '1.2.3.4',
-                mtu:     1111,
-                range:   '127.0.0.2-127.255.255.254',
-                subnet:  '127.0.0.0/8',
-            },
-            'eth1' => {
-                address: '20.30.40.50',
-                dns:     '1.1.1.1',
-                gateway: '1.2.3.4',
-                mtu:     2222,
-                range:   '20.30.0.2-20.30.255.254',
-                subnet:  '20.30.0.0/16',
-            },
-            'eth2' => {
-                address: '30.40.50.60',
-                dns:     '8.8.8.8',
-                gateway: '30.40.50.1',
-                mtu:     3333,
-                range:   '30.40.50.64-30.40.50.68',
-                subnet:  '30.0.0.0/8',
-            },
-            'eth3' => {
-                address: '40.50.60.70',
-                dns:     '8.8.4.4',
-                gateway: '40.50.60.1',
-                mtu:     4444,
-                range:   '40.50.60.2-40.50.60.254',
-                subnet:  '40.50.60.0/24',
-            },
+            'eth1' => [ { address: '20.30.40.50',
+                          dns:     '1.1.1.1',
+                          gateway: '1.2.3.4',
+                          mtu:     1111,
+                          range:   '20.30.0.2-20.30.255.254',
+                          subnet:  '20.30.0.0/16',
+                          vips:    %w[20.30.40.55] } ],
+
+            'eth2' => [ { address: '30.40.50.60',
+                          dns:     '8.8.8.8',
+                          gateway: '30.40.50.1',
+                          mtu:     2222,
+                          range:   '30.40.50.64-30.40.50.68',
+                          subnet:  '30.0.0.0/8',
+                          vips:    %w[] } ],
+
+            'eth3' => [ { address: '40.50.60.70',
+                          dns:     '8.8.4.4',
+                          gateway: '40.50.60.1',
+                          mtu:     3333,
+                          range:   '40.50.60.2-40.50.60.254',
+                          subnet:  '40.50.60.0/24',
+                          vips:    %w[] } ]
         })
+
+        output = <<~'KEA_DHCP4_CONF'
+            {
+              "Dhcp4": {
+                "interfaces-config": {
+                  "interfaces": [
+                    "eth1",
+                    "eth2",
+                    "eth3"
+                  ]
+                },
+                "authoritative": true,
+                "option-data": [
+
+                ],
+                "subnet4": [
+                  {
+                    "subnet": "20.30.0.0/16",
+                    "pools": [
+                      {
+                        "pool": "20.30.0.2-20.30.255.254"
+                      }
+                    ],
+                    "option-data": [
+                      {
+                        "name": "routers",
+                        "data": "1.2.3.4"
+                      },
+                      {
+                        "name": "domain-name-servers",
+                        "data": "1.1.1.1"
+                      },
+                      {
+                        "name": "interface-mtu",
+                        "data": "3333"
+                      }
+                    ],
+                    "reservations": [
+                      {
+                        "flex-id": "'DO-NOT-LEASE-20.30.40.50'",
+                        "ip-address": "20.30.40.50"
+                      },
+                      {
+                        "flex-id": "'DO-NOT-LEASE-20.30.40.55'",
+                        "ip-address": "20.30.40.55"
+                      }
+                    ],
+                    "reservation-mode": "all"
+                  },
+                  {
+                    "subnet": "30.0.0.0/8",
+                    "pools": [
+                      {
+                        "pool": "30.40.50.64-30.40.50.68"
+                      }
+                    ],
+                    "option-data": [
+                      {
+                        "name": "routers",
+                        "data": "30.40.50.1"
+                      },
+                      {
+                        "name": "domain-name-servers",
+                        "data": "8.8.8.8"
+                      },
+                      {
+                        "name": "interface-mtu",
+                        "data": "3333"
+                      }
+                    ],
+                    "reservations": [
+                      {
+                        "flex-id": "'DO-NOT-LEASE-30.40.50.60'",
+                        "ip-address": "30.40.50.60"
+                      }
+                    ],
+                    "reservation-mode": "all"
+                  },
+                  {
+                    "subnet": "40.50.60.0/24",
+                    "pools": [
+                      {
+                        "pool": "40.50.60.2-40.50.60.254"
+                      }
+                    ],
+                    "option-data": [
+                      {
+                        "name": "routers",
+                        "data": "40.50.60.1"
+                      },
+                      {
+                        "name": "domain-name-servers",
+                        "data": "8.8.4.4"
+                      },
+                      {
+                        "name": "interface-mtu",
+                        "data": "3333"
+                      }
+                    ],
+                    "reservations": [
+                      {
+                        "flex-id": "'DO-NOT-LEASE-40.50.60.70'",
+                        "ip-address": "40.50.60.70"
+                      }
+                    ],
+                    "reservation-mode": "all"
+                  }
+                ],
+                "lease-database": {
+                  "type": "memfile",
+                  "persist": true,
+                  "lfc-interval": 7200
+                },
+                "sanity-checks": {
+                  "lease-checks": "fix-del"
+                },
+                "valid-lifetime": 3600,
+                "calculate-tee-times": true,
+                "loggers": [
+                  {
+                    "name": "kea-dhcp4",
+                    "output_options": [
+                      {
+                        "output": "/var/log/kea/kea-dhcp4.log"
+                      }
+                    ],
+                    "severity": "INFO",
+                    "debuglevel": 0
+                  }
+                ],
+                "hooks-libraries": [
+                  {
+                    "library": "/usr/lib/kea/hooks/libkea-onelease-dhcp4.so",
+                    "parameters": {
+                      "enabled": true,
+                      "byte-prefix": "02:00",
+                      "logger-name": "onelease-dhcp4",
+                      "debug": false,
+                      "debug-logfile": "/var/log/kea/onelease-dhcp4-debug.log"
+                    }
+                  }
+                ]
+              }
+            }
+        KEA_DHCP4_CONF
+        Dir.mktmpdir do |dir|
+            Service::DHCP4.configure basedir: dir, owner: nil, group: nil
+            result = File.read "#{dir}/kea-dhcp4.conf"
+            expect(result.strip).to eq output.strip
+        end
     end
 end

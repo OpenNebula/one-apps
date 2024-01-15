@@ -45,12 +45,13 @@ module NAT4
     def configure
         msg :info, 'NAT4::configure'
 
-        if ONEAPP_VNF_NAT4_ENABLED
-            toggle [:save]
-        else
+        unless ONEAPP_VNF_NAT4_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
+
+        toggle [:save]
     end
 
     def execute
@@ -63,7 +64,7 @@ module NAT4
         IPTABLES
 
         interfaces_out = parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
-        mgmt           = detect_mgmt_interfaces
+        mgmt           = detect_mgmt_nics
         interfaces     = interfaces_out.keys - mgmt
 
         unless interfaces.empty?
@@ -85,7 +86,7 @@ module NAT4
         # Clear dedicated NAT4 chain.
         bash 'iptables -t nat -F NAT4'
 
-        toggle [:save, :reload, :stop]
+        toggle [:save, :reload]
     end
 
     def toggle(operations)
@@ -102,8 +103,6 @@ module NAT4
                 puts bash 'rc-update -u'
             when :start
                 puts bash 'rc-service iptables start'
-            when :stop
-                puts bash 'rc-service iptables stop'
             else
                 puts bash "rc-service one-nat4 #{op.to_s}"
             end

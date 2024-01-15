@@ -5,16 +5,18 @@ require 'rspec'
 require_relative 'vrouter.rb'
 
 def clear_env
-    ENV.delete_if { |name| name.include?('VROUTER_') || name.include?('_VNF_') }
+    ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
 RSpec.describe 'detect_vips' do
     it 'should parse legacy variables' do
         clear_env
+
         ENV['ETH0_MASK']                = '255.255.0.0'
         ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
         ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5/24'
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
+
         expect(detect_vips).to eq ({
             'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4/16',
                         'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5/24' },
@@ -24,10 +26,12 @@ RSpec.describe 'detect_vips' do
 
     it 'should parse legacy variables with lower precedence' do
         clear_env
+
         ENV['ETH0_MASK']                = '255.255.0.0'
         ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
         ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '2.3.4.5/24'
         ENV['ETH1_VROUTER_IP']          = '3.4.5.6'
+
         expect(detect_vips).to eq ({
             'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '2.3.4.5/24' },
             'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' }
@@ -49,41 +53,49 @@ RSpec.describe 'parse_interfaces' do
         ])
         allow(self).to receive(:addrs_to_nics).and_return({
             '10.0.0.1' => ['eth0', 'eth2'],
-            '10.0.1.1' => ['eth1']
+            '10.0.1.1' => ['eth1'],
+            '10.0.1.2' => ['eth1']
         })
         tests = [
-            [ 'eth7/10.0.0.7 10.0.1.1@53', { 'eth1' => { name: 'eth1', addr: '10.0.1.1', port: '53' },
-                                             'eth7' => { name: 'eth7', addr: '10.0.0.7', port: nil  } } ],
+            [ '10.0.0.1', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: nil } ],
+                            'eth2' => [ { name: 'eth2', addr: '10.0.0.1', port: nil } ] } ],
 
-            [ '10.0.1.1@53', { 'eth1' => { name: 'eth1', addr: '10.0.1.1', port: '53' } } ],
+            [ '10.0.0.1@53', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: '53' } ],
+                               'eth2' => [ { name: 'eth2', addr: '10.0.0.1', port: '53' } ] } ],
 
-            [ '10.0.0.1', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: nil } } ],
+            [ 'eth0/10.0.0.1', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: nil } ] } ],
 
-            [ 'eth0/10.0.0.1@53 eth1/10.0.1.1@53', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: '53' },
-                                                     'eth1' => { name: 'eth1', addr: '10.0.1.1', port: '53' } } ],
+            [ 'eth0/10.0.0.1@53', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: '53' } ] } ],
 
-            [ 'eth0/10.0.0.1 eth1/10.0.1.1', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: nil },
-                                               'eth1' => { name: 'eth1', addr: '10.0.1.1', port: nil } } ],
+            [ '10.0.1.1@53 10.0.1.2@53', { 'eth1' => [ { name: 'eth1', addr: '10.0.1.1', port: '53' },
+                                                       { name: 'eth1', addr: '10.0.1.2', port: '53' } ] } ],
 
-            [ 'eth0 eth1,eth2;eth3', { 'eth0' => { name: 'eth0', addr: nil, port: nil },
-                                       'eth1' => { name: 'eth1', addr: nil, port: nil },
-                                       'eth2' => { name: 'eth2', addr: nil, port: nil },
-                                       'eth3' => { name: 'eth3', addr: nil, port: nil } } ],
+            [ 'eth7/10.0.0.7 10.0.1.1@53', { 'eth1' => [ { name: 'eth1', addr: '10.0.1.1', port: '53' } ],
+                                             'eth7' => [ { name: 'eth7', addr: '10.0.0.7', port: nil  } ] } ],
 
-            [ 'eth0/10.0.0.1@53', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: '53' } } ],
+            [ 'eth0/10.0.0.1@53 eth1/10.0.1.1@53', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: '53' } ],
+                                                     'eth1' => [ { name: 'eth1', addr: '10.0.1.1', port: '53' } ] } ],
 
-            [ 'eth0/10.0.0.1@', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: nil } } ],
+            [ 'eth0/10.0.0.1 eth1/10.0.1.1', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: nil } ],
+                                               'eth1' => [ { name: 'eth1', addr: '10.0.1.1', port: nil } ] } ],
 
-            [ 'eth0/10.0.0.1', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: nil } } ],
+            [ 'eth0 eth1,eth2;eth3', { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ],
+                                       'eth1' => [ { name: 'eth1', addr: nil, port: nil } ],
+                                       'eth2' => [ { name: 'eth2', addr: nil, port: nil } ],
+                                       'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ],
 
-            [ 'eth0/', { 'eth0' => { name: 'eth0', addr: nil, port: nil } } ],
+            [ 'eth0/10.0.0.1@', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: nil } ] } ],
 
-            [ 'eth0', { 'eth0' => { name: 'eth0', addr: nil, port: nil } } ],
+            [ 'eth0/10.0.0.1', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: nil } ] } ],
 
-            [ '', { 'eth0' => { name: 'eth0', addr: nil, port: nil },
-                    'eth1' => { name: 'eth1', addr: nil, port: nil },
-                    'eth2' => { name: 'eth2', addr: nil, port: nil },
-                    'eth3' => { name: 'eth3', addr: nil, port: nil } } ]
+            [ 'eth0/', { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ] } ],
+
+            [ 'eth0', { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ] } ],
+
+            [ '', { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ],
+                    'eth1' => [ { name: 'eth1', addr: nil, port: nil } ],
+                    'eth2' => [ { name: 'eth2', addr: nil, port: nil } ],
+                    'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ]
         ]
         tests.each do |input, output|
             expect(parse_interfaces(input)).to eq output
@@ -102,24 +114,24 @@ RSpec.describe 'parse_interfaces' do
             '10.0.1.1' => ['eth1']
         })
         tests = [
-            [ 'eth0/10.0.0.1@53 eth1 eth2 !10.0.1.1', { 'eth0' => { name: 'eth0', addr: '10.0.0.1', port: '53' },
-                                                        'eth2' => { name: 'eth2', addr:        nil, port:  nil } } ],
+            [ 'eth0/10.0.0.1@53 eth1 eth2 !10.0.1.1', { 'eth0' => [ { name: 'eth0', addr: '10.0.0.1', port: '53' } ],
+                                                        'eth2' => [ { name: 'eth2', addr:        nil, port:  nil } ] } ],
 
-            [ '!eth1 10.0.1.1@53 eth3', { 'eth3' => { name: 'eth3', addr: nil, port: nil } } ],
+            [ '!eth1 10.0.1.1@53 eth3', { 'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ],
 
-            [ '10.0.1.1@53 eth3', { 'eth1' => { name: 'eth1', addr: '10.0.1.1', port: '53' },
-                                    'eth3' => { name: 'eth3', addr:        nil, port:  nil } } ],
+            [ '10.0.1.1@53 eth3', { 'eth1' => [ { name: 'eth1', addr: '10.0.1.1', port: '53' } ],
+                                    'eth3' => [ { name: 'eth3', addr:        nil, port:  nil } ] } ],
 
-            [ '!10.0.1.1', { 'eth0' => { name: 'eth0', addr: nil, port: nil },
-                             'eth2' => { name: 'eth2', addr: nil, port: nil },
-                             'eth3' => { name: 'eth3', addr: nil, port: nil } } ],
+            [ '!10.0.1.1', { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ],
+                             'eth2' => [ { name: 'eth2', addr: nil, port: nil } ],
+                             'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ],
 
-            [ '!eth0 !eth2', { 'eth1' => { name: 'eth1', addr: nil, port: nil },
-                               'eth3' => { name: 'eth3', addr: nil, port: nil } } ],
+            [ '!eth0 !eth2', { 'eth1' => [ { name: 'eth1', addr: nil, port: nil } ],
+                               'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ],
 
-            [ '!eth0', { 'eth1' => { name: 'eth1', addr: nil, port: nil },
-                         'eth2' => { name: 'eth2', addr: nil, port: nil },
-                         'eth3' => { name: 'eth3', addr: nil, port: nil } } ]
+            [ '!eth0', { 'eth1' => [ { name: 'eth1', addr: nil, port: nil } ],
+                         'eth2' => [ { name: 'eth2', addr: nil, port: nil } ],
+                         'eth3' => [ { name: 'eth3', addr: nil, port: nil } ] } ]
         ]
         tests.each do |input, output|
             expect(parse_interfaces(input)).to eq output
@@ -165,30 +177,14 @@ end
 
 RSpec.describe 'nics_to_addrs' do
     it 'should map nics to addrs' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH3_IP'] = '172.18.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
         tests = [
             [ %w[eth0], { 'eth0' => %w[10.0.1.1 10.0.1.2] } ],
 
@@ -204,30 +200,14 @@ end
 
 RSpec.describe 'addrs_to_nics' do
     it 'should map addrs to nics' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH3_IP'] = '172.18.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
         tests = [
             [ %w[eth0], { '10.0.1.1' => %w[eth0],
                           '10.0.1.2' => %w[eth0] } ],
@@ -241,23 +221,13 @@ RSpec.describe 'addrs_to_nics' do
     end
 
     it 'should map addrs to nics (:noip)' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = ''
+        ENV['ETH3_IP'] = '172.24.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.24.1.1',
-                                 'prefixlen' => 16 } ] }
-        ])
         tests = [
             [ %w[eth0 eth1], { '172.16.1.1' => %w[eth1] } ],
 
@@ -272,34 +242,52 @@ end
 
 RSpec.describe 'addrs_to_subnets' do
     it 'should extract subnets' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_MASK'] = '255.255.255.255'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH0_ALIAS0_MASK'] = '255.255.0.0'
+
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH2_MASK'] = '255.255.255.0'
+
         tests = [
-            [ %w[eth0], { '10.0.1.1/24' => '10.0.1.0/24',
-                          '10.0.1.2/24' => '10.0.1.0/24' } ],
+            [ %w[eth0], { '10.0.1.1/32' => '10.0.1.1/32',
+                          '10.0.1.2/16' => '10.0.0.0/16' } ],
 
             [ %w[eth1 eth2], { '172.16.1.1/16' => '172.16.0.0/16',
                                '172.18.1.1/24' => '172.18.1.0/24' } ]
         ]
         tests.each do |input, output|
             expect(addrs_to_subnets(input)).to eq output
+        end
+    end
+end
+
+RSpec.describe 'vips_to_subnets' do
+    it 'should extract subnets' do
+        clear_env
+
+        ENV['ETH0_MASK'] = '255.255.255.255'
+
+        tests = [
+            [ [ 'eth0', 'eth1' ],
+
+              { 'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0'=> '1.2.3.4',
+                            'ONEAPP_VROUTER_ETH0_VIP1'=> '2.3.4.5/16' },
+                'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0'=> '6.7.8.9' } },
+
+              { '1.2.3.4/32' => '1.2.3.4/32',
+                '2.3.4.5/16' => '2.3.0.0/16',
+                '6.7.8.9'    => '6.7.8.9/32' } ]
+        ]
+        tests.each do |nics, vips, output|
+            expect(vips_to_subnets(nics, vips)).to eq output
         end
     end
 end

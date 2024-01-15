@@ -11,7 +11,7 @@ module LVS
 
     def extract_backends(objects = {})
         @vips ||= detect_vips
-        @n2a  ||= nics_to_addrs family: %w[inet]
+        @n2a  ||= nics_to_addrs
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_LB')
 
@@ -28,13 +28,16 @@ module LVS
 
     def render_lvs_conf(lvs_vars, basedir: '/etc/keepalived')
         @interfaces ||= parse_interfaces ONEAPP_VNF_LB_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
-        @addrs      ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %w[inet]).keys
+        @mgmt       ||= detect_mgmt_nics
+
+        @allowed ||= addrs_to_nics(@interfaces.keys - @mgmt).keys +
+                     detect_vips.values.map(&:values).flatten.map { |v| v.split(%[/])[0] }
 
         file "#{basedir}/conf.d/lvs.conf", ERB.new(<<~LVS, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- lvs_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
-            <%- if @addrs.include?(ip) -%>
+            <%- if @allowed.include?(ip) -%>
             virtual_server <%= ip %> <%= port %> {
+                delay_loop 6
                 <%- unless lvs_vars[:options][lb_idx][:scheduler].nil? -%>
                 lb_algo <%= lvs_vars[:options][lb_idx][:scheduler] %>
                 <%- end -%>
@@ -56,9 +59,16 @@ module LVS
                     <%- unless s[:llimit].nil? -%>
                     lthreshold <%= s[:llimit] %>
                     <%- end -%>
+                    <%- if lvs_vars[:options][lb_idx][:protocol].upcase == 'TCP' -%>
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port <%= s[:port] %>
+                    }
+                    <%- else -%>
                     PING_CHECK {
                         retry 4
                     }
+                    <%- end -%>
                 }
             <%- end -%>
             }

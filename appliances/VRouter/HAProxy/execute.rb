@@ -11,7 +11,7 @@ module HAProxy
 
     def extract_backends(objects = {})
         @vips ||= detect_vips
-        @n2a  ||= nics_to_addrs family: %w[inet]
+        @n2a  ||= nics_to_addrs
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_HAPROXY_LB')
 
@@ -28,12 +28,14 @@ module HAProxy
 
     def render_servers_cfg(haproxy_vars, basedir: '/etc/haproxy')
         @interfaces ||= parse_interfaces ONEAPP_VNF_HAPROXY_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
-        @addrs      ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %w[inet]).keys
+        @mgmt       ||= detect_mgmt_nics
+
+        @allowed ||= addrs_to_nics(@interfaces.keys - @mgmt).keys +
+                     detect_vips.values.map(&:values).flatten.map { |v| v.split(%[/])[0] }
 
         file "#{basedir}/servers.cfg", ERB.new(<<~SERVERS, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- haproxy_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
-            <%- if @addrs.include?(ip) -%>
+            <%- if @allowed.include?(ip) -%>
             frontend lb<%= lb_idx %>_<%= port %>
                 mode tcp
                 bind <%= ip %>:<%= port %>

@@ -22,12 +22,11 @@ module Keepalived
 
     def parse_env(default_vrid = ONEAPP_VNF_KEEPALIVED_VRID)
         @interfaces ||= parse_interfaces ONEAPP_VNF_KEEPALIVED_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
-        @nics       ||= addrs_to_nics(@interfaces.keys - @mgmt, family: %[inet]).values.flatten.uniq
+        @mgmt       ||= detect_mgmt_nics
+        @nics       ||= addrs_to_nics(@interfaces.keys - @mgmt).values.flatten.uniq
         @vips       ||= detect_vips
 
-        (@interfaces.keys - @mgmt).each_with_object({}) do |nic, vars|
-            vars[:by_nic] ||= {}
+        (@interfaces.keys - @mgmt).each_with_object({by_nic: {}, by_vrid: {}}) do |nic, vars|
             vars[:by_nic][nic] = {
                 password:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PASSWORD", ONEAPP_VNF_KEEPALIVED_PASSWORD),
                 interval:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_INTERVAL", ONEAPP_VNF_KEEPALIVED_INTERVAL),
@@ -40,7 +39,6 @@ module Keepalived
             }
         end.then do |vars|
             vars[:by_nic].each do |nic, opt|
-                vars[:by_vrid] ||= {}
                 vars[:by_vrid][opt[:vrid]] ||= {}
                 vars[:by_vrid][opt[:vrid]][nic] = opt
             end
@@ -122,7 +120,7 @@ module Keepalived
                 virtual_routes {
             <%- nics.each do |_, opt| -%>
             <%- if opt[:gw_default] -%>
-                    0.0.0.0/0 gw <%= opt[:gw] %>
+                    0.0.0.0/0 via <%= opt[:gw] %>
             <%- end -%>
             <%- end -%>
                 }<%- -%>

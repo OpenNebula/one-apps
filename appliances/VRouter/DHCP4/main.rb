@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'ipaddr'
 require 'json'
 require_relative '../vrouter.rb'
 
@@ -25,31 +26,39 @@ module DHCP4
 
     def parse_env
         @interfaces ||= parse_interfaces ONEAPP_VNF_DHCP4_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
+        @mgmt       ||= detect_mgmt_nics
 
         interfaces = @interfaces.keys - @mgmt
 
-        @n2a ||= addrs_to_nics(interfaces, family: %w[inet]).to_h do |a, n|
-            [n.first, a]
-        end
+        @n2a ||= nics_to_addrs(interfaces).to_h { |n, a| [n, a[0..0]] } # aliases are unsupported
 
-        @a2s ||= addrs_to_subnets(interfaces, family: %w[inet]).to_h do |a, s|
-            [a.split('/').first, s]
-        end
+        @a2s ||= addrs_to_subnets(interfaces).to_h { |a, s| [a.split(%[/])[0], s] }
 
         @s2r ||= subnets_to_ranges(@a2s.values)
 
-        interfaces.each_with_object({}) do |nic, vars|
-            p = env("ONEAPP_VNF_DHCP4_#{nic.upcase}", nil)&.split(':')&.map(&:strip)
+        @vips ||= detect_vips.to_h { |n, v| [n, v.values.map { |v| v.split(%[/])[0] }] }
 
-            vars[nic] = {
-                address: @n2a[nic],
-                subnet:  if p.nil? then @a2s[@n2a[nic]] else p[0] end,
-                range:   if p.nil? then @s2r[@a2s[@n2a[nic]]] else p[1] end,
-                gateway: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_GATEWAY", ONEAPP_VNF_DHCP4_GATEWAY),
-                dns:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_DNS", ONEAPP_VNF_DHCP4_DNS),
-                mtu:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_MTU", ip_link_show(nic)['mtu']),
-            }
+        interfaces.each_with_object({}) do |nic, vars|
+            (s, r) = env("ONEAPP_VNF_DHCP4_#{nic.upcase}", nil)&.split(%[:])&.map(&:strip)
+
+            @n2a[nic]&.each do |a|
+                subnet = s || @a2s[a]
+                range  = r || @s2r[@a2s[a]]
+
+                vars[nic] ||= []
+                vars[nic] << {
+                    address: a,
+                    subnet:  subnet,
+                    range:   range,
+                    gateway: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_GATEWAY", ONEAPP_VNF_DHCP4_GATEWAY),
+                    dns:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_DNS", ONEAPP_VNF_DHCP4_DNS),
+                    mtu:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_MTU", ip_link_show(nic)['mtu']),
+
+                    vips: @vips[nic].to_a.select do |vip|
+                        IPAddr.new(subnet).include?(vip) # exclude VIPs from outside of the subnet
+                    end
+                }
+            end
         end
     end
 
@@ -94,62 +103,74 @@ module DHCP4
         toggle [:update]
     end
 
-    def configure(basedir: '/etc/kea')
+    def configure(basedir: '/etc/kea', owner: 'kea', group: 'kea')
         msg :info, 'DHCP4::configure'
 
-        if ONEAPP_VNF_DHCP4_ENABLED
-            dhcp4_vars = parse_env
-
-            config = { 'Dhcp4' => {
-                'interfaces-config' => { 'interfaces' => dhcp4_vars.keys },
-                'authoritative' => ONEAPP_VNF_DHCP4_AUTHORITATIVE,
-                'option-data' => [],
-                'subnet4' => dhcp4_vars.map do |nic, vars|
-                    data = []
-                    data << { 'name' => 'routers',             'data' => vars[:gateway]  } unless vars[:gateway].nil?
-                    data << { 'name' => 'domain-name-servers', 'data' => vars[:dns]      } unless vars[:dns].nil?
-                    data << { 'name' => 'interface-mtu',       'data' => vars[:mtu].to_s } unless vars[:mtu].nil? || nic == 'lo'
-                    { 'subnet' => vars[:subnet],
-                      'pools' => [ { 'pool' => vars[:range] } ],
-                      'option-data' => data,
-                      'reservations' => [
-                          { 'flex-id' => "'DO-NOT-LEASE-#{vars[:address]}'",
-                            'ip-address' => vars[:address] } ],
-                      'reservation-mode' => 'all' }
-                end,
-                'lease-database' => {
-                    'type' => 'memfile',
-                    'persist' => true,
-                    'lfc-interval' => 2 * ONEAPP_VNF_DHCP4_LEASE_TIME.to_i
-                },
-                'sanity-checks' => { 'lease-checks' => 'fix-del' },
-                'valid-lifetime' => ONEAPP_VNF_DHCP4_LEASE_TIME.to_i,
-                'calculate-tee-times' => true,
-                'loggers' => [
-                    { 'name' => 'kea-dhcp4',
-                      'output_options' => [ { 'output' => '/var/log/kea/kea-dhcp4.log' } ],
-                      'severity' => 'INFO',
-                      'debuglevel' => 0 }
-                ],
-                'hooks-libraries' => if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED then
-                    [ { 'library' => '/usr/lib/kea/hooks/libkea-onelease-dhcp4.so',
-                        'parameters' => {
-                            'enabled' => true,
-                            'byte-prefix' => ONEAPP_VNF_DHCP4_MAC2IP_MACPREFIX,
-                            'logger-name' => 'onelease-dhcp4',
-                            'debug' => false,
-                            'debug-logfile' => '/var/log/kea/onelease-dhcp4-debug.log' } } ]
-                else [] end
-            } }
-
-            file "#{basedir}/kea-dhcp4.conf", JSON.pretty_generate(config), owner: 'kea',
-                                                                            group: 'kea',
-                                                                            mode: 'u=rw,g=r,o=',
-                                                                            overwrite: true
-        else
+        unless ONEAPP_VNF_DHCP4_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
+
+        dhcp4_vars = parse_env
+
+        config = { 'Dhcp4' => {
+            'interfaces-config' => { 'interfaces' => dhcp4_vars.keys },
+            'authoritative' => ONEAPP_VNF_DHCP4_AUTHORITATIVE,
+            'option-data' => [],
+            'subnet4' => dhcp4_vars.each_with_object([]) do |(nic, vars), acc|
+                vars.each do |h|
+                    acc << {
+                        'subnet' => h[:subnet],
+                        'pools' => [ { 'pool' => h[:range] } ],
+                        'option-data' => [].then do |acc|
+                            acc << { 'name' => 'routers',
+                                     'data' => h[:gateway] } unless h[:gateway].nil?
+
+                            acc << { 'name' => 'domain-name-servers',
+                                     'data' => h[:dns] } unless h[:dns].nil?
+
+                            acc << { 'name' => 'interface-mtu',
+                                     'data' => h[:mtu].to_s } unless h[:mtu].nil?
+                            acc
+                        end,
+                        'reservations' => ([h[:address]] + h[:vips]).each_with_object([]) do |ip, acc|
+                            acc << { 'flex-id' => "'DO-NOT-LEASE-#{ip}'",
+                                     'ip-address' => ip }
+                        end,
+                        'reservation-mode' => 'all'
+                    }
+                end
+            end,
+            'lease-database' => {
+                'type' => 'memfile',
+                'persist' => true,
+                'lfc-interval' => 2 * ONEAPP_VNF_DHCP4_LEASE_TIME.to_i
+            },
+            'sanity-checks' => { 'lease-checks' => 'fix-del' },
+            'valid-lifetime' => ONEAPP_VNF_DHCP4_LEASE_TIME.to_i,
+            'calculate-tee-times' => true,
+            'loggers' => [
+                { 'name' => 'kea-dhcp4',
+                  'output_options' => [ { 'output' => '/var/log/kea/kea-dhcp4.log' } ],
+                  'severity' => 'INFO',
+                  'debuglevel' => 0 }
+            ],
+            'hooks-libraries' => if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED then
+                [ { 'library' => '/usr/lib/kea/hooks/libkea-onelease-dhcp4.so',
+                    'parameters' => {
+                        'enabled' => true,
+                        'byte-prefix' => ONEAPP_VNF_DHCP4_MAC2IP_MACPREFIX,
+                        'logger-name' => 'onelease-dhcp4',
+                        'debug' => false,
+                        'debug-logfile' => '/var/log/kea/onelease-dhcp4-debug.log' } } ]
+            else [] end
+        } }
+
+        file "#{basedir}/kea-dhcp4.conf", JSON.pretty_generate(config), owner: owner,
+                                                                        group: group,
+                                                                        mode: 'u=rw,g=r,o=',
+                                                                        overwrite: true
     end
 
     def toggle(operations)

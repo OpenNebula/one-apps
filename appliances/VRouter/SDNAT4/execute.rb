@@ -11,8 +11,8 @@ module SDNAT4
 
     def extract_external(vnets = {})
         @interfaces ||= parse_interfaces ONEAPP_VNF_SDNAT4_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
-        @subnets    ||= addrs_to_subnets(@interfaces.keys - @mgmt, family: %w[inet]).values.uniq.map { |s| IPAddr.new(s) }
+        @mgmt       ||= detect_mgmt_nics
+        @subnets    ||= addrs_to_subnets(@interfaces.keys - @mgmt).values.uniq.map { |s| IPAddr.new(s) }
 
         vm_map   = {}
         external = []
@@ -141,7 +141,7 @@ module SDNAT4
             bash "ip address del #{a['local']}/32 dev lo label SDNAT4"
         end
 
-        toggle [:save, :reload, :stop]
+        toggle [:save, :reload]
     end
 end
 end

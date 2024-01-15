@@ -49,24 +49,25 @@ module SDNAT4
     def configure
         msg :info, 'SDNAT4::configure'
 
-        if ONEAPP_VNF_SDNAT4_ENABLED
-            # Add dedicated SNAT4 chain.
-            puts bash(<<~IPTABLES)
-                iptables -t nat -nL SNAT4 || iptables -t nat -N SNAT4
-                iptables -t nat -C POSTROUTING -j SNAT4 || iptables -t nat -I POSTROUTING 1 -j SNAT4
-            IPTABLES
-
-            # Add dedicated DNAT4 chain.
-            puts bash(<<~IPTABLES)
-                iptables -t nat -nL DNAT4 || iptables -t nat -N DNAT4
-                iptables -t nat -C PREROUTING -j DNAT4 || iptables -t nat -I PREROUTING 1 -j DNAT4
-            IPTABLES
-
-            toggle [:save]
-        else
+        unless ONEAPP_VNF_SDNAT4_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
+
+        # Add dedicated SNAT4 chain.
+        puts bash(<<~IPTABLES)
+            iptables -t nat -nL SNAT4 || iptables -t nat -N SNAT4
+            iptables -t nat -C POSTROUTING -j SNAT4 || iptables -t nat -I POSTROUTING 1 -j SNAT4
+        IPTABLES
+
+        # Add dedicated DNAT4 chain.
+        puts bash(<<~IPTABLES)
+            iptables -t nat -nL DNAT4 || iptables -t nat -N DNAT4
+            iptables -t nat -C PREROUTING -j DNAT4 || iptables -t nat -I PREROUTING 1 -j DNAT4
+        IPTABLES
+
+        toggle [:save]
     end
 
     def toggle(operations)
@@ -83,8 +84,6 @@ module SDNAT4
                 puts bash 'rc-update -u'
             when :start
                 puts bash 'rc-service iptables start'
-            when :stop
-                puts bash 'rc-service iptables stop'
             else
                 puts bash "rc-service one-sdnat4 #{op.to_s}"
             end

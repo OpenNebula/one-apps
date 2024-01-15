@@ -54,33 +54,34 @@ module HAProxy
     def configure(basedir: '/etc/haproxy', confdir: '/etc/conf.d')
         msg :info, 'HAProxy::configure'
 
-        if ONEAPP_VNF_HAPROXY_ENABLED
-            file "#{confdir}/haproxy", <<~CONFIG, mode: 'u=rw,g=r,o=', overwrite: true
-                HAPROXY_CONF="#{basedir}"
-            CONFIG
-
-            file "#{basedir}/haproxy.cfg", <<~CONFIG, mode: 'u=rw,g=r,o=', overwrite: true
-                global
-                    log /dev/log local0
-                    log /dev/log local1 notice
-                    stats socket /var/run/haproxy.sock mode 666 level admin
-                    stats timeout 120s
-                    user haproxy
-                    group haproxy
-                    daemon
-
-                defaults
-                    log global
-                    retries 3
-                    maxconn 2000
-                    timeout connect 5s
-                    timeout client 120s
-                    timeout server 120s
-            CONFIG
-        else
+        unless ONEAPP_VNF_HAPROXY_ENABLED
             # NOTE: We always disable it at re-contexting / reboot in case an user enables it manually.
             toggle [:stop, :disable]
+            return
         end
+
+        file "#{confdir}/haproxy", <<~CONFIG, mode: 'u=rw,g=r,o=', overwrite: true
+            HAPROXY_CONF="#{basedir}"
+        CONFIG
+
+        file "#{basedir}/haproxy.cfg", <<~CONFIG, mode: 'u=rw,g=r,o=', overwrite: true
+            global
+                log /dev/log local0
+                log /dev/log local1 notice
+                stats socket /var/run/haproxy.sock mode 666 level admin
+                stats timeout 120s
+                user haproxy
+                group haproxy
+                daemon
+
+            defaults
+                log global
+                retries 3
+                maxconn 2000
+                timeout connect 5s
+                timeout client 120s
+                timeout server 120s
+        CONFIG
     end
 
     def toggle(operations)

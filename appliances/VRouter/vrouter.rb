@@ -13,19 +13,9 @@ def ip_link_set_up(nic)
     stdout = bash "ip link set '#{nic}' up", terminate: false
 end
 
-def ip_link_list
-    stdout = bash 'ip --json link list', terminate: false
-    JSON.parse(stdout)
-end
-
 def ip_link_show(nic)
     stdout = bash "ip --json link show '#{nic}'", terminate: false
     JSON.parse(stdout).first
-end
-
-def ip_addr_list
-    stdout = bash 'ip --json addr list', terminate: false
-    JSON.parse(stdout)
 end
 
 def ip_addr_show(nic)
@@ -33,43 +23,52 @@ def ip_addr_show(nic)
     JSON.parse(stdout).first
 end
 
-def detect_nics(items = ip_link_list, pattern: /^eth\d+$/)
-    items.select { |nic| nic['ifname'] =~ pattern }
-         .map    { |nic| nic['ifname'] }
+def detect_nics
+    ENV.keys.each_with_object([]) do |name, acc|
+        case name
+        when /^ETH(\d+)_IP6?$/
+            acc << "eth#{$1}"
+        end
+    end.uniq
+end
+
+def detect_mgmt_nics
+    ENV.keys.each_with_object([]) do |name, acc|
+        case name
+        when /^ETH(\d+)_VROUTER_MANAGEMENT$/
+            acc << "eth#{$1}" if env(name, 'NO')
+        end
+    end
+end
+
+def append_pfxlen(eth_index, ip)
+    return ip if ip =~ %r{/[^/]+$} # nothing to do
+
+    return ip if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
+
+    pfxlen = IPAddr.new("#{ip}/#{mask}").prefix
+
+    return "#{ip}/#{pfxlen}"
 end
 
 def detect_vips
-    def append_mask(eth_index, v)
-        return v if v =~ %r{/([^/]+)$} # nothing to do
-        return v if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
-        cidr = IPAddr.new(mask).to_i.to_s(2).count(%[1])
-        return "#{v}/#{cidr}"
-    end
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
         when %r{^ETH(\d+)_VROUTER_IP$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_mask($1, v)
+            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_pfxlen($1, v)
         when %r{^ONEAPP_VROUTER_ETH(\d+)_VIP\d+$}
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"][name] = append_mask($1, v)
+            acc["eth#{$1}"][name] = append_pfxlen($1, v)
         end
-    end
-end
-
-def detect_mgmt_interfaces
-    ENV.keys.select do |name|
-        name.start_with?('ETH') && name.end_with?('_VROUTER_MANAGEMENT') && env(name, 'NO')
-    end.map do |name|
-        name.split('_').first.downcase
     end
 end
 
 def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
     return {} if interfaces.nil?
 
-    addrs = nil
+    vips, addrs = nil, nil
 
     excluded, included = [], []
 
@@ -96,14 +95,42 @@ def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
                 end
             end
 
-            if parts[:name].nil?
-                next if parts[:addr].nil?
-
-                addrs ||= addrs_to_nics
-                parts[:name] = addrs[parts[:addr].downcase]&.first
+            # Check if the NIC has been defined explicitly.
+            unless (nic = parts[:name]).nil?
+                acc[nic] ||= []
+                acc[nic] << parts
+                next
             end
 
-            acc[parts[:name]] = parts
+            next if parts[:addr].nil?
+
+            # Try to find any IPs in the OS (and infer NIC names).
+            addrs ||= addrs_to_nics
+            unless (nics = addrs[parts[:addr].downcase]).nil?
+                nics.each do |nic|
+                    parts[:name] = nic
+                    acc[nic] ||= []
+                    acc[nic] << parts.dup
+                end
+                next
+            end
+
+            # Try to find any VIPs in context vars (and infer NIC names).
+            vips ||= detect_vips.each_with_object({}) do |(nic, h), acc|
+                h.each do |_, vip|
+                    vip = vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
+                    acc[vip] ||= []
+                    acc[vip] << nic
+                end
+            end
+            unless (nics = vips[parts[:addr].downcase]).nil?
+                nics.each do |nic|
+                    parts[:name] = nic
+                    acc[nic] ||= []
+                    acc[nic] << parts.dup
+                end
+                next
+            end
         end
     end
 
@@ -128,60 +155,52 @@ def render_interface(parts, name: false, addr: true, port: true)
     tmp.join
 end
 
-def nics_to_addrs(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
-
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'].downcase)
-
-            next if info['local'].nil?
-
-            (acc[addr['ifname']] ||= []) << info['local']
+def nics_to_addrs(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+            next unless nics.include?(nic = "eth#{$1}")
+            acc[nic] ||= []
+            acc[nic] << v
         end
     end
 end
 
-def addrs_to_nics(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
-
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'].downcase)
-
-            next if info['local'].nil?
-
-            (acc[info['local']] ||= []) << addr['ifname']
+def addrs_to_nics(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+            next unless nics.include?(nic = "eth#{$1}")
+            acc[v] ||= []
+            acc[v] << nic
         end
     end
 end
 
-def addrs_to_subnets(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
+def addrs_to_subnets(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^(ETH(\d+))_IP6?$/, /^(ETH(\d+)_ALIAS\d+)_IP6?$/
+            next unless nics.include?("eth#{$2}")
+            next if (mask = env("#{$1}_MASK", nil)).nil?
+            subnet   = IPAddr.new("#{v}/#{mask}")
+            key      = "#{v}/#{subnet.prefix}"
+            acc[key] = "#{subnet}/#{subnet.prefix}"
+        end
+    end
+end
 
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'])
-
-            next if info['local'].nil?
-
-            key = %[#{info['local']}/#{info['prefixlen']}]
-
-            subnet = IPAddr.new(key)
-
-            acc[key] = %[#{subnet}/#{subnet.prefix}]
+def vips_to_subnets(nics = detect_nics, vips = detect_vips)
+    vips.each_with_object({}) do |(nic, h), acc|
+        next unless nics.include?(nic)
+        h.each do |_, vip|
+            eth_index = nic.delete_prefix('eth')
+            key       = append_pfxlen(eth_index, vip)
+            subnet    = IPAddr.new(key)
+            acc[key]  = %[#{subnet}/#{subnet.prefix}]
         end
     end
 end
@@ -190,11 +209,15 @@ def subnets_to_ranges(subnets = addrs_to_subnets.values)
     subnets.each_with_object({}) do |subnet, acc|
         addr  = IPAddr.new(subnet)
         range = addr.to_range
+
+        first, last = range.first.to_i, range.last.to_i
+        next unless last - first > 3
+
         acc[subnet] = [
             # Skip the network and the first usable address.
-            IPAddr.new(range.first.to_i + 2, addr.family).to_s,
+            IPAddr.new(first + 2, addr.family).to_s,
             # Skip the last address (broadcast).
-            IPAddr.new(range.last.to_i - 1, addr.family).to_s
+            IPAddr.new(last - 1, addr.family).to_s
         ].join('-')
     end
 end
@@ -400,7 +423,7 @@ def backends
             case ip
             when /^<(ONEAPP_VROUTER_ETH\d+_VIP\d+)>$/
                 unless (vip = vips[$1]).nil?
-                    vip.split('/')[0] # remove the CIDR prefix if present
+                    vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
                 else
                     ip
                 end
