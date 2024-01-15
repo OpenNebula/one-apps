@@ -13,19 +13,9 @@ def ip_link_set_up(nic)
     stdout = bash "ip link set '#{nic}' up", terminate: false
 end
 
-def ip_link_list
-    stdout = bash 'ip --json link list', terminate: false
-    JSON.parse(stdout)
-end
-
 def ip_link_show(nic)
     stdout = bash "ip --json link show '#{nic}'", terminate: false
     JSON.parse(stdout).first
-end
-
-def ip_addr_list
-    stdout = bash 'ip --json addr list', terminate: false
-    JSON.parse(stdout)
 end
 
 def ip_addr_show(nic)
@@ -33,9 +23,22 @@ def ip_addr_show(nic)
     JSON.parse(stdout).first
 end
 
-def detect_nics(items = ip_link_list, pattern: /^eth\d+$/)
-    items.select { |nic| nic['ifname'] =~ pattern }
-         .map    { |nic| nic['ifname'] }
+def detect_nics
+    ENV.keys.each_with_object([]) do |name, acc|
+        case name
+        when /^ETH(\d+)_IP6?$/
+            acc << "eth#{$1}"
+        end
+    end.uniq
+end
+
+def detect_mgmt_nics
+    ENV.keys.each_with_object([]) do |name, acc|
+        case name
+        when /^ETH(\d+)_VROUTER_MANAGEMENT$/
+            acc << "eth#{$1}" if env(name, 'NO')
+        end
+    end
 end
 
 def detect_vips
@@ -55,14 +58,6 @@ def detect_vips
             acc["eth#{$1}"] ||= {}
             acc["eth#{$1}"][name] = append_mask($1, v)
         end
-    end
-end
-
-def detect_mgmt_interfaces
-    ENV.keys.select do |name|
-        name.start_with?('ETH') && name.end_with?('_VROUTER_MANAGEMENT') && env(name, 'NO')
-    end.map do |name|
-        name.split('_').first.downcase
     end
 end
 
@@ -128,60 +123,40 @@ def render_interface(parts, name: false, addr: true, port: true)
     tmp.join
 end
 
-def nics_to_addrs(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
-
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'].downcase)
-
-            next if info['local'].nil?
-
-            (acc[addr['ifname']] ||= []) << info['local']
+def nics_to_addrs(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+            next unless nics.include?(nic = "eth#{$1}")
+            acc[nic] ||= []
+            acc[nic] << v
         end
     end
 end
 
-def addrs_to_nics(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
-
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'].downcase)
-
-            next if info['local'].nil?
-
-            (acc[info['local']] ||= []) << addr['ifname']
+def addrs_to_nics(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+            next unless nics.include?(nic = "eth#{$1}")
+            acc[v] ||= []
+            acc[v] << nic
         end
     end
 end
 
-def addrs_to_subnets(interfaces = detect_nics, family: %w[inet inet6])
-    ip_addr_list.each_with_object({}) do |addr, acc|
-        next if addr['ifname'].nil?
-        next unless interfaces.include?(addr['ifname'])
-
-        next if addr['addr_info'].nil?
-
-        addr['addr_info'].each do |info|
-            next if info['family'].nil?
-            next unless family.include?(info['family'])
-
-            next if info['local'].nil?
-
-            key = %[#{info['local']}/#{info['prefixlen']}]
-
-            subnet = IPAddr.new(key)
-
-            acc[key] = %[#{subnet}/#{subnet.prefix}]
+def addrs_to_subnets(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^(ETH(\d+))_IP6?$/, /^(ETH(\d+)_ALIAS\d+)_IP6?$/
+            next unless nics.include?("eth#{$2}")
+            next if (mask = env("#{$1}_MASK", nil)).nil?
+            subnet   = IPAddr.new("#{v}/#{mask}")
+            key      = "#{v}/#{subnet.prefix}"
+            acc[key] = "#{subnet}/#{subnet.prefix}"
         end
     end
 end

@@ -40,6 +40,9 @@ RSpec.describe self do
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.2.12.69'
         ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '10.2.12.86'
 
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '172.16.1.1'
+
         load './main.rb'; include Service::Keepalived
 
         expect(Service::Keepalived::ONEAPP_VNF_KEEPALIVED_INTERVAL).to eq '1'
@@ -49,15 +52,6 @@ RSpec.describe self do
 
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2])
-        allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] }
-        ])
 
         clear_vars Service::Keepalived
 
@@ -100,6 +94,9 @@ RSpec.describe self do
         ENV['ETH1_VROUTER_IP'] = '10.2.22.69'
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = ''
 
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '172.16.1.1'
+
         load './main.rb'; include Service::Keepalived
 
         expect(Service::Keepalived::VROUTER_KEEPALIVED_ID).to eq '21'
@@ -107,15 +104,6 @@ RSpec.describe self do
 
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2])
-        allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] }
-        ])
 
         clear_vars Service::Keepalived
 
@@ -166,33 +154,16 @@ RSpec.describe self do
 
         ENV['ONEAPP_VROUTER_ETH3_VIP0'] = '10.2.33.69'
 
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '10.2.31.2'
+        ENV['ETH2_IP'] = ''
+        ENV['ETH3_IP'] = '10.2.33.2'
+
         load './main.rb'; include Service::Keepalived
 
         allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
-        allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.2.31.2',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth2',
-              'addr_info' => [] },
-
-            # { 'ifname'    => 'eth2',
-            #   'addr_info' => [ { 'family'    => 'inet',
-            #                      'local'     => '10.2.32.2',
-            #                      'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.2.33.2',
-                                 'prefixlen' => 24 } ] }
-        ])
         allow(Service::Keepalived).to receive(:toggle).and_return(nil)
 
         clear_vars Service::Keepalived
@@ -253,30 +224,16 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_KEEPALIVED_ETH2_VRID'] = '31'
         ENV['ONEAPP_VNF_KEEPALIVED_ETH3_VRID'] = '32'
 
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '10.2.31.2'
+        ENV['ETH2_IP'] = '10.2.32.2'
+        ENV['ETH3_IP'] = '10.2.33.2'
+
         load './main.rb'; include Service::Keepalived
 
         allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
-        allow(Service::Keepalived).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.2.31.2',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.2.32.2',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.2.33.2',
-                                 'prefixlen' => 24 } ] }
-        ])
         allow(Service::Keepalived).to receive(:toggle).and_return(nil)
 
         clear_vars Service::Keepalived

@@ -24,7 +24,7 @@ module DNS
 
     def parse_env
         @interfaces ||= parse_interfaces ONEAPP_VNF_DNS_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
+        @mgmt       ||= detect_mgmt_nics
 
         interfaces = @interfaces.keys - @mgmt
 

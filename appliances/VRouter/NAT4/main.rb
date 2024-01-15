@@ -63,7 +63,7 @@ module NAT4
         IPTABLES
 
         interfaces_out = parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
-        mgmt           = detect_mgmt_interfaces
+        mgmt           = detect_mgmt_nics
         interfaces     = interfaces_out.keys - mgmt
 
         unless interfaces.empty?

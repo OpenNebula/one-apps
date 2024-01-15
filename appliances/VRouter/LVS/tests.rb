@@ -4,7 +4,7 @@ require 'rspec'
 require 'tmpdir'
 
 def clear_env
-    ENV.delete_if { |name| name.include?('VROUTER_') || name.include?('_LB') }
+    ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_LB') }
 end
 
 def clear_vars(object)

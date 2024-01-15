@@ -25,15 +25,15 @@ module DHCP4
 
     def parse_env
         @interfaces ||= parse_interfaces ONEAPP_VNF_DHCP4_INTERFACES
-        @mgmt       ||= detect_mgmt_interfaces
+        @mgmt       ||= detect_mgmt_nics
 
         interfaces = @interfaces.keys - @mgmt
 
-        @n2a ||= addrs_to_nics(interfaces, family: %w[inet]).to_h do |a, n|
+        @n2a ||= addrs_to_nics(interfaces).to_h do |a, n|
             [n.first, a]
         end
 
-        @a2s ||= addrs_to_subnets(interfaces, family: %w[inet]).to_h do |a, s|
+        @a2s ||= addrs_to_subnets(interfaces).to_h do |a, s|
             [a.split('/').first, s]
         end
 

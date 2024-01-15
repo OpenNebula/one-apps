@@ -57,7 +57,7 @@ module Router4
         msg :info, 'Router4::execute'
 
         interfaces = parse_interfaces ONEAPP_VNF_ROUTER4_INTERFACES
-        mgmt       = detect_mgmt_interfaces
+        mgmt       = detect_mgmt_nics
 
         to_enable  = interfaces.keys - mgmt
         to_disable = detect_nics - to_enable

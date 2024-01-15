@@ -165,30 +165,14 @@ end
 
 RSpec.describe 'nics_to_addrs' do
     it 'should map nics to addrs' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH3_IP'] = '172.18.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
         tests = [
             [ %w[eth0], { 'eth0' => %w[10.0.1.1 10.0.1.2] } ],
 
@@ -204,30 +188,14 @@ end
 
 RSpec.describe 'addrs_to_nics' do
     it 'should map addrs to nics' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH3_IP'] = '172.18.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
         tests = [
             [ %w[eth0], { '10.0.1.1' => %w[eth0],
                           '10.0.1.2' => %w[eth0] } ],
@@ -241,23 +209,13 @@ RSpec.describe 'addrs_to_nics' do
     end
 
     it 'should map addrs to nics (:noip)' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = ''
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH2_IP'] = ''
+        ENV['ETH3_IP'] = '172.24.1.1'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [] },
-
-            { 'ifname'    => 'eth3',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.24.1.1',
-                                 'prefixlen' => 16 } ] }
-        ])
         tests = [
             [ %w[eth0 eth1], { '172.16.1.1' => %w[eth1] } ],
 
@@ -272,25 +230,20 @@ end
 
 RSpec.describe 'addrs_to_subnets' do
     it 'should extract subnets' do
-        allow(self).to receive(:ip_addr_list).and_return([
-            { 'ifname'    => 'eth0',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '10.0.1.1',
-                                 'prefixlen' => 24 },
-                               { 'family'    => 'inet',
-                                 'local'     => '10.0.1.2',
-                                 'prefixlen' => 24 } ] },
+        clear_env
 
-            { 'ifname'    => 'eth1',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.16.1.1',
-                                 'prefixlen' => 16 } ] },
+        ENV['ETH0_IP'] = '10.0.1.1'
+        ENV['ETH0_MASK'] = '255.255.255.255'
 
-            { 'ifname'    => 'eth2',
-              'addr_info' => [ { 'family'    => 'inet',
-                                 'local'     => '172.18.1.1',
-                                 'prefixlen' => 24 } ] }
-        ])
+        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
+        ENV['ETH0_ALIAS0_MASK'] = '255.255.0.0'
+
+        ENV['ETH1_IP'] = '172.16.1.1'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        ENV['ETH2_IP'] = '172.18.1.1'
+        ENV['ETH2_MASK'] = '255.255.255.0'
+
         tests = [
             [ %w[eth0], { '10.0.1.1/24' => '10.0.1.0/24',
                           '10.0.1.2/24' => '10.0.1.0/24' } ],
