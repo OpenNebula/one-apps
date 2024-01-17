@@ -52,65 +52,37 @@ source "qemu" "OneKE" {
 build {
   sources = ["source.qemu.OneKE"]
 
-  # revert insecure ssh options done by context start_script
+  # update & revert insecure ssh options done by context start_script
   provisioner "shell" {
-    scripts = ["${var.input_dir}/81-configure-ssh.sh"]
+    scripts = [
+      "${var.input_dir}/10-update.sh",
+      "${var.input_dir}/81-configure-ssh.sh",
+    ]
   }
 
   provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
     inline = [
-      "apt-get update",
-      "mkdir -p /etc/one-appliance/service.d",
-      "chmod 0750 /etc/one-appliance",
-      "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/",
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=   -d /etc/one-appliance/{,service.d/,lib/}",
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=rx -d /opt/one-appliance/{,bin/}",
     ]
   }
 
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-90.sh"
-    destination = "/etc/one-appliance/net-90"
+    sources = [
+      "appliances/service",
+      "appliances/scripts/net-90",
+      "appliances/scripts/net-99",
+    ]
+    destination = "/etc/one-appliance/"
   }
-
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-99.sh"
-    destination = "/etc/one-appliance/net-99"
+    sources     = ["appliances/lib/helpers.rb"]
+    destination = "/etc/one-appliance/lib/"
   }
-
   provisioner "file" {
-    source      = "appliances/legacy/service"
-    destination = "/etc/one-appliance/service"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/lib/common.sh"
-    destination = "/etc/one-appliance/service.d/common.sh"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/lib/functions.sh"
-    destination = "/etc/one-appliance/service.d/functions.sh"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/lib/context-helper.py"
-    destination = "/opt/one-appliance/bin/context-helper"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/OneKE/"
+    sources     = ["appliances/OneKE"]
     destination = "/etc/one-appliance/service.d/"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
-      "chmod 0755 /opt/one-appliance/bin/*",
-      "chmod 0740 /etc/one-appliance/service",
-      "chmod 0640 /etc/one-appliance/service.d/*",
-      "/etc/one-appliance/service install",
-    ]
-    environment_vars = ["ONE_SERVICE_AIRGAPPED=${var.airgapped}"]
   }
 
   provisioner "shell" {
@@ -118,6 +90,12 @@ build {
       "${var.input_dir}/82-configure-context.sh",
       "${var.input_dir}/83-disable-docs.sh",
     ]
+  }
+
+  provisioner "shell" {
+    inline_shebang   = "/bin/bash -e"
+    inline           = ["/etc/one-appliance/service install"]
+    environment_vars = ["ONE_SERVICE_AIRGAPPED=${var.airgapped}"]
   }
 
   post-processor "shell-local" {

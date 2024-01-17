@@ -5,6 +5,7 @@ require 'rspec'
 require 'tmpdir'
 require 'yaml'
 
+require_relative 'helpers.rb'
 require_relative 'cilium.rb'
 
 RSpec.describe 'extract_cilium_ranges' do
@@ -35,7 +36,7 @@ end
 
 RSpec.describe 'configure_cilium' do
     it 'should apply user-defined ranges (empty)' do
-        stub_const 'K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CNI_CONFIG', nil
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
@@ -73,7 +74,7 @@ RSpec.describe 'configure_cilium' do
     end
 
     it 'should apply user-defined ranges' do
-        stub_const 'K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
         output = YAML.load_stream <<~MANIFEST

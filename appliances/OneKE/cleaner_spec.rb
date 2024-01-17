@@ -3,6 +3,7 @@
 require 'json'
 require 'rspec'
 
+require_relative 'helpers.rb'
 require_relative 'cleaner.rb'
 
 RSpec.describe 'detect_invalid_nodes' do
