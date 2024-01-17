@@ -26,7 +26,7 @@ end
 def detect_nics
     ENV.keys.each_with_object([]) do |name, acc|
         case name
-        when /^ETH(\d+)_IP6?$/
+        when /^ETH(\d+)_IP$/
             acc << "eth#{$1}"
         end
     end.uniq
@@ -44,28 +44,51 @@ end
 def append_pfxlen(eth_index, ip)
     return ip if ip =~ %r{/[^/]+$} # nothing to do
 
-    return ip if (mask = env("ETH#{eth_index}_MASK", nil)).nil? # nothing can be done
-
-    pfxlen = IPAddr.new("#{ip}/#{mask}").prefix
+    pfxlen = if (mask = env("ETH#{eth_index}_MASK", nil)).nil?
+        IPAddr.new(ip).prefix
+    else
+        IPAddr.new("#{ip}/#{mask}").prefix
+    end
 
     return "#{ip}/#{pfxlen}"
+end
+
+def detect_addrs
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP$/
+            acc["eth#{$1}"] ||= {}
+            acc["eth#{$1}"]["ETH#{$1}_IP0"] = append_pfxlen($1, v)
+        end
+    end
 end
 
 def detect_vips
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when %r{^ETH(\d+)_VROUTER_IP$}
+        when /^ETH(\d+)_VROUTER_IP$/
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"]["ONEAPP_VROUTER_ETH#{$1}_VIP0"] ||= append_pfxlen($1, v)
-        when %r{^ONEAPP_VROUTER_ETH(\d+)_VIP\d+$}
+            acc["eth#{$1}"]["ETH#{$1}_VIP0"] ||= append_pfxlen($1, v)
+        when /^ONEAPP_VROUTER_ETH(\d+)_VIP(\d+)$/
             acc["eth#{$1}"] ||= {}
-            acc["eth#{$1}"][name] = append_pfxlen($1, v)
+            acc["eth#{$1}"]["ETH#{$1}_VIP#{$2}"] = append_pfxlen($1, v)
         end
     end
 end
 
-def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
+def detect_endpoints(addrs = detect_addrs, vips = detect_vips)
+    addrs = addrs.to_h do |nic, h|
+        [nic, h.to_h { |k, v| [k.sub('_IP', '_EP'), v] }]
+    end
+    vips = vips.to_h do |nic, h|
+        [nic, h.to_h { |k, v| [k.sub('_VIP', '_EP'), v] }]
+    end
+    hashmap.combine addrs, vips
+end
+
+def parse_interfaces(interfaces, pattern: /^[!]?eth\d+$/)
     return {} if interfaces.nil?
 
     vips, addrs = nil, nil
@@ -104,7 +127,7 @@ def parse_interfaces(interfaces, pattern: /^[!]?(lo|eth\d+)$/)
 
             next if parts[:addr].nil?
 
-            # Try to find any IPs in the OS (and infer NIC names).
+            # Try to find any IPs in context vars (and infer NIC names).
             addrs ||= addrs_to_nics
             unless (nics = addrs[parts[:addr].downcase]).nil?
                 nics.each do |nic|
@@ -159,7 +182,7 @@ def nics_to_addrs(nics = detect_nics)
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+        when /^ETH(\d+)_IP$/
             next unless nics.include?(nic = "eth#{$1}")
             acc[nic] ||= []
             acc[nic] << v
@@ -171,7 +194,7 @@ def addrs_to_nics(nics = detect_nics)
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when /^ETH(\d+)_IP6?$/, /^ETH(\d+)_ALIAS\d+_IP6?$/
+        when /^ETH(\d+)_IP$/
             next unless nics.include?(nic = "eth#{$1}")
             acc[v] ||= []
             acc[v] << nic
@@ -183,7 +206,7 @@ def addrs_to_subnets(nics = detect_nics)
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when /^(ETH(\d+))_IP6?$/, /^(ETH(\d+)_ALIAS\d+)_IP6?$/
+        when /^(ETH(\d+))_IP$/
             next unless nics.include?("eth#{$2}")
             next if (mask = env("#{$1}_MASK", nil)).nil?
             subnet   = IPAddr.new("#{v}/#{mask}")
@@ -414,38 +437,28 @@ def backends
           options:     static[:options].to_h }
     end
 
-    def resolve_vips(a, vips = detect_vips, n2a = nics_to_addrs)
-        vips = vips.values.each_with_object({}) do |h, acc|
+    def resolve(b, addrs = detect_addrs, vips = detect_vips, endpoints = detect_endpoints)
+        ave = [addrs, vips, endpoints].map(&:values).flatten.each_with_object({}) do |h, acc|
             hashmap.combine! acc, h
         end
 
-        def interpolate(ip, vips, n2a)
+        def interpolate(ip, ave)
             case ip
-            when /^<(ONEAPP_VROUTER_ETH\d+_VIP\d+)>$/
-                unless (vip = vips[$1]).nil?
-                    vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
-                else
-                    ip
-                end
-            when /^<ETH(\d+)_IP(\d+)>$/ # arbitrary NIC / IP pair
-                unless (addr = n2a.dig("eth#{$1}", $2.to_i)).nil?
-                    addr
-                else
-                    ip
-                end
+            when /^<(.+)>$/
+                ave[$1] || ip
             else
                 ip
-            end
+            end.split(%[/])[0]
         end
 
         {
-            by_endpoint: a[:by_endpoint].to_h.each_with_object({}) do |((lb_idx, ip, port), v), acc|
-                k = [lb_idx, interpolate(ip, vips, n2a), port]
+            by_endpoint: b[:by_endpoint].to_h.each_with_object({}) do |((lb_idx, ip, port), v), acc|
+                k = [lb_idx, interpolate(ip, ave), port]
                 hashmap.combine! acc, { k => v }
             end,
 
-            options: a[:options].to_h do |lb_idx, v|
-                v[:ip] = interpolate(v[:ip], vips, n2a)
+            options: b[:options].to_h do |lb_idx, v|
+                v[:ip] = interpolate(v[:ip], ave)
                 [ lb_idx, v ]
             end
         }

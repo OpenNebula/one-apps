@@ -30,28 +30,15 @@ module DNS
 
         interfaces = @interfaces.keys - @mgmt
 
-        @ips ||= nics_to_addrs.each_with_object({}) do |(nic, ips), acc|
-            ips.each_with_index do |v, k|
-                acc["ip#{k}.#{nic}"] = v
+        @hosts ||= [detect_addrs, detect_vips].then do |a, v|
+            [a, v, detect_endpoints(a, v)]
+        end.map(&:values).flatten.each_with_object({}) do |h, acc|
+            hashmap.combine! acc, h
+        end.each_with_object({}) do |(name, v), acc|
+            case name
+            when /^ETH(\d+)_(IP)(\d+)$/, /^ETH(\d+)_(VIP)(\d+)$/, /^ETH(\d+)_(EP)(\d+)$/
+                acc["#{$2.downcase}#{$3.to_i}.eth#{$1.to_i}"] = v.split(%[/])[0]
             end
-        end
-
-        @vips ||= detect_vips.each_with_object({}) do |(_, v), acc|
-            hashmap.combine! acc, v
-        end.each_with_object({}) do |(k, v), acc|
-            next if (k =~ /^ONEAPP_VROUTER_ETH(\d+)_VIP(\d+)$/).nil?
-            acc["vip#{$2}.eth#{$1}"] = v.split(%[/])[0] # remove the CIDR "prefixlen" if present
-        end
-
-        # "endpoints"
-        @eps ||= [@ips, @vips].then do |ips, vips|
-            ips = ips.to_h do |k, v|
-                [ k.sub(/^ip/, 'ep'), v ]
-            end
-            vips = vips.to_h do |k, v|
-                [ k.sub(/^vip/, 'ep'), v ]
-            end
-            hashmap.combine ips, vips # always prefer VIPs
         end
 
         {
@@ -71,7 +58,7 @@ module DNS
                .map(&:strip)
                .reject(&:empty?),
 
-            ips: @ips, vips: @vips, eps: @eps
+            hosts: @hosts
         }
     end
 
@@ -189,7 +176,7 @@ module DNS
 
                 <%- unless ONEAPP_VNF_DNS_CLUSTER_DOMAIN.empty? -%>
                 local-zone: "<%= ONEAPP_VNF_DNS_CLUSTER_DOMAIN %>." static
-                <%- [*dns_vars[:ips], *dns_vars[:vips], *dns_vars[:eps]].each do |k, v| -%>
+                <%- dns_vars[:hosts].each do |k, v| -%>
                 local-data: "<%= k %>.<%= ONEAPP_VNF_DNS_CLUSTER_DOMAIN %>. IN A <%= v %>"
                 <%- end -%>
                 <%- end -%>

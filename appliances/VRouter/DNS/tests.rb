@@ -41,9 +41,6 @@ RSpec.describe self do
         ENV['ETH1_IP'] = '20.30.40.50'
         ENV['ETH1_MASK'] = '255.255.0.0'
 
-        ENV['ETH1_ALIAS0_IP'] = '20.30.40.55'
-        ENV['ETH1_ALIAS0_MASK'] = '255.255.0.0'
-
         ENV['ETH2_IP'] = '30.40.50.60'
         ENV['ETH2_MASK'] = '255.0.0.0'
 
@@ -63,25 +60,20 @@ RSpec.describe self do
 
             networks: %w[20.30.0.0/16 30.0.0.0/8 40.50.60.0/24],
 
-            ips: { 'ip0.eth0' => '10.20.30.40',
-                   'ip0.eth1' => '20.30.40.50',
-                   'ip0.eth2' => '30.40.50.60',
-                   'ip0.eth3' => '40.50.60.70',
-                   'ip1.eth1' => '20.30.40.55' },
-
-            vips: { 'vip0.eth0'  => '1.2.3.4',
-                    'vip1.eth0'  => '5.6.7.8',
-                    'vip10.eth0' => '9.10.11.12',
-                    'vip0.eth1'  => '20.30.40.55' },
-
-            eps: {
-                'ep0.eth0'  => '1.2.3.4',     # vip
-                'ep0.eth1'  => '20.30.40.55', # vip
-                'ep0.eth2'  => '30.40.50.60', # ip
-                'ep0.eth3'  => '40.50.60.70', # ip
-                'ep1.eth0'  => '5.6.7.8',     # vip
-                'ep1.eth1'  => '20.30.40.55', # ip
-                'ep10.eth0' => '9.10.11.12' } # vip
+            hosts: { 'ip0.eth0'   => '10.20.30.40',
+                     'ip0.eth1'   => '20.30.40.50',
+                     'ip0.eth2'   => '30.40.50.60',
+                     'ip0.eth3'   => '40.50.60.70',
+                     'vip0.eth1'  => '20.30.40.55',
+                     'vip10.eth0' => '9.10.11.12',
+                     'vip1.eth0'  => '5.6.7.8',
+                     'vip0.eth0'  => '1.2.3.4',
+                     'ep0.eth0'   => '1.2.3.4',
+                     'ep10.eth0'  => '9.10.11.12',
+                     'ep1.eth0'   => '5.6.7.8',
+                     'ep0.eth1'   => '20.30.40.55',
+                     'ep0.eth2'   => '30.40.50.60',
+                     'ep0.eth3'   => '40.50.60.70' }
         })
 
         output = <<~'UNBOUND_CONF'
@@ -133,7 +125,6 @@ RSpec.describe self do
                 local-zone: "vr." static
                 local-data: "ip0.eth0.vr. IN A 10.20.30.40"
                 local-data: "ip0.eth1.vr. IN A 20.30.40.50"
-                local-data: "ip1.eth1.vr. IN A 20.30.40.55"
                 local-data: "ip0.eth2.vr. IN A 30.40.50.60"
                 local-data: "ip0.eth3.vr. IN A 40.50.60.70"
                 local-data: "vip0.eth1.vr. IN A 20.30.40.55"
@@ -141,12 +132,11 @@ RSpec.describe self do
                 local-data: "vip1.eth0.vr. IN A 5.6.7.8"
                 local-data: "vip0.eth0.vr. IN A 1.2.3.4"
                 local-data: "ep0.eth0.vr. IN A 1.2.3.4"
-                local-data: "ep0.eth1.vr. IN A 20.30.40.55"
-                local-data: "ep1.eth1.vr. IN A 20.30.40.55"
-                local-data: "ep0.eth2.vr. IN A 30.40.50.60"
-                local-data: "ep0.eth3.vr. IN A 40.50.60.70"
                 local-data: "ep10.eth0.vr. IN A 9.10.11.12"
                 local-data: "ep1.eth0.vr. IN A 5.6.7.8"
+                local-data: "ep0.eth1.vr. IN A 20.30.40.55"
+                local-data: "ep0.eth2.vr. IN A 30.40.50.60"
+                local-data: "ep0.eth3.vr. IN A 40.50.60.70"
 
             remote-control:
                 control-enable: no
@@ -202,17 +192,14 @@ RSpec.describe self do
 
             networks: %w[20.30.0.0/16 30.0.0.0/8],
 
-            ips: { 'ip0.eth0' => '10.20.30.40',
-                   'ip0.eth1' => '20.30.40.50',
-                   'ip0.eth2' => '30.40.50.60',
-                   'ip0.eth3' => '40.50.60.70' },
-
-            vips: {},
-
-            eps: { 'ep0.eth0' => '10.20.30.40',
-                   'ep0.eth1' => '20.30.40.50',
-                   'ep0.eth2' => '30.40.50.60',
-                   'ep0.eth3' => '40.50.60.70' }
+            hosts: { 'ip0.eth0' => '10.20.30.40',
+                     'ip0.eth1' => '20.30.40.50',
+                     'ip0.eth2' => '30.40.50.60',
+                     'ip0.eth3' => '40.50.60.70',
+                     'ep0.eth0' => '10.20.30.40',
+                     'ep0.eth1' => '20.30.40.50',
+                     'ep0.eth2' => '30.40.50.60',
+                     'ep0.eth3' => '40.50.60.70' }
         })
     end
 
@@ -242,12 +229,10 @@ RSpec.describe self do
 
             networks: %w[1.2.0.0/16],
 
-            ips: { 'ip0.eth0' => '10.20.30.40' },
-
-            vips: { 'vip0.eth1' => '1.2.3.4' },
-
-            eps: { "ep0.eth0" => '10.20.30.40',
-                   'ep0.eth1' => '1.2.3.4' }
+            hosts: { 'ip0.eth0'  => '10.20.30.40',
+                     'vip0.eth1' => '1.2.3.4',
+                     'ep0.eth0'  => '10.20.30.40',
+                     'ep0.eth1'  => '1.2.3.4' }
         })
     end
 end

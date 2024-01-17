@@ -8,8 +8,24 @@ def clear_env
     ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
+RSpec.describe 'detect_addrs' do
+    it 'should parse IP variables' do
+        clear_env
+
+        ENV['ETH0_IP']   = '1.2.3.4'
+        ENV['ETH0_MASK'] = '255.255.0.0'
+        ENV['ETH1_IP']   = '2.3.4.5'
+        ENV['ETH1_MASK'] = '255.255.255.0'
+
+        expect(detect_addrs).to eq ({
+            'eth0' => { 'ETH0_IP0' => '1.2.3.4/16' },
+            'eth1' => { 'ETH1_IP0' => '2.3.4.5/24' }
+        })
+    end
+end
+
 RSpec.describe 'detect_vips' do
-    it 'should parse legacy variables' do
+    it 'should parse VIP variables' do
         clear_env
 
         ENV['ETH0_MASK']                = '255.255.0.0'
@@ -18,23 +34,27 @@ RSpec.describe 'detect_vips' do
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
 
         expect(detect_vips).to eq ({
-            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4/16',
-                        'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5/24' },
-            'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' }
+            'eth0' => { 'ETH0_VIP0' => '1.2.3.4/16',
+                        'ETH0_VIP1' => '2.3.4.5/24' },
+            'eth1' => { 'ETH1_VIP0' => '3.4.5.6/32' }
         })
     end
+end
 
-    it 'should parse legacy variables with lower precedence' do
+RSpec.describe 'detect_endpoints' do
+    it 'should merge IP and VIP variables correctly' do
         clear_env
 
-        ENV['ETH0_MASK']                = '255.255.0.0'
-        ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
-        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '2.3.4.5/24'
-        ENV['ETH1_VROUTER_IP']          = '3.4.5.6'
+        ENV['ETH0_IP']   = '1.2.3.4'
+        ENV['ETH0_MASK'] = '255.255.0.0'
+        ENV['ETH1_IP']   = '2.3.4.5'
+        ENV['ETH1_MASK'] = '255.255.255.0'
 
-        expect(detect_vips).to eq ({
-            'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '2.3.4.5/24' },
-            'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' }
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
+
+        expect(detect_endpoints).to eq ({
+            'eth0' => { 'ETH0_EP0' => '1.2.3.4/16' },
+            'eth1' => { 'ETH1_EP0' => '3.4.5.6/24' }
         })
     end
 end
@@ -180,13 +200,12 @@ RSpec.describe 'nics_to_addrs' do
         clear_env
 
         ENV['ETH0_IP'] = '10.0.1.1'
-        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
         ENV['ETH1_IP'] = '172.16.1.1'
         ENV['ETH2_IP'] = '172.18.1.1'
         ENV['ETH3_IP'] = '172.18.1.1'
 
         tests = [
-            [ %w[eth0], { 'eth0' => %w[10.0.1.1 10.0.1.2] } ],
+            [ %w[eth0], { 'eth0' => %w[10.0.1.1] } ],
 
             [ %w[eth1 eth2 eth3], { 'eth1' => %w[172.16.1.1],
                                     'eth2' => %w[172.18.1.1],
@@ -203,14 +222,12 @@ RSpec.describe 'addrs_to_nics' do
         clear_env
 
         ENV['ETH0_IP'] = '10.0.1.1'
-        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
         ENV['ETH1_IP'] = '172.16.1.1'
         ENV['ETH2_IP'] = '172.18.1.1'
         ENV['ETH3_IP'] = '172.18.1.1'
 
         tests = [
-            [ %w[eth0], { '10.0.1.1' => %w[eth0],
-                          '10.0.1.2' => %w[eth0] } ],
+            [ %w[eth0], { '10.0.1.1' => %w[eth0] } ],
 
             [ %w[eth1 eth2 eth3], { '172.16.1.1' => %w[eth1],
                                     '172.18.1.1' => %w[eth2 eth3] } ]
@@ -246,19 +263,13 @@ RSpec.describe 'addrs_to_subnets' do
 
         ENV['ETH0_IP'] = '10.0.1.1'
         ENV['ETH0_MASK'] = '255.255.255.255'
-
-        ENV['ETH0_ALIAS0_IP'] = '10.0.1.2'
-        ENV['ETH0_ALIAS0_MASK'] = '255.255.0.0'
-
         ENV['ETH1_IP'] = '172.16.1.1'
         ENV['ETH1_MASK'] = '255.255.0.0'
-
         ENV['ETH2_IP'] = '172.18.1.1'
         ENV['ETH2_MASK'] = '255.255.255.0'
 
         tests = [
-            [ %w[eth0], { '10.0.1.1/32' => '10.0.1.1/32',
-                          '10.0.1.2/16' => '10.0.0.0/16' } ],
+            [ %w[eth0], { '10.0.1.1/32' => '10.0.1.1/32' } ],
 
             [ %w[eth1 eth2], { '172.16.1.1/16' => '172.16.0.0/16',
                                '172.18.1.1/24' => '172.18.1.0/24' } ]
@@ -273,7 +284,7 @@ RSpec.describe 'vips_to_subnets' do
     it 'should extract subnets' do
         clear_env
 
-        ENV['ETH0_MASK'] = '255.255.255.255'
+        ENV['ETH0_MASK'] = '255.255.255.0'
 
         tests = [
             [ [ 'eth0', 'eth1' ],
@@ -282,9 +293,9 @@ RSpec.describe 'vips_to_subnets' do
                             'ONEAPP_VROUTER_ETH0_VIP1'=> '2.3.4.5/16' },
                 'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0'=> '6.7.8.9' } },
 
-              { '1.2.3.4/32' => '1.2.3.4/32',
+              { '1.2.3.4/24' => '1.2.3.0/24',
                 '2.3.4.5/16' => '2.3.0.0/16',
-                '6.7.8.9'    => '6.7.8.9/32' } ]
+                '6.7.8.9/32' => '6.7.8.9/32' } ]
         ]
         tests.each do |nics, vips, output|
             expect(vips_to_subnets(nics, vips)).to eq output
@@ -958,55 +969,54 @@ RSpec.describe 'backends.combine' do
     end
 end
 
-RSpec.describe 'backends.resolve_vips' do
+RSpec.describe 'backends.resolve' do
     it 'should replace (v)ip placeholders with existing (v)ip addresses' do
         tests = [
             [
-                { 'eth0' => { 'ONEAPP_VROUTER_ETH0_VIP0' => '1.2.3.4',
-                              'ONEAPP_VROUTER_ETH0_VIP1' => '2.3.4.5' },
-                  'eth1' => { 'ONEAPP_VROUTER_ETH1_VIP0' => '3.4.5.6' } },
+                # "addrs"
+                { 'eth0' => { 'ETH0_IP0' => '1.2.3.4/24' },
+                  'eth1' => { 'ETH1_IP0' => '2.3.4.5/24' } },
 
-                { 'eth1' => %w[1.1.1.1 4.5.6.7 8.8.8.8] },
+                # "vips"
+                { 'eth0' => { 'ETH0_VIP0' => '1.2.3.254/24',
+                              'ETH0_VIP1' => '2.3.4.254/24' } },
 
-                { by_endpoint: {
-                    [ 0, '<ONEAPP_VROUTER_ETH0_VIP1>', '5432' ] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-
-                    [ 1, '<ONEAPP_VROUTER_ETH1_VIP0>', '5432' ] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-
-                    [ 2, '<ETH1_IP1>', '1111' ] =>
-                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } },
-
-                    [ 3, '5.6.7.8', '3333' ] =>
-                        { [ '10.2.11.204', '4444' ] => { host: '10.2.11.204', port: '4444' } } },
-
-                  options: { 0 => { ip: '<ONEAPP_VROUTER_ETH0_VIP1>', port: '5432' },
-                             1 => { ip: '<ONEAPP_VROUTER_ETH1_VIP0>', port: '5432' },
-                             2 => { ip: '<ETH1_IP1>', port: '1111' },
-                             3 => { ip: '5.6.7.8', port: '3333' } } },
+                # "endpoints"
+                { 'eth0' => { 'ETH0_EP0' => '1.2.3.254/24',
+                              'ETH0_EP1' => '2.3.4.254/24' },
+                  'eth1' => { 'ETH1_EP0' => '2.3.4.5/24' } },
 
                 { by_endpoint: {
-                    [ 0, '2.3.4.5', '5432' ] =>
+                    [ 0, '<ETH0_VIP0>', '5432' ] =>
                         { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
 
-                    [ 1, '3.4.5.6', '5432' ] =>
-                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
-
-                    [ 2, '4.5.6.7', '1111' ] =>
+                    [ 1, '<ETH1_EP0>', '1111' ] =>
                         { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } },
 
-                    [ 3, '5.6.7.8', '3333' ] =>
+                    [ 2, '5.6.7.8', '3333' ] =>
                         { [ '10.2.11.204', '4444' ] => { host: '10.2.11.204', port: '4444' } } },
 
-                  options: { 0 => { ip: '2.3.4.5', port: '5432' },
-                             1 => { ip: '3.4.5.6', port: '5432' },
-                             2 => { ip: '4.5.6.7', port: '1111' },
-                             3 => { ip: '5.6.7.8', port: '3333' } } }
+                  options: { 0 => { ip: '<ETH0_VIP0>', port: '5432' },
+                             1 => { ip: '<ETH1_EP0>', port: '1111' },
+                             2 => { ip: '5.6.7.8', port: '3333' } } },
+
+                { by_endpoint: {
+                    [ 0, '1.2.3.254', '5432' ] =>
+                        { [ '10.2.11.202', '2345' ] => { host: '10.2.11.202', port: '2345' } },
+
+                    [ 1, '2.3.4.5', '1111' ] =>
+                        { [ '10.2.11.203', '2222' ] => { host: '10.2.11.203', port: '2222' } },
+
+                    [ 2, '5.6.7.8', '3333' ] =>
+                        { [ '10.2.11.204', '4444' ] => { host: '10.2.11.204', port: '4444' } } },
+
+                  options: { 0 => { ip: '1.2.3.254', port: '5432' },
+                             1 => { ip: '2.3.4.5', port: '1111' },
+                             2 => { ip: '5.6.7.8', port: '3333' } } }
             ]
         ]
-        tests.each do |vips, n2a, b, output|
-            expect(backends.resolve_vips(b, vips, n2a)).to eq output
+        tests.each do |a, v, e, b, output|
+            expect(backends.resolve(b, a, v, e)).to eq output
         end
     end
 end
