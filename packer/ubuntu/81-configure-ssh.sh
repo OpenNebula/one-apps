@@ -8,23 +8,23 @@ set -x
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PasswordAuthentication no" }
-/^[#\s]*PasswordAuthentication\s*/ { $0 = update; found = 1 }
+/^[#\s]*PasswordAuthentication\s/ { $0 = update; found = 1 }
 { print }
-END { if (!found) print update >> FILENAME }
+ENDFILE { if (!found) print update }
 EOF
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PermitRootLogin without-password" }
-/^[#\s]*PermitRootLogin\s*/ { $0 = update; found = 1 }
+/^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
 { print }
-END { if (!found) print update >> FILENAME }
+ENDFILE { if (!found) print update }
 EOF
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "UseDNS no" }
-/^[#\s]*UseDNS\s*/ { $0 = update; found = 1 }
+/^[#\s]*UseDNS\s/ { $0 = update; found = 1 }
 { print }
-END { if (!found) print update >> FILENAME }
+ENDFILE { if (!found) print update }
 EOF
 
 rm -rf /etc/ssh/sshd_config.d/*-cloud-init.conf
