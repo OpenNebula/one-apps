@@ -102,6 +102,25 @@ RSpec.describe 'hashmap' do
     end
 end
 
+RSpec.describe 'sortkeys' do
+    it 'should v-sort according to a pattern' do
+        tests = [
+            [ %w[ETH1_VIP10 Y ETH1_VIP1 X ETH0_VIP0],
+              /^ETH(\d+)_VIP(\d+)$/,
+              %w[ETH0_VIP0 Y ETH1_VIP1 X ETH1_VIP10] ],
+
+            [ %w[lo eth10 eth0 eth1 eth2],
+              /^eth(\d+)$/,
+              %w[lo eth0 eth1 eth2 eth10] ],
+        ]
+        tests.each do |input, pattern, output|
+            expect(sortkeys.as_version(input, pattern: pattern)).to eq output
+            sortkeys.as_version!(input, pattern: pattern)
+            expect(input).to eq output
+        end
+    end
+end
+
 RSpec.describe 'sorted_deps' do
     it 'should sort dependencies' do
         tests = [

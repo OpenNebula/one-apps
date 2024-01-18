@@ -31,7 +31,8 @@ module Keepalived
                 password:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PASSWORD", ONEAPP_VNF_KEEPALIVED_PASSWORD),
                 interval:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_INTERVAL", ONEAPP_VNF_KEEPALIVED_INTERVAL),
                 priority:   env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_PRIORITY", ONEAPP_VNF_KEEPALIVED_PRIORITY),
-                vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID",     default_vrid),
+                vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID", default_vrid),
+                skip:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_SKIP", 'NO'),
                 vips:       @vips[nic]&.values || [],
                 noip:       !@nics.include?(nic),
                 gw:         env("#{nic.upcase}_GATEWAY", ''),
@@ -93,7 +94,7 @@ module Keepalived
             vrrp_sync_group VRouter {
                 group {
             <%- keepalived_vars[:by_vrid].each do |_, nics| -%>
-            <%- unless ((k, _) = nics.find { |_, opt| !opt[:noip] }).nil? -%>
+            <%- unless ((k, _) = nics.find { |_, opt| !opt[:skip] && !opt[:noip] }).nil? -%>
                     <%= k.upcase %>
             <%- end -%>
             <%- end -%>
@@ -101,7 +102,7 @@ module Keepalived
             }<%- -%>
 
             <%- keepalived_vars[:by_vrid].each do |vrid, nics| -%>
-            <%- unless ((k, v) = nics.find { |_, opt| !opt[:noip] }).nil? -%>
+            <%- unless ((k, v) = nics.find { |_, opt| !opt[:skip] && !opt[:noip] }).nil? -%>
             vrrp_instance <%= k.upcase %> {
                 state             BACKUP
                 interface         <%= k.downcase %>
