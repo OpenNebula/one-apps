@@ -78,6 +78,20 @@ def configure_kubernetes(configure_cni: ->{}, configure_addons: ->{})
         join_storage node[:token]
     end
 
+    # NOTE: There is no need to enable rke2 services after init/join is done,
+    #       starting them "manually" gives us more control.
+    if node[:start_server]
+        bash <<~SCRIPT
+        systemctl disable rke2-server.service
+        systemctl start rke2-server.service
+        SCRIPT
+    elsif node[:start_agent]
+        bash <<~SCRIPT
+        systemctl disable rke2-agent.service
+        systemctl start rke2-agent.service
+        SCRIPT
+    end
+
     node
 end
 
@@ -323,6 +337,8 @@ def detect_node
         join_master:  current_role == 'master'  && current_vmid != master_vmid && ready_to_join,
         join_worker:  current_role == 'worker'  && current_vmid != master_vmid && ready_to_join,
         join_storage: current_role == 'storage' && current_vmid != master_vmid && ready_to_join,
+        start_server: current_role == 'master',
+        start_agent:  current_role != 'master',
         token: token
     }
 

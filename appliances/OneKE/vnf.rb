@@ -28,55 +28,21 @@ def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0,
             exit 1
         end
 
-        if gw_ipv4.nil?
-            msg :info, "Using '#{vnf_ipv4}' as default gateway.."
-            gw_ipv4 = vnf_ipv4
-        end
-
-        if use_dns && dns_ipv4.nil?
-            msg :info, "Using '#{vnf_ipv4}' as primary nameserver.."
-            dns_ipv4 = vnf_ipv4
-        end
+        gw_ipv4  ||= vnf_ipv4
+        dns_ipv4 ||= vnf_ipv4 if use_dns
     end
 
-    if (gw_ok = !gw_ipv4.nil? && ipv4?(gw_ipv4)) == true
-        msg :debug, 'Configure default gateway (temporarily)'
+    if !gw_ipv4.nil? && ipv4?(gw_ipv4)
+        msg :info, "Override default GW (#{gw_ipv4})"
         bash "ip route replace default via #{gw_ipv4} dev eth0"
     end
 
-    if (dns_ok = use_dns && !dns_ipv4.nil? && ipv4?(dns_ipv4)) == true
-        msg :debug, 'Configure primary DNS (temporarily)'
+    if use_dns && !dns_ipv4.nil? && ipv4?(dns_ipv4)
+        msg :info, "Override primary DNS (#{dns_ipv4})"
         file '/etc/resolv.conf', <<~RESOLV_CONF, overwrite: true
         nameserver #{dns_ipv4}
         RESOLV_CONF
     end
-
-    msg :info, 'Install the vnf-restore service'
-
-    file '/etc/systemd/system/vnf-restore.service', <<~SERVICE, overwrite: true
-    [Unit]
-    After=network.target
-
-    [Service]
-    Type=oneshot
-    ExecStart=/bin/sh -ec '#{gw_ok ? "ip route replace default via #{gw_ipv4} dev eth0" : ':'}'
-    ExecStart=/bin/sh -ec '#{dns_ok ? "echo 'nameserver #{dns_ipv4}' > /etc/resolv.conf" : ':'}'
-
-    [Install]
-    WantedBy=multi-user.target
-    SERVICE
-
-    # Make sure vnf-restore is triggered everytime one-context-reconfigure.service runs.
-    file '/etc/systemd/system/one-context-reconfigure.service.d/vnf-restore.conf', <<~SERVICE, overwrite: true
-    [Service]
-    ExecStartPost=/usr/bin/systemctl restart vnf-restore.service
-    SERVICE
-
-    msg :info, 'Enable and start the vnf-restore service'
-    bash <<~SCRIPT
-    systemctl daemon-reload
-    systemctl enable vnf-restore.service --now
-    SCRIPT
 end
 
 def vnf_supervisor_setup_backend(lb_idx = 0,
