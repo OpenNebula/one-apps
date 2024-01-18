@@ -24,15 +24,13 @@ end
 def all_vms_show
     onegate_service = onegate_service_show
 
-    roles = onegate_service.dig 'SERVICE', 'roles'
-    if roles.empty?
+    if (roles = onegate_service.dig 'SERVICE', 'roles').empty?
         msg :error, 'No roles found in Onegate'
         exit 1
     end
 
     vmids = roles.each_with_object [] do |role, acc|
-        nodes = role.dig 'nodes'
-        next if nodes.nil?
+        next if (nodes = role.dig 'nodes').nil?
 
         nodes.each do |node|
             acc << node.dig('vm_info', 'VM', 'ID')
@@ -44,24 +42,21 @@ def all_vms_show
     end
 end
 
-def master_vms_show
+def role_vms_show(name)
     onegate_service = onegate_service_show
 
-    roles = onegate_service.dig 'SERVICE', 'roles'
-    if roles.empty?
+    if (roles = onegate_service.dig 'SERVICE', 'roles').empty?
         msg :error, 'No roles found in Onegate'
         exit 1
     end
 
-    role = roles.find { |item| item['name'] == 'master' }
-    if role.nil?
-        msg :error, 'No master role found in Onegate'
+    if (role = roles.find { |item| item['name'] == name }).nil?
+        msg :error, "No '#{name}' role found in Onegate"
         exit 1
     end
 
-    nodes = role.dig 'nodes'
-    if nodes.empty?
-        msg :error, 'No master nodes found in Onegate'
+    if (nodes = role.dig 'nodes').empty?
+        msg :error, "No '#{name}' nodes found in Onegate"
         exit 1
     end
 
@@ -72,23 +67,24 @@ def master_vms_show
     end
 end
 
-def master_vm_show
+def master_vms_show
+    role_vms_show 'master'
+end
+
+def role_vm_show(name) # Shows the first one..
     onegate_service = onegate_service_show
 
-    roles = onegate_service.dig 'SERVICE', 'roles'
-    if roles.empty?
+    if (roles = onegate_service.dig 'SERVICE', 'roles').empty?
         msg :error, 'No roles found in Onegate'
         exit 1
     end
 
-    role = roles.find { |item| item['name'] == 'master' }
-    if role.nil?
-        msg :error, 'No master role found in Onegate'
+    if (role = roles.find { |item| item['name'] == name }).nil?
+        msg :error, "No '#{name}' role found in Onegate"
         exit 1
     end
 
-    nodes = role.dig 'nodes'
-    if nodes.empty?
+    if (nodes = role.dig 'nodes').empty?
         msg :error, 'No nodes found in Onegate'
         exit 1
     end
@@ -98,17 +94,23 @@ def master_vm_show
     onegate_vm_show vmid
 end
 
+def vnf_vm_show
+    role_vm_show 'vnf'
+end
+
+def master_vm_show
+    role_vm_show 'master'
+end
+
 def external_ipv4s
     onegate_vm = onegate_vm_show
 
-    nics = onegate_vm.dig 'VM', 'TEMPLATE', 'NIC'
-    if nics.empty?
+    if (nics = onegate_vm.dig 'VM', 'TEMPLATE', 'NIC').empty?
         msg :error, 'No nics found in Onegate'
         exit 1
     end
 
-    ip_addr = ip_addr_show
-    if ip_addr.empty?
+    if (ip_addr = ip_addr_show).empty?
         msg :error, 'No local addresses found'
         exit 1
     end

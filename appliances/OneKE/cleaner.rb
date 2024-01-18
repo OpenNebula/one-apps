@@ -41,7 +41,7 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                 imagePullPolicy: IfNotPresent
                 command:
                 - /usr/local/bin/ruby
-                - /etc/one-appliance/service.d/appliance/cleaner.rb
+                - /etc/one-appliance/service.d/OneKE/cleaner.rb
                 volumeMounts:
                 - name: kubectl
                   mountPath: /var/lib/rancher/rke2/bin/kubectl
@@ -53,8 +53,10 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                   mountPath: /usr/bin/onegate
                 - name: onegaterb
                   mountPath: /usr/bin/onegate.rb
+                - name: lib
+                  mountPath: /etc/one-appliance/lib/
                 - name: appliance
-                  mountPath: /etc/one-appliance/service.d/appliance/
+                  mountPath: /etc/one-appliance/service.d/OneKE/
               volumes:
               - name: kubectl
                 hostPath:
@@ -76,9 +78,13 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                 hostPath:
                   path: /usr/bin/onegate.rb
                   type: File
+              - name: lib
+                hostPath:
+                  path: /etc/one-appliance/lib/
+                  type: Directory
               - name: appliance
                 hostPath:
-                  path: /etc/one-appliance/service.d/appliance/
+                  path: /etc/one-appliance/service.d/OneKE/
                   type: Directory
               restartPolicy: Never
     MANIFEST

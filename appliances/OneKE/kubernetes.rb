@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require 'uri'
 require 'yaml'
 
 require_relative 'config.rb'
@@ -77,13 +78,27 @@ def configure_kubernetes(configure_cni: ->{}, configure_addons: ->{})
         join_storage node[:token]
     end
 
+    # NOTE: There is no need to enable rke2 services after init/join is done,
+    #       starting them "manually" gives us more control.
+    if node[:start_server]
+        bash <<~SCRIPT
+        systemctl disable rke2-server.service
+        systemctl start rke2-server.service
+        SCRIPT
+    elsif node[:start_agent]
+        bash <<~SCRIPT
+        systemctl disable rke2-agent.service
+        systemctl start rke2-agent.service
+        SCRIPT
+    end
+
     node
 end
 
 def wait_for_any_master(retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for any master to be available'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_any_master / #{retry_num}"
 
         master_vms_show.each do |master_vm|
@@ -108,10 +123,10 @@ def wait_for_any_master(retries = RETRIES, seconds = SECONDS)
     end
 end
 
-def wait_for_control_plane(endpoint = K8S_CONTROL_PLANE_EP, retries = RETRIES, seconds = SECONDS)
+def wait_for_control_plane(endpoint = ONEAPP_K8S_CONTROL_PLANE_EP, retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for Control-Plane to be ready'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_control_plane / #{retry_num}"
 
         break if http_status_200? "https://#{endpoint}/readyz"
@@ -128,7 +143,7 @@ end
 def wait_for_kubelets(retries = RETRIES, seconds = SECONDS)
     msg :info, 'Wait for available Kubelets to be ready'
 
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         msg :debug, "wait_for_kubelets / #{retry_num}"
 
         conditions = kubectl_get_nodes['items'].map do |node|
@@ -165,10 +180,14 @@ def init_master
     cni << 'multus' if ONEAPP_K8S_MULTUS_ENABLED
     cni << ONEAPP_K8S_CNI_PLUGIN
 
+    cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
+    sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
+    sans << cp.host
+
     server_config = {
         'node-name'          => name,
         'token'              => SecureRandom.uuid,
-        'tls-san'            => ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip).append(ONEAPP_VROUTER_ETH0_VIP0),
+        'tls-san'            => sans.uniq,
         'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
@@ -182,7 +201,7 @@ def init_master
     bash 'systemctl enable rke2-server.service --now'
 
     server_config.merge!({
-        'server' => "https://#{K8S_SUPERVISOR_EP}",
+        'server' => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'  => File.read('/var/lib/rancher/rke2/server/node-token', encoding: 'utf-8').strip
     })
 
@@ -208,11 +227,15 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
     cni << 'multus' if ONEAPP_K8S_MULTUS_ENABLED
     cni << ONEAPP_K8S_CNI_PLUGIN
 
+    cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
+    sans = ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip)
+    sans << cp.host
+
     server_config = {
         'node-name'          => name,
-        'server'             => "https://#{K8S_SUPERVISOR_EP}",
+        'server'             => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'              => token,
-        'tls-san'            => ONEAPP_K8S_EXTRA_SANS.split(',').map(&:strip).append(ONEAPP_VROUTER_ETH0_VIP0),
+        'tls-san'            => sans.uniq,
         'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
@@ -224,14 +247,14 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
 
     # The rke2-server systemd service restarts automatically and eventually joins.
     # If it really cannot join we want to reflect this in OneFlow.
-    retries.times.to_a.reverse.each do |retry_num|
+    retries.downto(0).each do |retry_num|
         if retry_num.zero?
             msg :error, 'Unable to join Control-Plane'
             exit 1
         end
         begin
             msg :info, "Join master: #{name} / #{retry_num}"
-            bash 'systemctl enable rke2-server.service --now', terminate: false
+            bash 'systemctl enable rke2-server.service --now'
         rescue RuntimeError
             sleep seconds
             next
@@ -260,7 +283,7 @@ def join_worker(token)
 
     agent_config = {
         'node-name' => name,
-        'server'    => "https://#{K8S_SUPERVISOR_EP}",
+        'server'    => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'     => token
     }
 
@@ -282,7 +305,7 @@ def join_storage(token)
 
     agent_config = {
         'node-name'  => name,
-        'server '    => "https://#{K8S_SUPERVISOR_EP}",
+        'server'     => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
         'token'      => token,
         'node-taint' => ['node.longhorn.io/create-default-disk=true:NoSchedule'],
         'node-label' => ['node.longhorn.io/create-default-disk=true']
@@ -314,6 +337,8 @@ def detect_node
         join_master:  current_role == 'master'  && current_vmid != master_vmid && ready_to_join,
         join_worker:  current_role == 'worker'  && current_vmid != master_vmid && ready_to_join,
         join_storage: current_role == 'storage' && current_vmid != master_vmid && ready_to_join,
+        start_server: current_role == 'master',
+        start_agent:  current_role != 'master',
         token: token
     }
 

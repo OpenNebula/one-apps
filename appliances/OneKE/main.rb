@@ -16,16 +16,18 @@ require_relative 'traefik.rb'
 require_relative 'longhorn.rb'
 require_relative 'cleaner.rb'
 
-if caller.empty?
-    case ARGV[0].to_sym
-    when :install
-        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
+module Service
+module OneKE
+    extend self
+
+    DEPENDS_ON = %w[]
+
+    def install
+        msg :info, 'OneKE::install'
 
         install_packages PACKAGES
 
-        with_policy_rc_d_disabled do
-            install_kubernetes
-        end
+        with_policy_rc_d_disabled { install_kubernetes }
 
         install_metallb
         install_traefik
@@ -36,9 +38,10 @@ if caller.empty?
         pull_addon_images if ONE_SERVICE_AIRGAPPED
 
         msg :info, 'Installation completed successfully'
+    end
 
-    when :configure
-        msg :debug, "ONE_SERVICE_AIRGAPPED=#{ONE_SERVICE_AIRGAPPED}"
+    def configure
+        msg :info, 'OneKE::configure'
 
         prepare_dedicated_storage unless ONEAPP_STORAGE_DEVICE.nil?
 
@@ -80,8 +83,10 @@ if caller.empty?
         end
 
         msg :info, 'Configuration completed successfully'
-
-    when :bootstrap
-        puts 'bootstrap_success'
     end
+
+    def bootstrap
+        msg :info, 'OneKE::bootstrap'
+    end
+end
 end

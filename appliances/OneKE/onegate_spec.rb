@@ -3,6 +3,7 @@
 require 'json'
 require 'rspec'
 
+require_relative 'helpers.rb'
 require_relative 'onegate.rb'
 
 RSpec.describe 'all_vms_show' do
