@@ -10,17 +10,18 @@ module HAProxy
     VROUTER_ID = env :VROUTER_ID, nil
 
     def extract_backends(objects = {})
-        @vips ||= detect_vips
-        @n2a  ||= nics_to_addrs
+        @ave ||= [detect_addrs, detect_vips].then do |a, v|
+            [a, v, detect_endpoints(a, v)]
+        end
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_HAPROXY_LB')
 
         dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB')
                                   : backends.from_vnets(objects, prefix: 'ONEGATE_HAPROXY_LB')
 
-        # Replace all "<ONEAPP_VROUTER_ETHx_VIPy>" and "<ETHx_IPy>" placeholders where possible.
-        static  = backends.resolve_vips  static, @vips, @n2a
-        dynamic = backends.resolve_vips dynamic, @vips, @n2a
+        # Replace all "<ETHx_IPy>", "<ETHx_VIPy>" and "<ETHx_EPy>" placeholders where possible.
+        static  = backends.resolve  static, *@ave
+        dynamic = backends.resolve dynamic, *@ave
 
         # NOTE: This ensures that backends can be added dynamically only to statically defined LBs.
         backends.combine static, dynamic
