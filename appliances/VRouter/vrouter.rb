@@ -105,6 +105,9 @@ def parse_interfaces(interfaces, pattern: /^[!]?eth\d+$/)
 
     included = detect_nics if included.empty?
 
+    # Sort NICs to make the resulting data structure predictable..
+    sortkeys.as_version! included, pattern: /^eth(\d+)$/
+
     excluded, included = [excluded, included].map do |collection|
         collection.each_with_object({}) do |interface, acc|
             parts = { name: nil, addr: nil, port: nil }

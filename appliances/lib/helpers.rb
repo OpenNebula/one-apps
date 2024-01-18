@@ -122,6 +122,33 @@ def hashmap
     end
 end
 
+def sortkeys
+    def apply(method, keys, pattern)
+        k_unsorted = keys.select do |k|
+            k =~ pattern
+        end
+
+        k_sorted = k_unsorted.sort_by do |k|
+            k =~ pattern
+            Gem::Version.new $~[1..(-1)].join(%[.])
+        end
+
+        k_map = k_unsorted.zip(k_sorted).to_h
+
+        keys.method(method).call do |x|
+            (y = k_map[x]).nil? ? x : y
+        end
+    end
+
+    def as_version(keys, pattern: /^(\d+)[.](\d+)[.](\d+)$/)
+        apply :map, keys, pattern
+    end
+
+    def as_version!(keys, pattern: /^(\d+)[.](\d+)[.](\d+)$/)
+        apply :map!, keys, pattern
+    end
+end
+
 def sorted_deps(deps)
     # NOTE: This doesn't handle circular dependencies.
 
