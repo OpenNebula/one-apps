@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-# Removes man pages and share/doc data, then prevents
-# from re-populating.
+# Remove/Disable man pages and share/doc data.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 /etc/dpkg/dpkg.cfg.d/excludes <<'EOF'
 path-exclude=/usr/share/man/*

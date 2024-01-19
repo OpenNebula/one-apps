@@ -1,9 +1,9 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-# (Auto)Removes unneeded packages and upgrades the distro.
+# Install required packages and upgrade the distro.
 
 exec 1>&2
-set -ex
+set -eux -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 

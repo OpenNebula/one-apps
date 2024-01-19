@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-# Sets kernel command line (net.ifnames=0 is particularily important),
-# then updates initramfs/initrd and grub2.
+# Set kernel command line (net.ifnames=0 is particularily important),
+# then update initramfs/initrd and grub2.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 rm -rf /etc/default/grub.d/
 

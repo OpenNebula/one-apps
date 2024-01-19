@@ -1,25 +1,17 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ash
 
-# Downloads and installs the latest one-context package.
+# Download and install the latest *official* one-context package.
+
+: "${CTXEXT:=apk}"
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
-: "${CTX_SUFFIX:=.apk}"
+apk add tzdata haveged open-vm-tools-plugins-all
 
-set -o errexit -o nounset -o pipefail
-set -x
+LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-if ! stat /context/one-context*$CTX_SUFFIX; then (
-    install -d /context/ && cd /context/
-    curl -fsSL https://api.github.com/repos/OpenNebula/addon-context-linux/releases \
-    | jq -r ".[0].assets[].browser_download_url | select(endswith(\"$CTX_SUFFIX\"))" \
-    | xargs -r -n1 curl -fsSLO
-) fi
-
-apk --no-cache add tzdata haveged open-vm-tools-plugins-all
-apk --no-cache add --allow-untrusted /context/one-context*$CTX_SUFFIX
+apk add --allow-untrusted "$LATEST"
 
 rc-update add qemu-guest-agent default
 rc-update add open-vm-tools default

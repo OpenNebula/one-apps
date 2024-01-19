@@ -9,7 +9,7 @@ users:
     hashed_passwd: $6$rounds=4096$2RFfXKGPKTcdF.CH$dzLlW9Pg1jbeojxRxEraHwEMAPAbpChBdrMFV1SOa6etSF2CYAe.hC1dRDM1icTOk7M4yhVS1BtwJjah9essD0
 
 disable_root: false
-ssh_pwauth:   true
+ssh_pwauth: true
 
 runcmd:
   - |

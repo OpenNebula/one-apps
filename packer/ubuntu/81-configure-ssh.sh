@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
-# Configures critical settings for OpenSSH server.
+# Configure critical settings for OpenSSH server.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PasswordAuthentication no" }

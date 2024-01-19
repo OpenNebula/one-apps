@@ -1,12 +1,10 @@
-#!/usr/bin/env sh
+#!/usr/bin/env ash
 
-# (Auto)Removes unneeded packages and upgrades
-# the distro.
+# Install required packages and upgrade the distro.
 
 exec 1>&2
-set -ex
+set -eux -o pipefail
 
-# Ensure packages needed for post-processing scripts do exist.
 apk --no-cache add bash curl gawk grep jq sed
 
 gawk -i inplace -f- /etc/apk/repositories <<'EOF'
