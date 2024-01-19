@@ -1,17 +1,19 @@
-#!/bin/bash
-SCRIPT=$(cat <<MAINEND
+#!/usr/bin/env bash
+set -eux -o pipefail
+
+SCRIPT=$(cat <<'MAINEND'
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PasswordAuthentication yes" }
-/^[#\s]*PasswordAuthentication\s*/ { \$0 = update; found = 1 }
+/^[#\s]*PasswordAuthentication\s/ { $0 = update; found = 1 }
 { print }
-END { if (!found) print update >> FILENAME }
+ENDFILE { if (!found) print update }
 EOF
 
 gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
 BEGIN { update = "PermitRootLogin yes" }
-/^[#\s]*PermitRootLogin\s*/ { \$0 = update; found = 1 }
+/^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
 { print }
-END { if (!found) print update >> FILENAME }
+ENDFILE { if (!found) print update }
 EOF
 
 systemctl reload sshd

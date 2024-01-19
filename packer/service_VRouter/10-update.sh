@@ -1,16 +1,14 @@
-#!/usr/bin/env sh
+#!/usr/bin/env ash
 
-# (Auto)Removes unneeded packages and upgrades
-# the distro.
+# Install required packages and upgrade the distro.
 
 exec 1>&2
-set -ex
+set -eux -o pipefail
 
 service haveged stop ||:
 
 apk update
 
-apk --no-cache add \
-    bash curl ethtool gawk grep iproute2 jq ruby sed tcpdump
+apk add bash curl ethtool gawk grep iproute2 jq ruby sed tcpdump
 
 sync

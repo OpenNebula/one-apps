@@ -34,9 +34,9 @@ source "qemu" "VRouter" {
   output_directory = var.output_dir
 
   qemuargs = [
-    ["-serial", "stdio"],
     ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
+    ["-serial", "stdio"],
     # MAC addr needs to mach ETH0_MAC from context iso
     ["-netdev", "user,id=net0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
     ["-device", "virtio-net-pci,netdev=net0,mac=00:11:22:33:44:55"],

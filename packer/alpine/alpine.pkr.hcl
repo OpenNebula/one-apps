@@ -26,9 +26,11 @@ source "qemu" "alpine" {
 
   output_directory = "${var.output_dir}"
 
-  qemuargs = [["-serial", "stdio"],
-    ["-cpu", "host"]
+  qemuargs = [
+    ["-cpu", "host"],
+    ["-serial", "stdio"],
   ]
+
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_wait_timeout = "900s"

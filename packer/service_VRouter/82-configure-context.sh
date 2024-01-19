@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
-# Configures and enables service context.
+# Configure and enable service context.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 printf '#!/bin/sh\n\ntrue\n' > /etc/one-context.d/loc-12-firewall
 printf '#!/bin/sh\n\ntrue\n' > /etc/one-context.d/loc-15-ip_forward
