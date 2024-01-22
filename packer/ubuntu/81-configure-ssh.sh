@@ -27,5 +27,6 @@ ENDFILE { if (!found) print update }
 EOF
 
 rm -rf /etc/ssh/sshd_config.d/*-cloud-init.conf
+rm -rf /etc/ssh/sshd_config.d/*-cloudimg-settings.conf
 
 sync
