@@ -76,7 +76,7 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
         if eval "$READY_SCRIPT";then
             report_ready
         else
-            echo READY_SCRIPT "$READY_SCRIPT" failed to execute. Not reporting READY >&2
+            echo READY_SCRIPT "$READY_SCRIPT" failed to execute. Not reporting READY on attempt "$RETRY_COUNT" >&2
             asdf &>/dev/null # force fail for retry
         fi
     else
@@ -85,6 +85,7 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
 
     # shellcheck disable=SC2181
     if [ "$?" = "0" ]; then
+        echo "Reported READY"
         exit 0
     fi
 
