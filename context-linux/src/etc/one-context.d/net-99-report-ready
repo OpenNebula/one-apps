@@ -43,7 +43,7 @@ else
     exit 1
 fi > /dev/null # this will not drop the error message which goes to stderr
 
-while [ "$RETRY_COUNT" -gt 0 ] ; do
+report_ready() {
     case "$_command" in
         curl)
             curl -X "PUT" "${ONEGATE_ENDPOINT}/vm" \
@@ -69,6 +69,19 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
             fi
             ;;
     esac
+}
+
+while [ "$RETRY_COUNT" -gt 0 ] ; do
+    if [[ -n "$READY_SCRIPT" ]];then
+        if eval "$READY_SCRIPT";then
+            report_ready
+        else
+            echo READY_SCRIPT "$READY_SCRIPT" failed to execute. Not reporting READY >&2
+            asdf &>/dev/null # force fail for retry
+        fi
+    else
+        report_ready
+    fi
 
     # shellcheck disable=SC2181
     if [ "$?" = "0" ]; then
@@ -79,4 +92,5 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
     sleep "${RETRY_WAIT_PERIOD}"
 done
 
+echo "Failed to report READY" >&2
 exit 1
