@@ -52,6 +52,13 @@ context-windows: $(patsubst %, context-windows/out/%, $(WINDOWS_CONTEXT_PACKAGES
 context-windows/out/%: ${CONTEXT_WINDOWS_SOURCES}
 	cd context-windows; ./generate-all.sh
 
+# context iso with all the context packages
+context-iso: ${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso
+${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso: \
+	$(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES)) \
+	$(patsubst %, context-windows/out/%, $(WINDOWS_CONTEXT_PACKAGES))
+	mkisofs -J -R -input-charset utf8 -m '*.iso' -V one-context-$(VERSION) -o ${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso  context-linux/out/one-context?${VERSION}* context-windows/out/one-context-${VERSION}*.msi
+
 clean:
 	-rm -rf ${DIR_EXPORT}/*
 	-rm -rf context-linux/out/*
