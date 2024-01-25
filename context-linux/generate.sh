@@ -41,7 +41,7 @@ fi
 
 ###
 
-VERSION=${VERSION:-6.6.1} # no need to bump, it's exported from the Makefile
+VERSION=${VERSION:-6.8.1} # no need to bump, it's exported from the Makefile
 RELEASE=${RELEASE:-1}
 MAINTAINER=${MAINTAINER:-OpenNebula Systems <contact@opennebula.io>}
 LICENSE=${LICENSE:-Apache 2.0}
@@ -154,7 +154,7 @@ elif [ "${TYPE}" = 'iso' ]; then
         -m '*.iso' \
         -V "${LABEL}" \
         -o "${OUT}" \
-        "${_out_dir}"
+        ${_out_dir}/one-context?${VERSION}*
 
 else
     CONFIG_FILES=$(cd "${BUILD_DIR}" && \
