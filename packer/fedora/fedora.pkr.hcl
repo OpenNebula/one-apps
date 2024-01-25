@@ -38,7 +38,7 @@ source "qemu" "fedora" {
                      ]
   ssh_username     = "root"
   ssh_password     = "opennebula"
-  ssh_wait_timeout = "600s"
+  ssh_timeout      = "600s"
   shutdown_command = "poweroff"
   vm_name          = "${var.appliance_name}"
 }
