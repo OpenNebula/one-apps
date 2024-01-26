@@ -1,36 +1,12 @@
 # frozen_string_literal: true
 
-require 'ipaddr'
-
 require_relative 'config.rb'
 require_relative 'helpers.rb'
 require_relative 'onegate.rb'
 
-def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0,
+def configure_vnf(gw_ipv4 = ONEAPP_VROUTER_ETH1_VIP0 || FALLBACK_GW,
                   use_dns = ONEAPP_VNF_DNS_ENABLED,
-                  dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0)
-
-    if gw_ipv4.nil? || (use_dns && dns_ipv4.nil?)
-        addr_info = ip_addr_show('eth0')&.dig(0, 'addr_info')
-                                        &.find { |item| item['family'] == 'inet'}
-        if addr_info.nil?
-            msg :error, 'Unable to get local IP, aborting..'
-            exit 1
-        end
-
-        subnet = IPAddr.new("#{addr_info['local']}/#{addr_info['prefixlen']}")
-
-        vnf_ipv4 = vnf_vm_show&.dig('VM', 'TEMPLATE', 'NIC')
-                              &.find { |item| !(ip = item['IP']).nil? && subnet.include?(ip) }
-                              &.dig('IP')
-        if vnf_ipv4.nil?
-            msg :error, 'Unable to get VNF IP, aborting..'
-            exit 1
-        end
-
-        gw_ipv4  ||= vnf_ipv4
-        dns_ipv4 ||= vnf_ipv4 if use_dns
-    end
+                  dns_ipv4 = ONEAPP_VROUTER_ETH1_VIP0 || FALLBACK_DNS)
 
     if !gw_ipv4.nil? && ipv4?(gw_ipv4)
         msg :info, "Override default GW (#{gw_ipv4})"

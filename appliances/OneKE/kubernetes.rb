@@ -323,20 +323,21 @@ def detect_node
     current_vmid = current_vm.dig 'VM', 'ID'
     current_role = current_vm.dig 'VM', 'USER_TEMPLATE', 'ROLE_NAME'
 
+    ready = current_vm.dig('VM', 'USER_TEMPLATE', 'READY') == 'YES'
+
     master_vm   = master_vm_show
     master_vmid = master_vm.dig 'VM', 'ID'
 
     master_vm = wait_for_any_master if current_vmid != master_vmid
 
-    token = master_vm.dig 'VM', 'USER_TEMPLATE', 'ONEGATE_K8S_TOKEN'
-
+    token         = master_vm.dig 'VM', 'USER_TEMPLATE', 'ONEGATE_K8S_TOKEN'
     ready_to_join = !token.nil?
 
     results = {
-        init_master:  current_role == 'master'  && current_vmid == master_vmid && !ready_to_join,
-        join_master:  current_role == 'master'  && current_vmid != master_vmid && ready_to_join,
-        join_worker:  current_role == 'worker'  && current_vmid != master_vmid && ready_to_join,
-        join_storage: current_role == 'storage' && current_vmid != master_vmid && ready_to_join,
+        init_master:  !ready && current_role == 'master'  && current_vmid == master_vmid && !ready_to_join,
+        join_master:  !ready && current_role == 'master'  && current_vmid != master_vmid && ready_to_join,
+        join_worker:  !ready && current_role == 'worker'  && current_vmid != master_vmid && ready_to_join,
+        join_storage: !ready && current_role == 'storage' && current_vmid != master_vmid && ready_to_join,
         start_server: current_role == 'master',
         start_agent:  current_role != 'master',
         token: token

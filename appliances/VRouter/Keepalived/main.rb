@@ -15,6 +15,7 @@ module Keepalived
     ONEAPP_VNF_KEEPALIVED_INTERVAL = env :ONEAPP_VNF_KEEPALIVED_INTERVAL, '1'
     ONEAPP_VNF_KEEPALIVED_PRIORITY = env :ONEAPP_VNF_KEEPALIVED_PRIORITY, '100'
 
+    SERVICE_ID                 = env :SERVICE_ID, nil
     VROUTER_KEEPALIVED_ID      = env :VROUTER_KEEPALIVED_ID, nil
     ONEAPP_VNF_KEEPALIVED_VRID = env :ONEAPP_VNF_KEEPALIVED_VRID, VROUTER_KEEPALIVED_ID
 
@@ -73,7 +74,7 @@ module Keepalived
         # NOTE: When running inside OneFlow we construct VRID out of the service's ID.
         #       To *completely* avoid possible conflicts, deploy each OneFlow service in an *isolated* VNET.
         default_vrid = if ONEAPP_VNF_KEEPALIVED_VRID.nil?
-            unless (svcid = onegate_service_show&.dig('SERVICE', 'id')).nil?
+            unless (svcid = SERVICE_ID || onegate_service_show&.dig('SERVICE', 'id')).nil?
                 svcid.to_i % 255 + 1
             else
                 # Please don't rely on this.. If you must, deploy just a single VM per an *isolated* VNET.

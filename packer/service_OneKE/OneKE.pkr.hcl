@@ -94,7 +94,7 @@ build {
 
   provisioner "shell" {
     inline_shebang   = "/bin/bash -e"
-    inline           = ["/etc/one-appliance/service install"]
+    inline           = ["/etc/one-appliance/service install && sync"]
     environment_vars = ["ONE_SERVICE_AIRGAPPED=${var.airgapped}"]
   }
 
