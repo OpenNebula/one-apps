@@ -91,7 +91,7 @@ build {
 
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
-    inline         = ["/etc/one-appliance/service install"]
+    inline         = ["/etc/one-appliance/service install && sync"]
   }
 
   post-processor "shell-local" {
