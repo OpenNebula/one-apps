@@ -38,6 +38,12 @@ module DHCP4
 
         @vips ||= detect_vips.to_h { |n, v| [n, v.values.map { |v| v.split(%[/])[0] }] }
 
+        @ave ||= [detect_addrs, detect_vips].then do |a, v|
+            [a, v, detect_endpoints(a, v)]
+        end.map(&:values).flatten.each_with_object({}) do |h, acc|
+            hashmap.combine! acc, h
+        end
+
         interfaces.each_with_object({}) do |nic, vars|
             (s, r) = env("ONEAPP_VNF_DHCP4_#{nic.upcase}", nil)&.split(%[:])&.map(&:strip)
 
@@ -50,9 +56,16 @@ module DHCP4
                     address: a,
                     subnet:  subnet,
                     range:   range,
-                    gateway: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_GATEWAY", ONEAPP_VNF_DHCP4_GATEWAY),
-                    dns:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_DNS", ONEAPP_VNF_DHCP4_DNS),
-                    mtu:     env("ONEAPP_VNF_DHCP4_#{nic.upcase}_MTU", ip_link_show(nic)['mtu']),
+
+                    gateway: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_GATEWAY", ONEAPP_VNF_DHCP4_GATEWAY).then do |v|
+                        backends.interpolate(v, @ave) unless v.nil?
+                    end,
+
+                    dns: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_DNS", ONEAPP_VNF_DHCP4_DNS).then do |v|
+                        backends.interpolate(v, @ave) unless v.nil?
+                    end,
+
+                    mtu: env("ONEAPP_VNF_DHCP4_#{nic.upcase}_MTU", ip_link_show(nic)['mtu']),
 
                     vips: @vips[nic].to_a.select do |vip|
                         IPAddr.new(subnet).include?(vip) # exclude VIPs from outside of the subnet

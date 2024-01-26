@@ -440,18 +440,18 @@ def backends
           options:     static[:options].to_h }
     end
 
+    def interpolate(ip, ave)
+        case ip
+        when /^<(.+)>$/
+            ave[$1] || ip
+        else
+            ip
+        end.split(%[/])[0]
+    end
+
     def resolve(b, addrs = detect_addrs, vips = detect_vips, endpoints = detect_endpoints)
         ave = [addrs, vips, endpoints].map(&:values).flatten.each_with_object({}) do |h, acc|
             hashmap.combine! acc, h
-        end
-
-        def interpolate(ip, ave)
-            case ip
-            when /^<(.+)>$/
-                ave[$1] || ip
-            else
-                ip
-            end.split(%[/])[0]
         end
 
         {
