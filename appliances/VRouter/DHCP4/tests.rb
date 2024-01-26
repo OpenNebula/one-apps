@@ -240,4 +240,54 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
     end
+
+    it 'should interpolate GW and DNS values' do
+        clear_env
+
+        ENV['ONEAPP_VNF_DHCP4_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DHCP4_INTERFACES'] = 'eth0 eth1'
+
+        ENV['ONEAPP_VNF_DHCP4_ETH0_GATEWAY'] = '<ETH0_EP0>'
+        ENV['ONEAPP_VNF_DHCP4_ETH0_DNS'] = '<ETH0_EP0>'
+
+        ENV['ONEAPP_VNF_DHCP4_ETH1_GATEWAY'] = '<ETH1_VIP0>'
+        ENV['ONEAPP_VNF_DHCP4_ETH1_DNS'] = '<ETH1_VIP1>'
+
+        ENV['ETH0_IP'] = '10.20.30.40'
+        ENV['ETH0_MASK'] = '255.255.255.0'
+
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.255.0'
+
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '10.20.30.45'
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '20.30.40.55'
+        ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '20.30.40.110'
+
+        load './main.rb'; include Service::DHCP4
+
+        allow(Service::DHCP4).to receive(:ip_link_show).and_return(
+            { 'mtu' => 1111 },
+            { 'mtu' => 2222 }
+        )
+
+        clear_vars Service::DHCP4
+
+        expect(Service::DHCP4.parse_env).to eq ({
+            'eth0' => [ { address: '10.20.30.40',
+                          dns:     '10.20.30.45',
+                          gateway: '10.20.30.45',
+                          mtu:     1111,
+                          range:   '10.20.30.2-10.20.30.254',
+                          subnet:  '10.20.30.0/24',
+                          vips:    %w[10.20.30.45] } ],
+
+            'eth1' => [ { address: '20.30.40.50',
+                          dns:     '20.30.40.110',
+                          gateway: '20.30.40.55',
+                          mtu:     2222,
+                          range:   '20.30.40.2-20.30.40.254',
+                          subnet:  '20.30.40.0/24',
+                          vips:    %w[20.30.40.55 20.30.40.110] } ]
+        })
+    end
 end
