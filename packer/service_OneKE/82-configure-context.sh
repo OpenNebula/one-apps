@@ -14,8 +14,8 @@ policy_rc_d_disable
 
 apt-get install -y apparmor tzdata
 
-mv /etc/one-appliance/net-90 /etc/one-context.d/net-90-service-appliance
-mv /etc/one-appliance/net-99 /etc/one-context.d/net-99-report-ready
+mv /etc/one-appliance/net-90-service-appliance /etc/one-context.d/
+mv /etc/one-appliance/net-99-report-ready      /etc/one-context.d/
 
 chown root:root /etc/one-context.d/*
 chmod u=rwx,go=rx /etc/one-context.d/*
