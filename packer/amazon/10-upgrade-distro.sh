@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-# (Auto)Removes unneeded packages and upgrades
-# the distro.
+# Install required packages and upgrade the distro.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 # NOTE: in this old version of OL, dnf is not available.
 
