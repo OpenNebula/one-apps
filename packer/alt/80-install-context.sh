@@ -2,23 +2,17 @@
 
 # Downloads and installs the latest one-context package.
 
-: "${CTX_INFIX:=alt}"
+: "${CTXEXT:=alt1.noarch.rpm}"
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-if ! stat /context/one-context*$CTX_INFIX*; then (
-    install -d /context/ && cd /context/
-    curl -fsSL https://api.github.com/repos/OpenNebula/addon-context-linux/releases \
-    | jq -r ".[0].assets[].browser_download_url | select(test(\"$CTX_INFIX\"))" \
-    | xargs -r -n1 curl -fsSLO
-) fi
+LATEST=$(find /context/ -type f -name "one-context*-$CTXEXT" | sort -V | tail -n1)
 
 apt-get remove --purge -y cloud-init
-apt-get install -y /context/one-context*$CTX_INFIX* haveged open-vm-tools
+apt-get install -y "$LATEST" haveged open-vm-tools
 
 systemctl enable haveged
 
