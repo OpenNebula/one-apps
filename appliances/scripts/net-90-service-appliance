@@ -3,4 +3,6 @@
 
 set -o errexit
 
-[[ -x /etc/one-appliance/service ]] && /etc/one-appliance/service configure bootstrap
+[[ -x /etc/one-appliance/service ]]
+
+/etc/one-appliance/service configure && /etc/one-appliance/service bootstrap

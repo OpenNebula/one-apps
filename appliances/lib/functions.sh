@@ -404,4 +404,3 @@ _end_log()
     # restore stdout for the shell and close fd 3
     exec >&3 3>&-
 }
-

@@ -35,8 +35,8 @@ ONE_SERVICE_STATUS="${ONE_SERVICE_DIR}/status"
 ONE_SERVICE_TEMPLATE="${ONE_SERVICE_DIR}/template"
 ONE_SERVICE_METADATA="${ONE_SERVICE_DIR}/metadata"
 ONE_SERVICE_REPORT="${ONE_SERVICE_DIR}/config"
-ONE_SERVICE_FUNCTIONS="${ONE_SERVICE_DIR}/service.d/functions.sh"
-ONE_SERVICE_COMMON="${ONE_SERVICE_DIR}/service.d/common.sh"
+ONE_SERVICE_FUNCTIONS="${ONE_SERVICE_DIR}/lib/functions.sh"
+ONE_SERVICE_COMMON="${ONE_SERVICE_DIR}/lib/common.sh"
 ONE_SERVICE_APPLIANCE="${ONE_SERVICE_DIR}/service.d/appliance.sh"
 ONE_SERVICE_SETUP_DIR="/opt/one-appliance"
 ONE_SERVICE_MOTD='/etc/motd'
@@ -120,7 +120,7 @@ case "$_ACTION" in
         chmod 0700 "$ONE_SERVICE_LOGDIR"
 
         # execute action
-        _start_log "${ONE_SERVICE_LOGDIR}/ONE_${_ACTION}.log"
+        _start_log "${ONE_SERVICE_LOGDIR}/${_ACTION}.log"
         service_${_ACTION} 2>&1
         _end_log
 
@@ -130,4 +130,3 @@ case "$_ACTION" in
 esac
 
 exit 0
-
