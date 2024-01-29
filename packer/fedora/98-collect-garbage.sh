@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-# Cleans DNF caches, removes temporary files / logs,
-# removes leftover / temporary unneeded packages.
+# Clean DNF caches, remove temporary/unneeded files/logs/packages.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 # Remove old kernels.
 dnf remove -y $(dnf repoquery --installonly --latest-limit=-1 -q)
