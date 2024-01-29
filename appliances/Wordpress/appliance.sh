@@ -51,7 +51,7 @@ ONE_SERVICE_PARAMS=(
 
 # Appliance metadata
 ONE_SERVICE_NAME='Service WordPress - KVM'
-ONE_SERVICE_VERSION='6.3.2'   #latest
+ONE_SERVICE_VERSION='6.4.2'   #latest
 ONE_SERVICE_BUILD=$(date +%s)
 ONE_SERVICE_SHORT_DESCRIPTION='Appliance with preinstalled WordPress for KVM hosts'
 ONE_SERVICE_DESCRIPTION=$(cat <<EOF

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Runs OpenNebula service appliances configuration & bootstrap script
-
-set -o errexit
-
-[[ -x /etc/one-appliance/service ]] && /etc/one-appliance/service configure bootstrap

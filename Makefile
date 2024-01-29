@@ -16,11 +16,8 @@ $(DISTROS) $(SERVICES):  %: packer-% ;
 packer-%: context-linux ${DIR_EXPORT}/%.qcow2
 	@${INFO} "Packer ${*} done"
 
-packer-service_vnf: packer-alpine318 ${DIR_EXPORT}/service_vnf.qcow2
-	@${INFO} "Packer service_vnf done"
-
-packer-service_wordpress: packer-alma8 ${DIR_EXPORT}/service_wordpress.qcow2
-	@${INFO} "Packer service_wordpress done"
+packer-service_Wordpress: packer-alma8 ${DIR_EXPORT}/service_Wordpress.qcow2
+	@${INFO} "Packer service_Wordpress done"
 
 packer-service_VRouter: packer-alpine318 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"

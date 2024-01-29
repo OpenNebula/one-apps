@@ -70,15 +70,18 @@ build {
 
   provisioner "file" {
     sources = [
-      "appliances/service",
-      "appliances/scripts/net-90",
-      "appliances/scripts/net-99",
+      "appliances/scripts/net-90-service-appliance",
+      "appliances/scripts/net-99-report-ready",
     ]
     destination = "/etc/one-appliance/"
   }
   provisioner "file" {
     sources     = ["appliances/lib/helpers.rb"]
     destination = "/etc/one-appliance/lib/"
+  }
+  provisioner "file" {
+    source      = "appliances/service.rb"
+    destination = "/etc/one-appliance/service"
   }
   provisioner "file" {
     sources     = ["appliances/VRouter"]
