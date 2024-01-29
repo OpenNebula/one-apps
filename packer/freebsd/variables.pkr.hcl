@@ -9,11 +9,11 @@ variable "version" {
 }
 
 variable "input_dir" {
-  type    = string
+  type = string
 }
 
 variable "output_dir" {
-  type    = string
+  type = string
 }
 
 variable "headless" {
@@ -22,7 +22,7 @@ variable "headless" {
 }
 
 variable "freebsd" {
-  type   = map(map(string))
+  type = map(map(string))
 
   default = {
     "12" = {
@@ -42,91 +42,91 @@ variable "boot_cmd" {
 
   default = {
     "12" = [
-      "I<wait>",                   # Welcome: Install
-      "<enter><wait>",             # Keymap Selection: Continue with default
+      "I<wait>",       # Welcome: Install
+      "<enter><wait>", # Keymap Selection: Continue with default
 
-      "localhost",                 # Set hostname
+      "localhost", # Set hostname
       "<enter><wait>",
 
-      "<enter><wait>",             # Distribution Select, OK
+      "<enter><wait>", # Distribution Select, OK
 
-      "<enter><wait>",             # Partitioning Auto (UFS)
-      "E<wait>",                   # Entire Disk
-      "G<enter><wait>",            # GPT
-      "<down><down><down>D<wait>", # Delete swap partition
-      "M<wait>",                   # Modify second partition
+      "<enter><wait>",                             # Partitioning Auto (UFS)
+      "E<wait>",                                   # Entire Disk
+      "G<enter><wait>",                            # GPT
+      "<down><down><down>D<wait>",                 # Delete swap partition
+      "M<wait>",                                   # Modify second partition
       "<tab><tab><down><down>rootfs<enter><wait>", # Set rootfs label on root partition
-      "F<wait>",                   # Finish
-      "C<wait>",                   # Commit
+      "F<wait>",                                   # Finish
+      "C<wait>",                                   # Commit
 
       "<wait5m>",
 
-      "opennebula<enter><wait>",   # Root password
+      "opennebula<enter><wait>", # Root password
       "opennebula<enter><wait>",
 
-      "<enter><wait>",             # Network Configuration vtnet0
-      "Y<wait>",                   # IPv4 yes
-      "Y<wait10>",                 # DHCP yes
-      "N<wait>",                   # IPv6 no
-      "<enter><wait>",             # Resolver configuration
+      "<enter><wait>", # Network Configuration vtnet0
+      "Y<wait>",       # IPv4 yes
+      "Y<wait10>",     # DHCP yes
+      "N<wait>",       # IPv6 no
+      "<enter><wait>", # Resolver configuration
 
-      "0<enter><wait>",            # Time Zone Selector: UTC + Time&Date
-      "Y<wait>",                   # Confirm
-      "S<wait>",                   # Skip date
-      "S<wait>",                   # Skip time
+      "0<enter><wait>", # Time Zone Selector: UTC + Time&Date
+      "Y<wait>",        # Confirm
+      "S<wait>",        # Skip date
+      "S<wait>",        # Skip time
 
-      "<enter><wait>",             # System Configuration, OK
-      "<enter><wait>",             # System Hardening, OK
-      "N<wait>",                   # Add User Accounts, no
-      "E<enter><wait10>",          # Final Configuration, Exit
+      "<enter><wait>",    # System Configuration, OK
+      "<enter><wait>",    # System Hardening, OK
+      "N<wait>",          # Add User Accounts, no
+      "E<enter><wait10>", # Final Configuration, Exit
 
-      "Y<wait>",                   # Manual configuration, Yes
+      "Y<wait>", # Manual configuration, Yes
       "sed -i '' -e 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config<enter><wait>",
       "sed -i '' -e 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config<enter><wait>",
       "sed -i '' -e 's/^.*\\([[:space:]]\\/[[:space:]]\\)/\\/dev\\/gpt\\/rootfs\\1/' /etc/fstab<enter><wait>",
       "sync<enter>exit<enter><wait>",
-      "R<wait10>"                  # Complete: Reboot
+      "R<wait10>" # Complete: Reboot
     ]
 
     "13" = [
-      "I<wait>",                    # Welcome: Install
-      "<enter><wait>",              # Keymap Selection: Continue with default
+      "I<wait>",       # Welcome: Install
+      "<enter><wait>", # Keymap Selection: Continue with default
 
-      "localhost",                  # Set hostname
+      "localhost", # Set hostname
       "<enter><wait>",
 
-      "<enter><wait>",              # Distribution Select
+      "<enter><wait>", # Distribution Select
 
-      "<down><enter><wait>",        # Partitioning, Auto (UFS)
-      "E<wait>",                    # Entire Disk
-      "G<enter><wait>",             # GPT
-      "<down><down><down>D<wait>",  # Delete swap partition
-      "M<wait>",                    # Modify second partition
-      "<tab><tab><down><down>rootfs<enter><wait>",  # Set rootfs label on root p.
-      "F<wait>",                    # Finish
-      "C<wait>",                    # Commit
-      "<wait2m30s>",                # Wait for base install
+      "<down><enter><wait>",                       # Partitioning, Auto (UFS)
+      "E<wait>",                                   # Entire Disk
+      "G<enter><wait>",                            # GPT
+      "<down><down><down>D<wait>",                 # Delete swap partition
+      "M<wait>",                                   # Modify second partition
+      "<tab><tab><down><down>rootfs<enter><wait>", # Set rootfs label on root p.
+      "F<wait>",                                   # Finish
+      "C<wait>",                                   # Commit
+      "<wait2m30s>",                               # Wait for base install
 
-      "opennebula<enter><wait>",  # Root password
+      "opennebula<enter><wait>", # Root password
       "opennebula<enter><wait>",
 
-      "<enter><wait>",              # Network, vtnet0
-      "Y<wait>",                    # IPv4 yes
-      "Y<wait10>",                  # DHCP yes
-      "N<wait>",                    # IPv6 no
-      "<enter><wait>",              # Resolver configuration
+      "<enter><wait>", # Network, vtnet0
+      "Y<wait>",       # IPv4 yes
+      "Y<wait10>",     # DHCP yes
+      "N<wait>",       # IPv6 no
+      "<enter><wait>", # Resolver configuration
 
-      "0<enter><wait>",             # Time zone selector
-      "Y<wait>",                    # UTC
-      "S<wait>",                    # Skip date
-      "S<wait>",                    # Skip time
+      "0<enter><wait>", # Time zone selector
+      "Y<wait>",        # UTC
+      "S<wait>",        # Skip date
+      "S<wait>",        # Skip time
 
-      "<enter><wait>",              # System Configuration, OK
-      "<enter><wait>",              # System Hardening, OK
+      "<enter><wait>", # System Configuration, OK
+      "<enter><wait>", # System Hardening, OK
 
-      "N<wait>",                    # Add User Accounts, no
-      "E<enter><wait10>",           # Final Configuration, exit
-      "Y<wait>",                    # Yes
+      "N<wait>",          # Add User Accounts, no
+      "E<enter><wait10>", # Final Configuration, exit
+      "Y<wait>",          # Yes
 
       # Manual Configuration
       "sed -i '' -e 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config<enter><wait>",
@@ -134,9 +134,7 @@ variable "boot_cmd" {
       "sed -i '' -e 's/^.*\\([[:space:]]\\/[[:space:]]\\)/\\/dev\\/gpt\\/rootfs\\1/' /etc/fstab<enter><wait>",
       "sync<enter>exit<enter><wait>",
 
-      "R<wait10>"                   # Complete: Reboot
+      "R<wait10>" # Complete: Reboot
     ]
   }
 }
-
-
