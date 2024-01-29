@@ -13,7 +13,7 @@ build {
 }
 
 # Build VM image
-source "qemu" "wordpress" {
+source "qemu" "Wordpress" {
   cpus        = 2
   memory      = 2048
   accelerator = "kvm"
@@ -33,9 +33,10 @@ source "qemu" "wordpress" {
 
   output_directory = var.output_dir
 
-  qemuargs = [["-serial", "stdio"],
+  qemuargs = [
     ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
+    ["-serial", "stdio"],
     # MAC addr needs to mach ETH0_MAC from context iso
     ["-netdev", "user,id=net0,hostfwd=tcp::{{ .SSHHostPort }}-:22"],
     ["-device", "virtio-net-pci,netdev=net0,mac=00:11:22:33:44:55"]
@@ -48,7 +49,7 @@ source "qemu" "wordpress" {
 }
 
 build {
-  sources = ["source.qemu.wordpress"]
+  sources = ["source.qemu.Wordpress"]
 
   # revert insecure ssh options done by context start_script
   provisioner "shell" {
@@ -56,61 +57,43 @@ build {
   }
 
   provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
     inline = [
-      "mkdir -p /etc/one-appliance/service.d",
-      "chmod 0750 /etc/one-appliance",
-      "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/"
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=   -d /etc/one-appliance/{,service.d/,lib/}",
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=rx -d /opt/one-appliance/{,bin/}",
     ]
   }
 
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-90.sh"
-    destination = "/etc/one-appliance/net-90"
+    sources = [
+      "appliances/scripts/net-90-service-appliance",
+      "appliances/scripts/net-99-report-ready",
+    ]
+    destination = "/etc/one-appliance/"
   }
-
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-99.sh"
-    destination = "/etc/one-appliance/net-99"
+    sources = [
+      "appliances/lib/common.sh",
+      "appliances/lib/functions.sh",
+    ]
+    destination = "/etc/one-appliance/lib/"
   }
-
   provisioner "file" {
-    source      = "appliances/legacy/service"
+    source      = "appliances/service.sh"
     destination = "/etc/one-appliance/service"
   }
-
   provisioner "file" {
-    source      = "appliances/legacy/lib/common.sh"
-    destination = "/etc/one-appliance/service.d/common.sh"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/lib/functions.sh"
-    destination = "/etc/one-appliance/service.d/functions.sh"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/lib/context-helper.py"
-    destination = "/opt/one-appliance/bin/context-helper"
-  }
-
-  provisioner "file" {
-    source      = "appliances/legacy/wordpress.sh"
-    destination = "/etc/one-appliance/service.d/appliance.sh"
-  }
-
-  provisioner "shell" {
-    inline = [
-      "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
-      "chmod 0755 /opt/one-appliance/bin/*",
-      "chmod 0740 /etc/one-appliance/service",
-      "chmod 0640 /etc/one-appliance/service.d/*",
-      "/etc/one-appliance/service install"
-    ]
+    sources     = ["appliances/Wordpress/appliance.sh"]
+    destination = "/etc/one-appliance/service.d/"
   }
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
+  }
+
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline         = ["/etc/one-appliance/service install && sync"]
   }
 
   post-processor "shell-local" {

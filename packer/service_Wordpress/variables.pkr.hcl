@@ -1,6 +1,6 @@
 variable "appliance_name" {
   type    = string
-  default = "service_wordpress"
+  default = "service_Wordpress"
 }
 
 variable "input_dir" {
