@@ -12,10 +12,6 @@ dnf remove -y $(dnf repoquery --installonly --latest-limit=-1 -q)
 
 dnf remove -y fwupd linux-firmware
 
-subscription-manager remove --all
-subscription-manager unregister
-subscription-manager clean
-
 dnf clean -y all
 
 rm -rf /boot/*-rescue-*
