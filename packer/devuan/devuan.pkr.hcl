@@ -21,8 +21,9 @@ source "qemu" "devuan" {
 
   output_directory = "${var.output_dir}"
 
-  qemuargs = [["-serial", "stdio"],
-    ["-cpu", "host"]
+  qemuargs = [
+    ["-cpu", "host"],
+    ["-serial", "stdio"],
   ]
   ssh_username     = "root"
   ssh_password     = "opennebula"

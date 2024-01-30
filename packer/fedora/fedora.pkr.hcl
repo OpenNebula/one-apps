@@ -1,5 +1,5 @@
 # Build cloud init iso
-source "null" "null" { communicator  = "none" }
+source "null" "null" { communicator = "none" }
 
 build {
   sources = ["sources.null.null"]
@@ -13,14 +13,14 @@ build {
 
 # Build VM image
 source "qemu" "fedora" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = lookup(lookup(var.fedora, var.version, {}), "iso_url", "")
-  iso_checksum     = lookup(lookup(var.fedora, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.fedora, var.version, {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.fedora, var.version, {}), "iso_checksum", "")
 
-  headless         = var.headless
+  headless = var.headless
 
   disk_image       = true
   disk_cache       = "unsafe"
@@ -32,10 +32,11 @@ source "qemu" "fedora" {
 
   output_directory = var.output_dir
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"],
-                       ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"]
-                     ]
+  qemuargs = [
+    ["-cpu", "host"],
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"],
+    ["-serial", "stdio"],
+  ]
   ssh_username     = "root"
   ssh_password     = "opennebula"
   ssh_timeout      = "600s"
@@ -61,16 +62,16 @@ build {
       [for s in fileset(".", "*.sh") : "${var.input_dir}/${s}"],
       [for s in fileset(".", "*.sh.${var.version}") : "${var.input_dir}/${s}"]
     ))
-    remote_folder = "/var/tmp" # /tmp is tempfs
+    remote_folder     = "/var/tmp" # /tmp is tempfs
     expect_disconnect = true
   }
 
   post-processor "shell-local" {
-    execute_command   = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
     environment_vars = [
       "OUTPUT_DIR=${var.output_dir}",
       "APPLIANCE_NAME=${var.appliance_name}",
-      ]
-    scripts = [ "packer/postprocess.sh" ]
+    ]
+    scripts = ["packer/postprocess.sh"]
   }
 }

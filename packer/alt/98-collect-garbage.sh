@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-# Cleans APT caches, removes temporary files / logs,
-# removes leftover / temporary unneeded packages.
+# Clean APT caches, remove temporary/unneeded files/logs/packages.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 

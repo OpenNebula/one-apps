@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 
-# Cleans ZYPPER caches, removes temporary files / logs,
-# removes leftover / temporary unneeded packages.
+# Clean ZYPPER caches, remove temporary/unneeded files/logs/packages.
 
 exec 1>&2
-set -o errexit -o nounset -o pipefail
-set -x
+set -eux -o pipefail
 
 cp -f /etc/zypp/zypp.conf /etc/zypp/zypp.conf.bak
 sed -i 's/^\(multiversion.kernels\s*=\).*$/\1latest/' /etc/zypp/zypp.conf

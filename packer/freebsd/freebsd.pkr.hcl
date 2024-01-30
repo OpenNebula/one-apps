@@ -1,16 +1,16 @@
 # Build VM image
 source "qemu" "freebsd" {
-  cpus             = 2
-  memory           = 2048
-  accelerator      = "kvm"
+  cpus        = 2
+  memory      = 2048
+  accelerator = "kvm"
 
-  iso_url          = lookup(lookup(var.freebsd, var.version, {}), "iso_url", "")
-  iso_checksum     = lookup(lookup(var.freebsd, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.freebsd, var.version, {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.freebsd, var.version, {}), "iso_checksum", "")
 
-  headless         = var.headless
+  headless = var.headless
 
-  boot_wait        = "120s"
-  boot_command    =  lookup(var.boot_cmd, var.version, [])
+  boot_wait    = "120s"
+  boot_command = lookup(var.boot_cmd, var.version, [])
 
   disk_cache       = "unsafe"
   disk_interface   = "virtio"
@@ -21,9 +21,10 @@ source "qemu" "freebsd" {
 
   output_directory = var.output_dir
 
-  qemuargs         = [ ["-serial", "stdio"],
-                       ["-cpu", "host"]
-                     ]
+  qemuargs = [
+    ["-cpu", "host"],
+    ["-serial", "stdio"],
+  ]
 
   ssh_username     = "root"
   ssh_password     = "opennebula"

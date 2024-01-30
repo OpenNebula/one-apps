@@ -47,7 +47,7 @@ EOF
 
 dnf install -y dracut-config-generic dracut-network
 
-INITRAMFS_IMG=$(find /boot/ -maxdepth 1 -name 'initramfs-*.img' ! -name '*rescue*' ! -name '*kdump*' | sort -V | tail -1)
+INITRAMFS_IMG=$(find /boot/ -maxdepth 1 -name 'initramfs-*.img' ! -name '*rescue*' ! -name '*kdump*' | sort -V | tail -n1)
 INITRAMFS_VER=$(sed -e 's/^.*initramfs-//' -e 's/\.img$//' <<< "$INITRAMFS_IMG")
 dracut --force "$INITRAMFS_IMG" "$INITRAMFS_VER"
 

@@ -32,9 +32,10 @@ source "qemu" "alt" {
 
   output_directory = var.output_dir
 
-  qemuargs = [["-serial", "stdio"],
+  qemuargs = [
     ["-cpu", "host"],
-    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"]
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"],
+    ["-serial", "stdio"],
   ]
 
   ssh_username     = "root"
