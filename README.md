@@ -10,8 +10,8 @@ The OpenNebula Apps project offers a comprehensive suite of tools to construct s
 The artifacts built through the OpenNebula Apps project are regularly published on the OpenNebula Marketplace, allowing you to [download them instantly](https://marketplace.opennebula.io/).
 
 Previously, OpenNebula Team maintained two different repositories for the Linux and Windows contextualization packages:
-* [addon-contet-linux](https://github.com/OpenNebula/addon-context-linux)
-* [addon-contet-windows](https://github.com/OpenNebula/addon-context-windows)
+* [addon-context-linux](https://github.com/OpenNebula/addon-context-linux)
+* [addon-context-windows](https://github.com/OpenNebula/addon-context-windows)
 
 Both of them were merged here, together with the image building tools. The original repositories has been archived, please use this one to get the latest release or to report any issues.
 
