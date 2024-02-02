@@ -43,7 +43,7 @@ else
     exit 1
 fi > /dev/null # this will not drop the error message which goes to stderr
 
-while [ "$RETRY_COUNT" -gt 0 ] ; do
+report_ready() {
     case "$_command" in
         curl)
             curl -X "PUT" "${ONEGATE_ENDPOINT}/vm" \
@@ -69,9 +69,53 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
             fi
             ;;
     esac
+}
+
+is_base64() {
+    [[ $1 =~ ^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$ ]]
+}
+
+log_ready_error() {
+    echo "$1" failed to execute. Not reporting READY on attempt "$RETRY_COUNT" >&2
+    false # force fail for retry
+}
+
+if [ -n "$READY_SCRIPT_PATH" ]; then
+    if [ -e "$READY_SCRIPT_PATH" ]; then
+        ready_method() {
+            if "$READY_SCRIPT_PATH"; then
+                report_ready
+            else
+                log_ready_error "$READY_SCRIPT_PATH"
+            fi
+        }
+    else
+        echo "$READY_SCRIPT_PATH" does not exist >&2
+        exit 1
+    fi
+elif [ -n "$READY_SCRIPT" ]; then
+    # Can lead to butchering of simple non encoded commands, Ex. echo
+    is_base64 "$READY_SCRIPT" && READY_SCRIPT=$(echo "$READY_SCRIPT" | base64 -d)
+
+    ready_method() {
+        if (eval "$READY_SCRIPT"); then
+            report_ready
+        else
+            log_ready_error "READY_SCRIPT"
+        fi
+    }
+else
+    ready_method() {
+        report_ready
+    }
+fi
+
+while [ "$RETRY_COUNT" -gt 0 ] ; do
+    ready_method
 
     # shellcheck disable=SC2181
     if [ "$?" = "0" ]; then
+        echo "Reported READY"
         exit 0
     fi
 
@@ -79,4 +123,5 @@ while [ "$RETRY_COUNT" -gt 0 ] ; do
     sleep "${RETRY_WAIT_PERIOD}"
 done
 
+echo "Failed to report READY" >&2
 exit 1
