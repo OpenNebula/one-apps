@@ -41,16 +41,30 @@ def detect_mgmt_nics
     end
 end
 
-def append_pfxlen(eth_index, ip)
-    return ip if ip =~ %r{/[^/]+$} # nothing to do
-
-    pfxlen = if (mask = env("ETH#{eth_index}_MASK", nil)).nil?
-        IPAddr.new(ip).prefix
-    else
-        IPAddr.new("#{ip}/#{mask}").prefix
+def infer_pfxlen(eth_index, ip, infer_class: true)
+    unless (pfxlen = ip.split(%[/])[1]).nil?
+        return pfxlen.to_i
     end
 
-    return "#{ip}/#{pfxlen}"
+    unless (mask = env("ETH#{eth_index}_MASK", nil)).nil?
+        return IPAddr.new("#{ip}/#{mask}").prefix.to_i
+    end
+
+    if infer_class
+        case (ip = IPAddr.new(ip)).family
+        when Socket::AF_INET
+            return  8 if ip.to_i & 0xff00_0000 == 0x0a00_0000 # A 10.x.y.z/8
+            return 16 if ip.to_i & 0xfff0_0000 == 0xac10_0000 # B 172.16.x.y/16
+            return 24 if ip.to_i & 0xffff_0000 == 0xc0a8_0000 # C 192.168.x.y/24
+        end
+        return 24 # guess/fallback
+    end
+
+    return 32 # VIPs
+end
+
+def append_pfxlen(eth_index, ip)
+    return "#{ip.split(%[/])[0]}/#{infer_pfxlen(eth_index, ip, infer_class: false)}"
 end
 
 def detect_addrs
@@ -209,11 +223,11 @@ def addrs_to_subnets(nics = detect_nics)
     ENV.each_with_object({}) do |(name, v), acc|
         next if v.empty?
         case name
-        when /^(ETH(\d+))_IP$/
-            next unless nics.include?("eth#{$2}")
-            next if (mask = env("#{$1}_MASK", nil)).nil?
-            subnet   = IPAddr.new("#{v}/#{mask}")
-            key      = "#{v}/#{subnet.prefix}"
+        when /^ETH(\d+)_IP$/
+            next unless nics.include?("eth#{$1}")
+            ip       = v.split(%[/])[0]
+            subnet   = IPAddr.new("#{ip}/#{infer_pfxlen($1.to_i, v)}")
+            key      = "#{ip}/#{subnet.prefix}"
             acc[key] = "#{subnet}/#{subnet.prefix}"
         end
     end
