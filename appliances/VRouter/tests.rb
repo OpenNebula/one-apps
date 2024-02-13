@@ -8,6 +8,33 @@ def clear_env
     ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
+RSpec.describe 'infer_pfxlen' do
+    it 'should find/guess cidr pfxlen' do
+        tests = [
+            [ nil, 0, '10.0.0.1', 8],
+            [ nil, 0, '172.16.0.1', 16],
+            [ nil, 0, '192.168.0.1', 24],
+
+            ['255.254.0.0', 1, '10.0.0.2', 15],
+            ['255.254.0.0', 1, '172.16.0.2', 15],
+            ['255.254.0.0', 1, '192.168.0.2', 15],
+
+            ['255.254.0.0', 2, '10.0.0.3/12', 12],
+            ['255.254.0.0', 2, '172.16.0.3/12', 12],
+            ['255.254.0.0', 2, '192.168.0.3/12', 12],
+
+            [ nil, 3, '1.2.3.4', 24],
+            ['255.255.0.0', 3, '1.2.3.4', 16],
+            ['255.255.0.0', 3, '1.2.3.4/12', 12]
+        ]
+        tests.each do |mask, eth_index, ip, pfxlen|
+            clear_env
+            ENV["ETH#{eth_index}_MASK"] = mask unless mask.nil?
+            expect(infer_pfxlen(eth_index, ip)).to eq pfxlen
+        end
+    end
+end
+
 RSpec.describe 'detect_addrs' do
     it 'should parse IP variables' do
         clear_env

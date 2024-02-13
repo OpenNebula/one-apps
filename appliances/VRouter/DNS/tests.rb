@@ -235,4 +235,47 @@ RSpec.describe self do
                      'ep0.eth1'  => '1.2.3.4' }
         })
     end
+
+    it 'should NOT skip networks with inferred netmasks' do
+        clear_env
+
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth0 eth1 eth2 eth3 eth4'
+
+        ENV['ETH0_IP'] = '10.0.0.1'
+        ENV['ETH1_IP'] = '172.16.0.1'
+        ENV['ETH2_IP'] = '192.168.0.1'
+
+        ENV['ETH3_IP'] = '1.2.3.4'
+        ENV['ETH4_IP'] = '2.3.4.5'
+        ENV["ETH4_MASK"] = '255.255.0.0'
+
+        load './main.rb'; include Service::DNS
+
+        clear_vars Service::DNS
+
+        expect(Service::DNS.parse_env).to eq ({
+            interfaces: { 'eth0' => [ { name: 'eth0', addr: nil, port: nil } ],
+                          'eth1' => [ { name: 'eth1', addr: nil, port: nil } ],
+                          'eth2' => [ { name: 'eth2', addr: nil, port: nil } ],
+                          'eth3' => [ { name: 'eth3', addr: nil, port: nil } ],
+                          'eth4' => [ { name: 'eth4', addr: nil, port: nil } ] },
+
+            nameservers: %w[],
+
+            networks: %w[10.0.0.0/8 172.16.0.0/16 192.168.0.0/24 1.2.3.0/24 2.3.0.0/16],
+
+            hosts: { 'ep0.eth0' => '10.0.0.1',
+                     'ep0.eth1' => '172.16.0.1',
+                     'ep0.eth2' => '192.168.0.1',
+                     'ep0.eth3' => '1.2.3.4',
+                     'ep0.eth4' => '2.3.4.5',
+                     'ip0.eth0' => '10.0.0.1',
+                     'ip0.eth1' => '172.16.0.1',
+                     'ip0.eth2' => '192.168.0.1',
+                     'ip0.eth3' => '1.2.3.4',
+                     'ip0.eth4' => '2.3.4.5' }
+        })
+    end
 end
