@@ -30,13 +30,38 @@ def env(name, default)
 end
 
 def load_env(path = '/run/one-context/one_env')
-    File.read(path).lines.each do |line|
+    replacements = {
+        "\n" => '\n'
+    }.tap do |h|
+        h.default_proc = ->(h, k) { k }
+    end
+
+    # NOTE: We must allow literal newline characters in values as
+    #       OpenNebula separates multiple ssh-rsa entries with
+    #       literal newlines!
+    folded = Enumerator.new do |y|
+        cached = []
+        File.read(path).lines.each do |line|
+            if (stripped = line.strip).end_with?(%["])
+                cached << stripped
+                y << cached.join
+                cached = []
+            else
+                escaped = line.gsub(/./m, replacements)
+                cached << escaped
+            end
+        end
+    end
+
+    folded.each do |line|
         line.strip!
         next if line.empty?
 
-        line.delete_prefix!('export ')
+        next unless line.start_with?(%[export ]) && line.end_with?(%["])
 
-        k, v = line.split('=', 2)
+        line.delete_prefix!(%[export ])
+
+        k, v = line.split(%[=], 2)
         next if v.nil?
 
         ENV[k] = v.undump
