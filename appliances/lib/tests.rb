@@ -25,6 +25,16 @@ RSpec.describe 'load_env' do
                 export E3="\\n"
               INPUT
             ],
+            [ { :E1 => "A\nB\nC",
+                :E2 => "A\nB\nC" },
+              <<~'INPUT'
+                export E1="A
+                B
+                C"
+                export E2="A
+                B\nC"
+              INPUT
+            ]
         ]
         Dir.mktmpdir do |dir|
             tests.each do |output, input|
