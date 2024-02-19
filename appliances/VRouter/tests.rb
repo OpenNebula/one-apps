@@ -714,6 +714,32 @@ RSpec.describe 'backends.from_env' do
                        1 => { ip: '10.2.11.86', port: '8686', protocol: 'TCP' } }
         })
     end
+
+    it 'should accept nil ports when requested' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB0_IP'] = '10.2.11.86'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = 'asd0'
+        ENV['ONEAPP_VNF_LB0_SERVER0_WEIGHT'] = '1'
+
+        ENV['ONEAPP_VNF_LB0_SERVER1_HOST'] = 'asd1'
+        ENV['ONEAPP_VNF_LB0_SERVER1_WEIGHT'] = '2'
+
+        ENV['ONEAPP_VNF_LB0_SERVER2_HOST'] = 'asd2'
+        ENV['ONEAPP_VNF_LB0_SERVER2_WEIGHT'] = '3'
+
+        expect(backends.from_env(allow_nil_ports: true)).to eq ({
+            by_endpoint: {
+                [ 0, '10.2.11.86', nil ] =>
+                    { [ 'asd0', nil ] => { host: 'asd0', weight: '1' },
+                      [ 'asd1', nil ] => { host: 'asd1', weight: '2' },
+                      [ 'asd2', nil ] => { host: 'asd2', weight: '3' } } },
+
+            options: { 0 => { ip: '10.2.11.86', protocol: 'TCP' } }
+        })
+    end
 end
 
 RSpec.describe 'backends.from_vnets' do

@@ -229,6 +229,62 @@ RSpec.describe self do
         end
     end
 
+    it 'should render lvs.cfg (static) (allow_nil_ports)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_REFRESH_RATE'] = ''
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VNF_LB0_IP'] = '10.2.10.69'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB0_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = '10.2.100.10'
+        ENV['ONEAPP_VNF_LB0_SERVER1_HOST'] = '10.2.100.20'
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '86'
+
+        allow(Service::LVS).to receive(:toggle).and_return(nil)
+        allow(Service::LVS).to receive(:sleep).and_return(nil)
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({
+            '10.2.10.69' => ['eth0']
+        })
+
+        clear_vars Service::LVS
+
+        output = <<~STATIC
+            virtual_server 10.2.10.69  {
+                delay_loop 6
+                lb_algo rr
+                lb_kind NAT
+                protocol TCP
+
+                real_server 10.2.100.10  {
+                    PING_CHECK {
+                        retry 4
+                    }
+                }
+                real_server 10.2.100.20  {
+                    PING_CHECK {
+                        retry 4
+                    }
+                }
+            }
+        STATIC
+
+        Dir.mktmpdir do |dir|
+            Service::LVS.execute basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
+
     it 'should render lvs.cfg (dynamic)' do
         clear_env
 
