@@ -15,6 +15,7 @@ rm -rf /etc/default/grub.d/
 # A correct workaround is described here: https://bugs.launchpad.net/ubuntu/+source/cloud-initramfs-tools/+bug/1123220.
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<splash\>/, "") }
 /^GRUB_CMDLINE_LINUX=/ { gsub(/\<quiet\>/, "") }
 /^GRUB_CMDLINE_LINUX=/ { gsub(/\<splash\>/, "") }
 /^GRUB_CMDLINE_LINUX=/ { gsub(/\<console=ttyS[^ ]*\>/, "") }
@@ -24,6 +25,14 @@ gawk -i inplace -f- /etc/default/grub <<'EOF'
 EOF
 
 # Ensure required.
+
+gawk -i inplace -f- /etc/default/grub <<'EOF'
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { found = 1 }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ && !/text/ { gsub(/"$/, " text\"") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ && !/nomodeset/ { gsub(/"$/, " nomodeset\"") }
+{ print }
+ENDFILE { if (!found) print "GRUB_CMDLINE_LINUX_DEFAULT=\" text nomodeset\"" }
+EOF
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'
 /^GRUB_CMDLINE_LINUX=/ { found = 1 }
