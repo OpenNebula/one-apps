@@ -22,6 +22,10 @@ packer-service_vnf: packer-alpine318 ${DIR_EXPORT}/service_vnf.qcow2
 packer-service_wordpress: packer-alma8 ${DIR_EXPORT}/service_wordpress.qcow2
 	@${INFO} "Packer service_wordpress done"
 
+# Define if your appliance depends on a distro. This example builds on top of alma8 packer build
+packer-service_example: packer-alma8 ${DIR_EXPORT}/service_example.qcow2
+	@${INFO} "Packer service_example done"
+
 packer-service_VRouter: packer-alpine318 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"
 
