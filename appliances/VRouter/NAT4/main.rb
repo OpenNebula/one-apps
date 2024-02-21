@@ -2,6 +2,7 @@
 
 require 'erb'
 require_relative '../vrouter.rb'
+require_relative 'execute.rb'
 
 module Service
 module NAT4
@@ -12,6 +13,51 @@ module NAT4
     ONEAPP_VNF_NAT4_ENABLED = env :ONEAPP_VNF_NAT4_ENABLED, 'NO'
 
     ONEAPP_VNF_NAT4_INTERFACES_OUT = env :ONEAPP_VNF_NAT4_INTERFACES_OUT, '' # nil -> none, empty -> all
+
+    def parse_env
+        @interfaces_out ||= parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
+        @mgmt           ||= detect_mgmt_nics
+        @interfaces     ||= @interfaces_out.keys - @mgmt
+
+        @ave ||= [detect_addrs, detect_vips].then do |a, v|
+            [a, v, detect_endpoints(a, v)]
+        end.map(&:values).flatten.each_with_object({}) do |h, acc|
+            hashmap.combine! acc, h
+        end
+
+        ENV.each_with_object({dnat: {}, masq: []}) do |(name, v), acc|
+            next if v.strip.empty?
+            case name
+            when /^ONEAPP_VNF_NAT4_PORT_FWD(\d+)$/
+                index      = $1.to_i
+                positional = v.split(%[:]).map(&:strip)
+
+                next if positional.count > 4
+                next if positional[0].nil? || positional[0].empty?
+
+                if /^<ETH\d+_(?:IP|EP|VIP)\d+>$/ =~ positional[0]
+                    (old_dest, old_port, new_dest, new_port) = \
+                        [backends.interpolate(positional[0], @ave)] + positional[1..(-1)]
+                elsif ipv4?(positional[0])
+                    (old_dest, old_port, new_dest, new_port) = positional
+                elsif port?(positional[0])
+                    (old_dest, old_port, new_dest, new_port) = [nil] + positional
+                else
+                    next
+                end
+
+                next if !old_dest.nil? && !old_dest.empty? && !ipv4?(old_dest)
+                next if old_port.nil? || old_port.empty? || !port?(old_port)
+                next if new_dest.nil? || new_dest.empty? || !ipv4?(new_dest)
+                next if !new_port.nil? && !new_port.empty? && !port?(new_port)
+
+                acc[:dnat][index] = [old_dest, old_port, new_dest, new_port]
+            end
+        end.then do |vars|
+            vars[:masq] = @interfaces.dup
+            vars
+        end
+    end
 
     def install(initdir: '/etc/init.d')
         msg :info, 'NAT4::install'
@@ -52,41 +98,6 @@ module NAT4
         end
 
         toggle [:save]
-    end
-
-    def execute
-        msg :info, 'NAT4::execute'
-
-        # Add dedicated NAT4 chain.
-        bash <<~IPTABLES
-            iptables -t nat -nL NAT4 || iptables -t nat -N NAT4
-            iptables -t nat -C POSTROUTING -j NAT4 || iptables -t nat -A POSTROUTING -j NAT4
-        IPTABLES
-
-        interfaces_out = parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
-        mgmt           = detect_mgmt_nics
-        interfaces     = interfaces_out.keys - mgmt
-
-        unless interfaces.empty?
-            # Add NAT4 rules.
-            bash ERB.new(<<~IPTABLES, trim_mode: '-').result(binding)
-                iptables -t nat -F NAT4
-                <%- interfaces.each do |nic| -%>
-                iptables -t nat -A NAT4 -o '<%= nic %>' -j MASQUERADE
-                <%- end -%>
-            IPTABLES
-        end
-
-        toggle [:save, :start, :reload]
-    end
-
-    def cleanup
-        msg :info, 'NAT4::cleanup'
-
-        # Clear dedicated NAT4 chain.
-        bash 'iptables -t nat -F NAT4'
-
-        toggle [:save, :reload]
     end
 
     def toggle(operations)
