@@ -14,7 +14,7 @@ module LVS
             [a, v, detect_endpoints(a, v)]
         end
 
-        static = backends.from_env(prefix: 'ONEAPP_VNF_LB')
+        static = backends.from_env(prefix: 'ONEAPP_VNF_LB', allow_nil_ports: true)
 
         dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_LB')
                                   : backends.from_vnets(objects, prefix: 'ONEGATE_LB')
@@ -37,7 +37,7 @@ module LVS
         file "#{basedir}/conf.d/lvs.conf", ERB.new(<<~LVS, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- lvs_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
             <%- if @allowed.include?(ip) -%>
-            virtual_server <%= ip %> <%= port %> {
+            virtual_server <%= ip %> <%= port unless port.nil? %> {
                 delay_loop 6
                 <%- unless lvs_vars[:options][lb_idx][:scheduler].nil? -%>
                 lb_algo <%= lvs_vars[:options][lb_idx][:scheduler] %>
@@ -50,7 +50,7 @@ module LVS
                 <%- end -%>
 
             <%- servers&.values&.each do |s| -%>
-                real_server <%= s[:host] %> <%= s[:port] %> {
+                real_server <%= s[:host] %> <%= s[:port] unless s[:port].nil? %> {
                     <%- unless s[:weight].nil? -%>
                     weight <%= s[:weight] %>
                     <%- end -%>
@@ -60,7 +60,7 @@ module LVS
                     <%- unless s[:llimit].nil? -%>
                     lthreshold <%= s[:llimit] %>
                     <%- end -%>
-                    <%- if lvs_vars[:options][lb_idx][:protocol].upcase == 'TCP' -%>
+                    <%- if !s[:port].nil? && lvs_vars[:options][lb_idx][:protocol].upcase == 'TCP' -%>
                     TCP_CHECK {
                         connect_timeout 3
                         connect_port <%= s[:port] %>

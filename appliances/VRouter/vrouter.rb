@@ -353,7 +353,7 @@ def get_service_vms # OneFlow
 end
 
 def backends
-    def parse_static(names, prefix)
+    def parse_static(names, prefix, allow_nil_ports: false)
         names.each_with_object({}) do |name, acc|
             case name
             when /^#{prefix}(\d+)_(IP|PORT|PROTOCOL|METHOD|SCHEDULER)$/
@@ -372,10 +372,15 @@ def backends
         end.then do |doc|
             doc[:by_indices]&.each do |(lb_idx, _), v|
                 key1 = [lb_idx, doc[:options][lb_idx][:ip], doc[:options][lb_idx][:port]]
-                next unless key1.all?
+
+                next if key1[0].nil?
+                next if key1[1].nil?
+                next if key1[2].nil? && !allow_nil_ports
 
                 key2 = [v[:host], v[:port]]
-                next unless key2.all?
+
+                next if key2[0].nil?
+                next if key2[1].nil? && !allow_nil_ports
 
                 doc[:by_endpoint] ||= {}
                 doc[:by_endpoint][key1] ||= {}
@@ -419,8 +424,10 @@ def backends
         end
     end
 
-    def from_env(prefix: 'ONEAPP_VNF_LB') # also 'ONEAPP_HAPROXY_VNF_LB'
-        parse_static(ENV.keys, prefix)
+    def from_env(prefix: 'ONEAPP_VNF_LB', allow_nil_ports: false) # also 'ONEAPP_HAPROXY_VNF_LB'
+        # NOTE: When enabled, "allow_nil_ports" can be used in LVS to load-balance *all* ports to
+        #       *all* backends (real servers). This cannot be the case for HAProxy however..
+        parse_static(ENV.keys, prefix, allow_nil_ports: allow_nil_ports)
     end
 
     def from_vnets(vnets, prefix: 'ONEGATE_LB') # also 'ONEGATE_HAPROXY_LB'
