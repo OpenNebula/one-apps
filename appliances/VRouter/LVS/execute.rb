@@ -60,7 +60,7 @@ module LVS
                     <%- unless s[:llimit].nil? -%>
                     lthreshold <%= s[:llimit] %>
                     <%- end -%>
-                    <%- if !s[:port].nil? && lvs_vars[:options][lb_idx][:protocol].upcase == 'TCP' -%>
+                    <%- if !s[:port].nil? && !(proto = lvs_vars[:options][lb_idx][:protocol]).nil? && proto.upcase == 'TCP' -%>
                     TCP_CHECK {
                         connect_timeout 3
                         connect_port <%= s[:port] %>
