@@ -26,3 +26,6 @@ SUBSYSTEM=="block", ACTION=="add", \
   ENV{ID_FS_TYPE}=="swap", \
   ENV{DM_ACTIVATION}!="1", \
   RUN+="/sbin/service one-context-force start"
+
+# Handle CPU hotplug
+SUBSYSTEM=="cpu", ACTION=="add", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
