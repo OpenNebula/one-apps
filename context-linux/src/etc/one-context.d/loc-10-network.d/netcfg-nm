@@ -247,6 +247,23 @@ gen_dhcp6_conf()
     reset_iface6
 }
 
+gen_qinq_ip4_conf()
+{
+    # Address must have the netmask in CIDR format. Example:
+    # QINQ_IP4_IFACES="eth1,120,10.120.1.5/24,10.120.1.1;eth1,130,10.130.1.5/24,10.130.1.1"
+    for qinq_ip4_info in $(echo $QINQ_IP4_IFACES | tr ";" "\n"); do
+        IFS=, read -r dev vlan ip4 gw4 <<< $qinq_ip4_info;
+
+        nmcli con add type vlan con-name VLAN${vlan} dev ${dev} id ${vlan};
+        if [[ -n $ip4 ]]; then
+            nmcli con modify VLAN${vlan} ip4 ${ip4}
+            if [[ -n $gw4 ]]; then
+                nmcli con modify VLAN${vlan} gw4 ${gw4};
+            fi
+        fi
+    done
+}
+
 # arg: <interface-connection>
 nm_connection_exist()
 (

@@ -362,6 +362,38 @@ EOT
     echo ""
 }
 
+gen_qinq_ip4_conf()
+{
+    # Address must have the netmask in CIDR format. Example:
+    # QINQ_IP4_IFACES="eth1,120,10.120.1.5/24,10.120.1.1;eth1,130,10.130.1.5/24,10.130.1.1"
+    for qinq_ip4_info in $(echo $QINQ_IP4_IFACES | tr ";" "\n"); do
+        IFS=, read -r dev vlan ip4 gw4 <<< $qinq_ip4_info;
+
+        cat <<EOT
+iface vlan${vlan} inet static
+vlan-raw-device ${dev}
+EOT
+
+        address 192.168.1.1
+        netmask 255.255.255.0
+
+        if [[ -n $ip4 ]]; then
+            $address=${ip4%%/*}
+            $netmask=${ip4##*/}
+            cat <<EOT
+address ${address}
+netmask ${netmask}
+EOT
+            if [[ -n $gw4 ]]; then
+            cat << EOT
+gateway ${gw4};
+EOT
+            fi
+        fi
+    done
+}
+
+
 gen_network_configuration()
 {
 
