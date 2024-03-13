@@ -57,27 +57,34 @@ initialize_network()
     export onegate_proxy_route_missing="yes" # flag route not setup
     get_onegate_ip
 
-    _context_interfaces=$(get_context_interfaces)
-    _iface_mac=$(get_interface_mac)
+    local _context_interfaces=$(get_context_interfaces)
+    local _iface_mac=$(get_interface_mac)
 
     for _iface in $_context_interfaces; do
-        _mac=$(get_iface_var "${_iface}" "MAC")
-        _dev=$(get_dev "${_iface_mac}" "${_mac}")
+        local _method=$(get_iface_var "${_iface}" "METHOD")
+
+        # Do *not* cleanup the interface if user wants to manage it "manually".
+        # NOTE: ETHx_METHOD="skip" (set in VM context) implies ETHx_IP6_METHOD="skip".
+        if [ "${_method}" = 'skip' ]; then
+            continue
+        fi
+
+        local _mac=$(get_iface_var "${_iface}" "MAC")
+        local _dev=$(get_dev "${_iface_mac}" "${_mac}")
 
         # network-scripts
         rm -f \
-            "/etc/sysconfig/network-scripts/route-${dev}" \
-            "/etc/sysconfig/network-scripts/route6-${dev}" \
-            "/etc/sysconfig/network-scripts/ifcfg-${dev}" \
-            "/etc/sysconfig/network/ifroute-${dev}" \
-            "/etc/sysconfig/network/ifsysctl-${dev}" \
-            "/etc/sysconfig/network/ifcfg-${dev}" \
-            ;
+            "/etc/sysconfig/network-scripts/route-${_dev}" \
+            "/etc/sysconfig/network-scripts/route6-${_dev}" \
+            "/etc/sysconfig/network-scripts/ifcfg-${_dev}" \
+            "/etc/sysconfig/network/ifroute-${_dev}" \
+            "/etc/sysconfig/network/ifsysctl-${_dev}" \
+            "/etc/sysconfig/network/ifcfg-${_dev}"
 
         # networkd
         rm -f \
-            "/etc/systemd/network/${dev}.network" \
-            "/etc/systemd/network/${dev}.link"
+            "/etc/systemd/network/${_dev}.network" \
+            "/etc/systemd/network/${_dev}.link"
 
         # nm (on RH systems it was deleted with ifcfg-*)
         for _nm_con in /etc/NetworkManager/system-connections/* ; do
@@ -96,6 +103,8 @@ initialize_network()
         echo 'NETWORKING=no' >>/etc/sysconfig/network
     fi
 
+    # FIXME: This needs to be smarter so skipped NICs are not
+    #        purged when defined manually by the user.
     # interfaces
     if [ -e /etc/network/interfaces ] ; then
         cat <<EOT >/etc/network/interfaces
@@ -460,7 +469,7 @@ get_search_domain()
 get_interface_alias()
 (
     # sed on freebsd does not recognize '+' - replacing with asterisk
-    env | sed -n "s#^\(${1}_ALIAS[0-9][0-9]*\)_MAC=.*#\1#p" | sort
+    env | sed -n "s/^\(${1}_ALIAS[0-9][0-9]*\)_MAC=.*/\1/p" | sort
 )
 
 get_context_interfaces()
