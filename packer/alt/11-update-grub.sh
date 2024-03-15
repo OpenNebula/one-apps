@@ -11,11 +11,11 @@ rm -rf /etc/default/grub.d/
 # Drop unwanted.
 
 gawk -i inplace -f- /etc/sysconfig/grub2 <<'EOF'
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<quiet\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<splash\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<console=ttyS[^ ]*\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<earlyprintk=ttyS[^ ]*\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<crashkernel=[^ ]*\>/, "crashkernel=no") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<quiet\>/, "") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<splash\>/, "") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<console=ttyS[^ ]*\>/, "") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<earlyprintk=ttyS[^ ]*\>/, "") }
+/^GRUB_CMDLINE_LINUX_DEFAULT=/ { gsub(/\<crashkernel=[^ ]*\>/, "crashkernel=no") }
 { print }
 EOF
 
