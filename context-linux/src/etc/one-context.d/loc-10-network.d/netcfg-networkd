@@ -275,6 +275,35 @@ EOT
     echo ""
 }
 
+gen_qinq_ip4_conf()
+{
+    # Address must have the netmask in CIDR format. Example:
+    # QINQ_IP4_IFACES="eth1,120,10.120.1.5/24,10.120.1.1;eth1,130,10.130.1.5/24,10.130.1.1"
+    for qinq_ip4_info in $(echo $QINQ_IP4_IFACES | tr ";" "\n"); do
+        IFS=, read -r dev vlan ip4 gw4 <<< $qinq_ip4_info;
+        cat <<EOT
+          [Match]
+          Name=VLAN${vlan}
+          Type=vlan
+
+          [Network]
+          Description=Interface for VLAN ${VLAN}
+EOT
+          if [[ -n $ip4 ]]; then
+            cat <<EOT
+          [Address]
+          Address=${ip4}
+EOT
+            if [[ -n $gw4 ]]; then
+              cat << EOT
+          Gateway={$gw4}
+EOT
+            fi
+          fi
+    done
+}
+
+
 # arg: <interface>
 is_networkd_iface_managed()
 (

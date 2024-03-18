@@ -374,9 +374,6 @@ iface vlan${vlan} inet static
 vlan-raw-device ${dev}
 EOT
 
-        address 192.168.1.1
-        netmask 255.255.255.0
-
         if [[ -n $ip4 ]]; then
             $address=${ip4%%/*}
             $netmask=${ip4##*/}
