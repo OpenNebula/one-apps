@@ -68,7 +68,7 @@ Both of them were merged here, together with the image building tools. The origi
 
 * Guidelines
 * [Development and issue tracking](https://github.com/OpenNebula/one-apps/issues).
-* [Community Forum](https://forum.opennebula.io).
+* [Community Forum](https://forum.opennebula.io/c/development/one-apps).
 
 ## Contact Information
 
