@@ -12,7 +12,7 @@ module NAT4
 
     ONEAPP_VNF_NAT4_ENABLED = env :ONEAPP_VNF_NAT4_ENABLED, 'NO'
 
-    ONEAPP_VNF_NAT4_INTERFACES_OUT = env :ONEAPP_VNF_NAT4_INTERFACES_OUT, '' # nil -> none, empty -> all
+    ONEAPP_VNF_NAT4_INTERFACES_OUT = env :ONEAPP_VNF_NAT4_INTERFACES_OUT, nil # nil -> none, empty -> all
 
     def parse_env
         @interfaces_out ||= parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT

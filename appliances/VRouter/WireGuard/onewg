@@ -1,0 +1,432 @@
+#!/usr/bin/env ruby
+
+require 'ipaddr'
+require 'optparse'
+require 'yaml'
+
+begin
+    require '/etc/one-appliance/lib/helpers.rb'
+rescue LoadError
+    require_relative '../../lib/helpers.rb'
+end
+
+begin
+    require 'json-schema'
+    $use_schema = true
+rescue LoadError
+    $use_schema = false
+end
+
+SCHEMA = <<~SCHEMA
+---
+type: object
+additionalProperties:
+  type: object
+  required: [endpoint, peer_subnet, server_port, private_key, interface_out, peers]
+  properties:
+    endpoint:
+      type: string
+      minLength: 3
+      pattern: "^[-.A-Za-z0-9]+:[0-9]+$"
+    peer_subnet:
+      type: string
+      minLength: 4
+      pattern: "^([.0-9]+|[:A-Fa-f0-9]+)/[0-9]+$"
+    server_port:
+      type: integer
+      minimum: 1
+      maximum: 65535
+    private_key:
+      type: string
+      minLength: 44
+      maxLength: 44
+      pattern: "^[-+/A-Za-z0-9]*={0,3}$"
+    interface_out:
+      type: string
+      minLength: 1
+    peers:
+      type: object
+      additionalProperties:
+        type: object
+        required: [address, preshared_key, allowed_ips]
+        oneOf:
+          - required: [public_key]
+          - required: [private_key]
+        properties:
+          address:
+            type: string
+            minLength: 4
+            pattern: "^([.0-9]+|[:A-Fa-f0-9]+)/[0-9]+$"
+          preshared_key:
+            type: string
+            minLength: 44
+            maxLength: 44
+            pattern: "^[-+/A-Za-z0-9]*={0,3}$"
+          public_key:
+            type: string
+            minLength: 44
+            maxLength: 44
+            pattern: "^[-+/A-Za-z0-9]*={0,3}$"
+          private_key:
+            type: string
+            minLength: 44
+            maxLength: 44
+            pattern: "^[-+/A-Za-z0-9]*={0,3}$"
+          allowed_ips:
+            type: array
+            minItems: 1
+            items:
+              type: string
+              minLength: 4
+              pattern: "^([.0-9]+|[:A-Fa-f0-9]+)/[0-9]+$"
+SCHEMA
+
+$opts = {
+    parsed: {
+        cmd: nil,
+        dev: 'wg0',
+        endpoint: nil,
+        path: '/var/tmp/onewg.yml',
+        peer: nil,
+        peers: nil,
+        pubkey: nil,
+        subnet: nil,
+        use_schema: $use_schema
+    },
+    cmds: {
+        '' => {
+            parser: OptionParser.new do |opts|
+                opts.banner = "Usage: #{$PROGRAM_NAME} [options] <command>"
+                opts.on('-c PATH', '--config PATH', 'Config file path') do |v|
+                    $opts[:parsed][:path] = v
+                end
+                ['', 'Available commands: show, init, schema, peer', ''].each { |s| opts.separator(s) }
+            end
+        },
+        'show' => {
+            parser: OptionParser.new do |opts|
+                opts.banner = "Usage: #{$PROGRAM_NAME} [options] show [options]"
+            end,
+            args: -> do
+                $opts[:parsed][:cmd] = :show
+            end
+        },
+        'init' => {
+            parser: OptionParser.new do |opts|
+                opts.banner = "Usage: #{$PROGRAM_NAME} [options] init [options] <device>"
+                opts.on('-e ENDPOINT', '--endpoint ENDPOINT', 'VPN endpoint (A.B.C.D:E)') do |v|
+                    $opts[:parsed][:endpoint] = v
+                end
+                opts.on('-s SUBNET', '--subnet SUBNET', 'Peer subnet (A.B.C.D/E)') do |v|
+                    $opts[:parsed][:subnet] = v
+                end
+            end,
+            args: -> do
+                $opts[:parsed][:cmd] = :init
+                if ($opts[:parsed][:dev] = ARGV[0]).nil? || $opts[:parsed][:dev].empty?
+                    $stderr.puts 'Missing argument: device'
+                    exit(-1)
+                end
+            end
+        },
+        'schema' => {
+            parser: OptionParser.new do |opts|
+                opts.banner = "Usage: #{$PROGRAM_NAME} [options] schema [options] <subcommand>"
+                ['', 'Available subcommands: show, check', ''].each { |s| opts.separator(s) }
+            end,
+            subcmds: {
+                'show' => {
+                    parser: OptionParser.new do |opts|
+                        opts.banner = "Usage: #{$PROGRAM_NAME} [options] schema [options] show [options]"
+                    end,
+                    args: -> do
+                        $opts[:parsed][:cmd] = :schema_show
+                    end
+                },
+                'check' => {
+                    parser: OptionParser.new do |opts|
+                        opts.banner = "Usage: #{$PROGRAM_NAME} [options] schema [options] check [options]"
+                    end,
+                    args: -> do
+                        $opts[:parsed][:cmd] = :schema_check
+                    end
+                }
+            }
+        },
+        'peer' => {
+            parser: OptionParser.new do |opts|
+                opts.banner = "Usage: #{$PROGRAM_NAME} [options] peer [options] <subcommand>"
+                ['', 'Available subcommands: add, del, get', ''].each { |s| opts.separator(s) }
+            end,
+            subcmds: {
+                'add' => {
+                    parser: OptionParser.new do |opts|
+                        opts.banner = "Usage: #{$PROGRAM_NAME} [options] peer [options] add [options] <device> <peer> [peers]"
+                        opts.on('-p PUBKEY', '--pubkey PUBKEY', 'Use peer pubkey only') do |v|
+                            $opts[:parsed][:pubkey] = v
+                        end
+                    end,
+                    args: -> do
+                        $opts[:parsed][:cmd] = :peer_add
+                        if ($opts[:parsed][:dev] = ARGV[0]).nil? || $opts[:parsed][:dev].empty?
+                            $stderr.puts 'Missing argument: device'
+                            exit(-1)
+                        end
+                        if ($opts[:parsed][:peers] = ARGV[1..].reject(&:empty?)).empty?
+                            $stderr.puts 'Missing argument: peer'
+                            exit(-1)
+                        end
+                    end
+                },
+                'del' => {
+                    parser: OptionParser.new do |opts|
+                        opts.banner = "Usage: #{$PROGRAM_NAME} [options] peer [options] del [options] <device> <peer> [peers]"
+                    end,
+                    args: -> do
+                        $opts[:parsed][:cmd] = :peer_del
+                        if ($opts[:parsed][:dev] = ARGV[0]).nil? || $opts[:parsed][:dev].empty?
+                            $stderr.puts 'Missing argument: device'
+                            exit(-1)
+                        end
+                        if ($opts[:parsed][:peers] = ARGV[1..].reject(&:empty?)).empty?
+                            $stderr.puts 'Missing argument: peer'
+                            exit(-1)
+                        end
+                    end
+                },
+                'get' => {
+                    parser: OptionParser.new do |opts|
+                        opts.banner = "Usage: #{$PROGRAM_NAME} [options] peer [options] get [options] <device> <peer>"
+                    end,
+                    args: -> do
+                        $opts[:parsed][:cmd] = :peer_get
+                        if ($opts[:parsed][:dev] = ARGV[0]).nil? || $opts[:parsed][:dev].empty?
+                            $stderr.puts 'Missing argument: device'
+                            exit(-1)
+                        end
+                        if ($opts[:parsed][:peer] = ARGV[1]).nil? || $opts[:parsed][:peer].empty?
+                            $stderr.puts 'Missing argument: peer'
+                            exit(-1)
+                        end
+                    end
+                }
+            }
+        }
+    },
+    exec: -> do
+        $opts.dig(:cmds, '', :parser).order!
+
+        if $opts.dig(:cmds, arg1 = ARGV.shift).nil?
+            $stdout.puts $opts.dig(:cmds, '', :parser).help
+            exit(-1)
+        end
+
+        if $opts.dig(:cmds, arg1, :subcmds).nil?
+            $opts.dig(:cmds, arg1, :parser).parse!
+            $opts.dig(:cmds, arg1, :args).call
+        else
+            $opts.dig(:cmds, arg1, :parser).order!
+
+            if $opts.dig(:cmds, arg1, :subcmds, arg2 = ARGV.shift).nil?
+                $stdout.puts $opts.dig(:cmds, arg1, :parser).help
+                exit(-1)
+            end
+
+            $opts.dig(:cmds, arg1, :subcmds, arg2, :parser).parse!
+            $opts.dig(:cmds, arg1, :subcmds, arg2, :args).call
+        end
+
+        $opts[:parsed][:cmd]
+    end
+}
+
+def show(opts = $opts[:parsed])
+    text = !opts[:path].empty? && File.exist?(opts[:path]) ? File.read(opts[:path]) : ''
+    $stdout.puts text
+end
+
+def init(opts = $opts[:parsed])
+    document = !opts[:path].empty? && File.exist?(opts[:path]) ? YAML.load_file(opts[:path]) : {}
+
+    unless document[opts[:dev]].nil?
+        $stderr.puts "Already initialized: #{opts[:dev]}"
+        exit(-1)
+    end
+
+    unless opts[:endpoint].nil?
+        host, port = opts[:endpoint].split(%[:])
+
+        server_port = port.to_i unless port.nil?
+
+        endpoint = "#{host}:#{server_port}"
+    else
+        server_port = document.each_with_object([]) do |(_, v), acc|
+            acc << v['server_port'].to_i unless v['server_port'].nil?
+        end.then do |ports|
+            ports.empty? ? 51820 : (ports.max + 1)
+        end
+
+        endpoint = "10.11.12.13:#{server_port}"
+    end
+
+    unless opts[:subnet].nil?
+        peer_subnet = opts[:subnet]
+    else
+        peer_subnet = document.each_with_object([]) do |(_, v), acc|
+            acc << $1.to_i if v['peer_subnet'] =~ %r{^192\.168\.(\d+)\.0/24}
+        end.then do |octets|
+            "192.168.#{octets.empty? ? 144 : (octets.max + 1)}.0/24"
+        end
+    end
+
+    document[opts[:dev]] = {
+        'endpoint'      => endpoint,
+        'peer_subnet'   => peer_subnet,
+        'server_port'   => server_port,
+        'private_key'   => bash('wg genkey', chomp: true),
+        'interface_out' => 'eth0',
+        'peers'         => {}
+    }
+
+    file opts[:path], YAML.dump(document), overwrite: true
+end
+
+def schema_show(opts = $opts[:parsed])
+    $stdout.puts SCHEMA
+end
+
+def schema_check(opts = $opts[:parsed])
+    unless opts[:use_schema]
+        $stderr.puts "The json-schema ruby gem is missing! Please install it if you want to use config schema validation."
+        exit(-1)
+    end
+
+    schema = YAML.load(SCHEMA)
+
+    document = !opts[:path].empty? && File.exist?(opts[:path]) ? YAML.load_file(opts[:path]) : {}
+
+    unless JSON::Validator.validate(schema, document)
+        $stderr.puts "Config schema validation failed!"
+        exit(-1)
+    end
+end
+
+def peer_add(opts = $opts[:parsed])
+    document = !opts[:path].empty? && File.exist?(opts[:path]) ? YAML.load_file(opts[:path]) : {}
+
+    if document[opts[:dev]].nil?
+        $stderr.puts "Not found: #{opts[:dev]}"
+        exit(-1)
+    end
+
+    if (subnet = document.dig(opts[:dev], 'peer_subnet')).nil?
+        $stderr.puts "Missing peer subnet: #{opts[:dev]}"
+        exit(-1)
+    end.then do
+        subnet = IPAddr.new(subnet)
+    end
+
+    peers = (document[opts[:dev]]['peers'] ||= {})
+
+    opts[:peers].each do |peer|
+        unless peers[peer].nil?
+            $stderr.puts "Already added: #{opts[:dev]} #{peer}"
+            next
+        end
+
+        # Collect all peer addresses for the subnet.
+        addrs = peers.each_with_object([]) do |(_, v), acc|
+            addr = IPAddr.new(v['address'].split(%[/])[0])
+            acc << addr.to_i if subnet.include?(addr)
+        end.sort
+
+        # Find min/max addresses in the subnet.
+        min = subnet.to_range.first.to_i
+        max = subnet.to_range.last.to_i
+
+        # Prepare address lists to be zipped (shifted by 1).
+        lhs = [min + 1] + addrs # skips the first usable address (for example 10.0.0.1)
+        rhs = addrs + [max]
+
+        # Extract ranges containing only unused addresses.
+        unused = lhs.zip(rhs)
+                    .select { |(a, b)| b - a > 1 }       # discard ranges with less than 2 addresses
+                    .map { |(a, b)| ((a + 1)..(b - 1)) } # create ranges from tuples
+
+        # Find the lowest available address.
+        lowest = IPAddr.new(unused.first.min, subnet.family)
+
+        peers[peer] = {
+            'address'       => "#{lowest.to_s}/#{subnet.prefix}",
+            'preshared_key' => bash('wg genpsk', chomp: true),
+            'allowed_ips'   => %w[0.0.0.0/0]
+        }
+
+        if !opts[:pubkey].nil? && !opts[:pubkey].empty?
+            peers[peer]['public_key'] = opts[:pubkey]
+        else
+            peers[peer]['private_key'] = bash('wg genkey', chomp: true)
+        end
+    end
+
+    file opts[:path], YAML.dump(document), overwrite: true
+end
+
+def peer_del(opts = $opts[:parsed])
+    document = !opts[:path].empty? && File.exist?(opts[:path]) ? YAML.load_file(opts[:path]) : {}
+
+    if document[opts[:dev]].nil?
+        $stderr.puts "Not found: #{opts[:dev]}"
+        exit(-1)
+    end
+
+    peers = (document[opts[:dev]]['peers'] ||= {})
+
+    opts[:peers].each do |peer|
+        if peers[peer].nil?
+            $stderr.puts "Not found: #{opts[:dev]} #{peer}"
+            next
+        end
+        peers.delete peer
+    end
+
+    file opts[:path], YAML.dump(document), overwrite: true
+end
+
+def peer_get(opts = $opts[:parsed])
+    document = !opts[:path].empty? && File.exist?(opts[:path]) ? YAML.load_file(opts[:path]) : {}
+
+    if document[opts[:dev]].nil?
+        $stderr.puts "Not found: #{opts[:dev]}"
+        exit(-1)
+    end
+
+    peers = (document[opts[:dev]]['peers'] ||= {})
+
+    if peers[opts[:peer]].nil?
+        $stderr.puts "Not found: #{opts[:dev]} #{opts[:peer]}"
+        exit(-1)
+    end
+
+    if (private_key = document.dig(opts[:dev], 'private_key')).nil?
+        $stderr.puts "Invalid server key: #{opts[:dev]}"
+        exit(-1)
+    end
+
+    $stdout.puts <<~PEER
+        [Interface]
+        Address    = #{peers.dig(opts[:peer], 'address')}
+        ListenPort = #{document.dig(opts[:dev], 'server_port').to_s}
+        PrivateKey = #{peers.dig(opts[:peer], 'private_key') || '>>> MISSING! <<<'}
+
+        [Peer]
+        Endpoint     = #{document.dig(opts[:dev], 'endpoint')}
+        PublicKey    = #{bash("wg pubkey <<< '#{private_key}'", chomp: true)}
+        PresharedKey = #{peers.dig(opts[:peer], 'preshared_key')}
+        AllowedIPs   = #{peers.dig(opts[:peer], 'allowed_ips').join(%[,])}
+    PEER
+end
+
+if caller.empty?
+    method($opts[:exec].call).call
+end
