@@ -97,7 +97,7 @@ initialize_network()
     # To avoid clashes when running legacy network-scripts and
     # NetworkManager/networkd, we disable old-style networking
     # on Red Hats and enable later back only if needed.
-    if [ -d /etc/sysconfig/network-scripts/ ]; then
+    if [ -x /etc/sysconfig/network-scripts/ifup ]; then
         touch /etc/sysconfig/network
         sed -i -e '/^NETWORKING=/d' /etc/sysconfig/network
         echo 'NETWORKING=no' >>/etc/sysconfig/network
