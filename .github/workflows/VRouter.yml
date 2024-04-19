@@ -1,0 +1,19 @@
+---
+name: VRouter
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - 'appliances/lib/**'
+      - 'appliances/VRouter/**'
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - run: gem install rspec
+      - run: ./appliances/VRouter/tests.sh
