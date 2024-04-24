@@ -53,6 +53,7 @@ service_install() {
 ### Configuration Stage => Configures Harbor YAML and SSL certificates
 service_configure() { 
     msg info "Starting configuration..."
+    mount_persistent
     ## SSL CERTS
 
     mkdir /root/certs
@@ -207,6 +208,32 @@ download_unpack_harbor() {
         msg info "Harbor unpacked successfully"
     fi
     cp /root/harbor/harbor.yml.tmpl /root/harbor/harbor.yml
+}
+
+
+mount_persistent() {
+    # Check if /data directory exists, if not create it
+    if [ ! -d "/data" ]; then
+        mkdir -p /data
+    fi
+
+    # Check if /dev/vda exists
+    if [ -e "/dev/vda" ]; then
+        # Check if already mounted
+        msg info "Persistent disk (/dev/vda) detected"
+        if grep -qs '/dev/vda' /proc/mounts; then
+            msg info "/dev/vda is already mounted."
+        else
+            # Add entry to /etc/fstab for persistence
+            echo "/dev/vda   /data   ext4   defaults   0   2" | sudo tee -a /etc/fstab > /dev/null
+            # Mount the drive
+            mount -a
+            msg info "Mounted /dev/vda to /data successfully."
+        fi
+    else
+        msg error "Device /dev/vda does not exist, persistency can not be ensured"
+        exit 1
+    fi
 }
 
 
