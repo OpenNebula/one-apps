@@ -166,3 +166,16 @@ $(echo "${ONE_SERVICE_DESCRIPTION}" | sed -e 's/^\(.\)/  \1/')
 EOF
 
 }
+
+# arg: <variable name>
+is_true()
+{
+    _value=$(eval echo "\$${1}" | tr '[:upper:]' '[:lower:]')
+    case "$_value" in
+        1|true|yes|y)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
