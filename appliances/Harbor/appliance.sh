@@ -56,16 +56,27 @@ service_install() {
 service_configure() { 
     msg info "Starting configuration..."
     mount_persistent
+
     ## SSL CERTS
 
-    mkdir /root/certs
-    if [ "$HARBOR_SSL_CERT" = "AG" ] || [ "$HARBOR_SSL_KEY" = "AG" ]; then
-        msg info "Autogenerating SSL certificates..."
-        generate_ssl_certs
+    if [ ! -d "/root/certs" ]; then
+        mkdir -p /root/certs
+    fi
+
+    # If one of both files (cert or key) does not exist...
+    if [ ! -f "/root/certs/server.crt" ] || [ ! -f "/root/certs/server.key" ]; then
+        if [ "$HARBOR_SSL_CERT" = "AG" ] || [ "$HARBOR_SSL_KEY" = "AG" ]; then
+            msg info "Autogenerating SSL certificates..."
+            generate_ssl_certs
+        else
+            msg info "Configuring provided SSL certificates..."
+            echo $HARBOR_SSL_CERT >> mkdir /root/certs/server.crt
+            echo $HARBOR_SSL_KEY >> mkdir /root/certs/server.key
+        fi
     else
-        msg info "Configuring provided SSL certificates..."
-        echo $HARBOR_SSL_CERT >> mkdir /root/certs/server.crt
-        echo $HARBOR_SSL_KEY >> mkdir /root/certs/server.key
+        msg info "The certificates already exist"
+        msg info "Recontextualization detected. This appliance is not prepared for reconfiguration. Skipping..."
+        return 1
     fi
 
     msg info "Configuring Harbor YAML file..."
@@ -110,7 +121,6 @@ service_bootstrap() { # Running Harbor installer => will generate and run docker
     wait_for_docker_containers
     cleanup_installation
     msg info "Bootstrap phase finished"
-
 }
 
 ### Function Definitions
@@ -232,7 +242,7 @@ mount_persistent() {
     msg info "Persistent disk (/dev/$HARBOR_PERSISTENT_DEV) detected"
 
     # Check if already mounted
-    if grep -qs '/dev/$HARBOR_PERSISTENT_DEV' /proc/mounts; then
+    if $(cat /proc/mounts | grep -qs /dev/$HARBOR_PERSISTENT_DEV); then
         msg info "/dev/$HARBOR_PERSISTENT_DEV is already mounted."
         return 0
     fi
