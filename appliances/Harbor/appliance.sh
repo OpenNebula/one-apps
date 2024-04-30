@@ -200,11 +200,22 @@ generate_ssl_certs() {
 
 download_unpack_harbor() {
     msg info "Downloading Harbor..."
-    url=$(curl -s https://api.github.com/repos/goharbor/harbor/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep '\.tgz$' | grep online)
-    if [ $? -ne 0 ]; then
-        msg error "Unable to obtain Harbor download URL, aborting..."
-        exit 1
-    fi
+    # Obtain download URL
+    url=$(curl -f -s https://api.github.com/repos/goharbor/harbor/releases/latest \
+    | grep browser_download_url \
+    | cut -d '"' -f 4 \
+    | grep '\.tgz$' \
+    | grep online)
+
+    # Check all pipe exit codes
+    for status in "${PIPESTATUS[@]}"; do
+        if [ "$status" -ne 0 ]; then
+            msg error "Unable to obtain Harbor download URL, aborting..."
+            exit 1
+        fi
+    done
+
+    # Download Harbor
     wget -P /root/ $url
     if [ $? -ne 0 ]; then
 	    msg info "Harbor download failed. Download URL: $url"
