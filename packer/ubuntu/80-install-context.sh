@@ -18,8 +18,8 @@ LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n
 
 policy_rc_d_disable
 
-dpkg -i "$LATEST" || apt-get install -y -f
-dpkg -i "$LATEST"
+dpkg -i --auto-deconfigure "$LATEST" || apt-get install -y -f
+dpkg -i --auto-deconfigure "$LATEST"
 
 apt-get install -y haveged open-vm-tools
 
