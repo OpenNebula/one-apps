@@ -12,7 +12,7 @@ source "qemu" "windows" {
 
   floppy_files = [
     "${path.root}/Run-Scripts.ps1",
-    "context-windows/out/one-context-6.8.1.msi"
+    "context-windows/out/one-context-*.msi"
   ]
   floppy_dirs = [
     "${path.root}/scripts"
