@@ -7,8 +7,8 @@ source "qemu" "windows" {
   memory       = 6192
   accelerator  = "kvm"
 
-  iso_url      = lookup(lookup(var.windows, var.version, {}), "iso_url", "")
-  iso_checksum = lookup(lookup(var.windows, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.isoFiles, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.isoFiles, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_checksum", "")
 
   floppy_files = [
     "${path.root}/Run-Scripts.ps1",
@@ -16,14 +16,14 @@ source "qemu" "windows" {
   ]
   floppy_dirs = [
     "${path.root}/scripts"
-    ]
+  ]
   floppy_content = {
     "Autounattend.xml" = templatefile("autounattend.pkrtpl", {
-        edition_name = lookup(lookup(var.windows, var.version, {}), "edition_name", "")
-        language = var.language
+      edition_name = lookup(lookup(var.windows, var.version, {}), "edition_name", "")
+      language     = var.language
       }
     )
-    "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", {language = var.language})
+    "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", { language = var.language })
   }
   headless = var.headless
 
