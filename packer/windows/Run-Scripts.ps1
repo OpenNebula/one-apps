@@ -21,7 +21,6 @@ if (Test-Path -Path $scriptsRoot\progress.json) {
     if ($scripts.count -eq 0) {
         exit 0;
     }
-    $scripts | ConvertTo-Json | Set-Content -Path $scriptsRoot\progress.json
 }
 
 # run scripts
