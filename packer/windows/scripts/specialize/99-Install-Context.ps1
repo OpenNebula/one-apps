@@ -7,4 +7,5 @@ $ProcessOptions = @{
     "Wait"          = $true
 }
 # Run msiexec
-Start-Process @ProcessOptions   
+Start-Process @ProcessOptions
+exit 0
