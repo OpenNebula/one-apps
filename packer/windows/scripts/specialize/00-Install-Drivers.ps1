@@ -8,3 +8,4 @@ $ProcessOptions = @{
 }
 # Run te installer
 Start-Process @ProcessOptions
+exit 0
