@@ -13,10 +13,10 @@ if (-Not (Test-Path -Path $scriptsRoot)) {
 # prepare script list
 if (Test-Path -Path $scriptsRoot\progress.json) {
     # load progress file after reboot
-    [System.Collections.ArrayList]$scripts = Get-Content -Path $scriptsRoot\progress.json | ConvertFrom-Json
+    [System.Collections.ArrayList]$scripts = @(Get-Content -Path $scriptsRoot\progress.json | ConvertFrom-Json)
 } else {
     # create progress file
-    [System.Collections.ArrayList]$scripts = Get-ChildItem -Path $scriptsRoot -Recurse -Include *.ps1 -ErrorAction SilentlyContinue | Sort-Object $_.FullName | Select-Object -ExpandProperty FullName
+    [System.Collections.ArrayList]$scripts = @(Get-ChildItem -Path $scriptsRoot -Recurse -Include *.ps1 -ErrorAction SilentlyContinue | Sort-Object $_.FullName | Select-Object FullName)
     # exit if there aren't any scripts
     if ($scripts.count -eq 0) {
         exit 0;
@@ -24,33 +24,33 @@ if (Test-Path -Path $scriptsRoot\progress.json) {
 }
 
 # run scripts
-foreach ($scriptPath in $scripts.Clone()) {
+foreach ($script in $scripts.Clone()) {
     # run script
-    & $scriptPath
+    & $script.FullName
     # decide if reboot is needed
     switch ($LASTEXITCODE) {
         0 {
             # script finished, no reboot required
-            $scripts.Remove($scriptPath);
+            $scripts.Remove($script);
         }
         1 {
             # script finished, reboot required
-            $scripts.Remove($scriptPath);
-            $scripts | ConvertTo-Json | Set-Content -Path $scriptsRoot\progress.json            
+            $scripts.Remove($script);
+            ConvertTo-Json -InputObject $scripts | Set-Content -Path $scriptsRoot\progress.json            
             exit 1;
         }
         2 {
             # script not finished, reboot required, same script will run after reboot
-            $scripts | ConvertTo-Json | Set-Content -Path $scriptsRoot\progress.json            
+            ConvertTo-Json -InputObject $scripts | Set-Content -Path $scriptsRoot\progress.json            
             exit 1;
         }
         default {
             # script returned unsupported value, continue
-            $scripts.Remove($scriptPath)
+            $scripts.Remove($script)
         }
     }
 }
 
 # cleanup
-Remove-Item -Path $scriptsRoot\progress.json -Force
+Remove-Item -ErrorAction SilentlyContinue -Path $scriptsRoot\progress.json -Force
 exit 0
