@@ -27,8 +27,8 @@ source "qemu" "windows" {
   }
   headless = var.headless
 
-  boot_command = ["<enter><wait3><enter><wait3><enter><wait3><enter>"]
-  boot_wait    = "5s"
+  boot_command = ["<enter><wait3><enter><wait3><enter><wait3><enter><wait3><enter>"]
+  boot_wait    = "2s"
 
   disk_cache     = "unsafe"
   disk_interface = "virtio"
