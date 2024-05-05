@@ -122,11 +122,6 @@ module WireGuard
         @nets_in  ||= nics_to_subnets([iin])
         @net_in   ||= @nets_in[iin]
 
-        pp @addrs_in
-        pp @nets_in
-        pp iin
-        pp iout
-
         if @net_in.nil? || @net_in[0].empty? || @addr_in.nil? || @addr_in[0].empty?
           raise "Wrong configuration for private (in) interface: #{iin}"
         end
