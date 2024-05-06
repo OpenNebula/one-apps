@@ -70,8 +70,8 @@ service_configure() {
             generate_ssl_certs
         else
             msg info "Configuring provided SSL certificates..."
-            echo $HARBOR_SSL_CERT >> /root/certs/server.crt
-            echo $HARBOR_SSL_KEY >> /root/certs/server.key
+            echo $HARBOR_SSL_CERT | base64 --decode >> /root/certs/server.crt
+            echo $HARBOR_SSL_KEY | base64 --decode >> /root/certs/server.key
         fi
     else
         msg info "The certificates already exist"
