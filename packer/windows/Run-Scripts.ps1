@@ -1,7 +1,8 @@
 ﻿$scriptsRoot = $Args[0]
 
+
 # exit if no script root provided
-if ($null -eq $scriptsRoot ) {
+if ($null -eq $scriptsRoot) {
     Write-Warning "No script root provided, exiting"
     exit 0;
 }
@@ -10,47 +11,46 @@ if (-Not (Test-Path -Path $scriptsRoot)) {
     Write-Warning "Provided script root does not exist, exiting"
     exit 0;
 }
-# prepare script list
-if (Test-Path -Path $scriptsRoot\progress.json) {
+
+$progressFilePath = "$scriptsRoot\progress.json"
+
+# get script files
+if (Test-Path -Path $progressFilePath) {
     # load progress file after reboot
-    [System.Collections.ArrayList]$scripts = @(Get-Content -Path $scriptsRoot\progress.json | ConvertFrom-Json)
-} else {
-    # create progress file
-    [System.Collections.ArrayList]$scripts = @(Get-ChildItem -Path $scriptsRoot -Recurse -Include *.ps1 -ErrorAction SilentlyContinue | Sort-Object $_.FullName | Select-Object FullName)
-    # exit if there aren't any scripts
-    if ($scripts.count -eq 0) {
-        exit 0;
-    }
+    $scriptFiles = [string[]](ConvertFrom-Json -InputObject (Get-Content $progressFilePath -Raw))
 }
+else {
+    # get scripts from scripts folder
+    $scriptFiles = [String[]]@(Get-ChildItem -Path $scriptsRoot -Recurse -Include *.ps1 | Select-Object -ExpandProperty FullName | Sort-Object)
+}
+
+
+# add scripts to Queue
+$scriptFileQueue = [System.Collections.Generic.Queue[String]]::new($scriptFiles)
 
 # run scripts
-foreach ($script in $scripts.Clone()) {
+while ($scriptFileQueue.Count -gt 0) {
     # run script
-    & $script.FullName
-    # decide if reboot is needed
-    switch ($LASTEXITCODE) {
-        0 {
-            # script finished, no reboot required
-            $scripts.Remove($script);
+    $scriptFile = $scriptFileQueue.Peek()
+    & $scriptFile
+    $exitCode = $LASTEXITCODE
+    # save and exit if script requests reboot
+    if ($exitCode -in 1, 2) {
+        # Remove from the queue if script has finished and does not need to run again
+        if ($exitCode -eq 1) {
+            $scriptFileQueue.Dequeue() | Out-Null
         }
-        1 {
-            # script finished, reboot required
-            $scripts.Remove($script);
-            ConvertTo-Json -InputObject $scripts | Set-Content -Path $scriptsRoot\progress.json            
-            exit 1;
-        }
-        2 {
-            # script not finished, reboot required, same script will run after reboot
-            ConvertTo-Json -InputObject $scripts | Set-Content -Path $scriptsRoot\progress.json            
-            exit 1;
-        }
-        default {
-            # script returned unsupported value, continue
-            $scripts.Remove($script)
-        }
+        # Write progress file
+        ConvertTo-Json -InputObject $scriptFileQueue | Set-Content -Path $progressFilePath
+        exit $exitCode
     }
+    # Remove finished script from queue
+    $scriptFileQueue.Dequeue() | Out-Null
 }
 
-# cleanup
-Remove-Item -ErrorAction SilentlyContinue -Path $scriptsRoot\progress.json -Force
+# cleanup progress file
+if (Test-Path -Path $progressFilePath) {
+    Remove-Item -Path $progressFilePath -Force
+}
+
 exit 0
