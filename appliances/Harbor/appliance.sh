@@ -79,6 +79,7 @@ service_install() {
     check_internet_access
     install_requirements
     download_unpack_harbor
+    create_one_service_metadata
     msg info "Installation phase finished"
 }
 
