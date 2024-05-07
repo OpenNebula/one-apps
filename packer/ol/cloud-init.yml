@@ -19,4 +19,5 @@ runcmd:
     { print }
     ENDFILE { if (!found) print update }
     EOF
+  - rm -rf /etc/ssh/sshd_config.d/01-permitrootlogin.conf
   - systemctl reload sshd
