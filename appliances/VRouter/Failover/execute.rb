@@ -28,6 +28,9 @@ module Failover
                            fallback: 'NO' },
 
         'one-dhcp4'   => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED',
+                           fallback: 'NO' },
+
+        'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED',
                            fallback: 'NO' }
     }
 

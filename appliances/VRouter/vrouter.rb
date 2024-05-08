@@ -163,6 +163,7 @@ def parse_interfaces(interfaces, pattern: /^[!]?eth\d+$/)
                     acc[vip] << nic
                 end
             end
+
             unless (nics = vips[parts[:addr].downcase]).nil?
                 nics.each do |nic|
                     parts[:name] = nic
@@ -203,6 +204,21 @@ def nics_to_addrs(nics = detect_nics)
             next unless nics.include?(nic = "eth#{$1}")
             acc[nic] ||= []
             acc[nic] << v
+        end
+    end
+end
+
+def nics_to_subnets(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP$/
+            next unless nics.include?(nic = "eth#{$1}")
+            ip       = v.split(%[/])[0]
+            subnet   = IPAddr.new("#{ip}/#{infer_pfxlen($1.to_i, v)}")
+
+            acc[nic] ||= []
+            acc[nic] << "#{subnet}/#{subnet.prefix}"
         end
     end
 end
