@@ -145,9 +145,9 @@ service_bootstrap() { # Running Harbor installer => will generate and run docker
         msg error "Harbor installation script failed, aborting..."
         exit 1
     else
-        msg info "Harbor installation script finished successfully. Waiting 60s before final health checks..."
+        msg info "Harbor installation script finished successfully. Waiting 30s before final health checks..."
     fi
-    sleep 60
+    sleep 30
     msg info "Running final health checks..."
     wait_for_docker_containers
     cleanup_installation
