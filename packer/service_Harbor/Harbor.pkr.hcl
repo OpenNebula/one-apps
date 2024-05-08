@@ -29,7 +29,7 @@ source "qemu" "Harbor" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  skip_resize_disk = true
+  disk_size        = 5120
 
   output_directory = var.output_dir
 

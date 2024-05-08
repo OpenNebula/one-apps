@@ -318,9 +318,10 @@ mount_persistent() {
 wait_for_docker_containers() {
     local start_time=$(date +%s)
     local end_time=$((start_time + 300))  # 5 minutes in seconds
-    local all_healthy=1
 
     while [ $(date +%s) -lt $end_time ]; do
+        local all_healthy=1
+
         # Get the IDs of all running containers
         local container_ids=$(docker ps --format "{{.ID}}")
 
