@@ -15,56 +15,65 @@ module WireGuard
     class Peer
         @@peers = 0
 
-        def initialize(subnet, ip)
-            @subnet = IPAddr.new(subnet)
+        def initialize(conf)
+            @wgpeer = {}
 
-            raise "Peer IP #{ip} not in peer subnet #{subnet}" unless @subnet.include? ip
-
-            @ip = IPAddr.new(ip)
-
+            #-------------------------------------------------------------------
+            # Peer index
+            # Address: Peer IP address in the peer subnet.
+            #   subnet + 0 = peer network address
+            #   subnet + 1 = WG server IP
+            #   subnet + 2 + N = IP for Nth peer
+            #-------------------------------------------------------------------
             @peer   = @@peers
             @@peers = @@peers + 1
 
-            shared_k  = bash('wg genpsk', chomp: true)
-            private_k = bash('wg genkey', chomp: true)
-            public_k  = bash("wg pubkey <<< '#{private_k}'", chomp: true)
+            addr = IPAddr.new(conf[:subnet].to_i + @peer + 2, Socket::AF_INET)
 
-            @wgpeer = {
-                'address'       => "#{@ip.to_s}/#{@subnet.prefix}",
-                'preshared_key' => shared_k,
-                'private_key'   => private_k,
-                'public_key'    => public_k,
-                'allowed_ips'   => %w[0.0.0.0/0]
-            }
+            @wgpeer[:address] = "#{addr}/#{conf[:subnet].prefix}"
+
+            #-------------------------------------------------------------------
+            # Keys
+            #-------------------------------------------------------------------
+            @wgpeer[:shared]  = bash('wg genpsk', chomp: true)
+            @wgpeer[:private] = bash('wg genkey', chomp: true)
+            @wgpeer[:public]  = bash("wg pubkey <<< '#{private_k}'", chomp: true)
+
+            @wgpeer[:allowedips] = conf[:allowedips]
+
+            #-------------------------------------------------------------------
+            # Server Information
+            #-------------------------------------------------------------------
+            @wgpeer[:server_addr]   = conf[:server_addr]
+            @wgpeer[:server_public] = conf[:server_public]
+            @wgpeer[:listenport]    = conf[:listenport]
         end
 
-        def to_s_client(opts)
+        def to_s_client
             <<~PEER
                 [Interface]
-                Address    = #{@wgpeer['address']}
-                PrivateKey = #{@wgpeer['private_key']}
+                Address    = #{@wgpeer[:address]}
+                PrivateKey = #{@wgpeer[:private]}
 
                 [Peer]
-                Endpoint     = #{opts['server_addr']}:#{opts['listen_port']}
-                PublicKey    = #{@wgpeer['public_key']}
-                PresharedKey = #{@wgpeer['preshared_key']}
-                AllowedIPs   = #{@wgpeer['allowed_ips'].join(%[,])}
+                Endpoint     = #{@wgpeer[:server_addr]}:#{@wgpeer[:listenport]}
+                PublicKey    = #{@wgpeer[:server_public]}
+                PresharedKey = #{@wgpeer[:shared]}
+                AllowedIPs   = #{@wgpeer[:allowedips]}
             PEER
         end
 
         def to_s_server
             <<~PEER
                 [Peer]
-                PresharedKey = #{@wgpeer['preshared_key']}
-                PublicKey    = #{@wgpeer['public_key']}
-                AllowedIPs   = #{@wgpeer['address'].split(%[/])[0]}/32
+                PresharedKey = #{@wgpeer[:shared]}
+                PublicKey    = #{@wgpeer[:public]}
+                AllowedIPs   = #{@wgpeer[:address].split(%[/])[0]}/32
             PEER
         end
 
-        def to_template(opts)
-            peer_conf64 = Base64.strict_encode64(to_s_client(opts))
-
-            "ONEAPP_VNF_WG_PEER#{@peer}=#{peer_conf64}"
+        def to_template
+            "ONEAPP_VNF_WG_PEER#{@peer}=#{Base64.strict_encode64(to_s_client)}"
         end
     end
 
@@ -100,11 +109,15 @@ module WireGuard
     # WG device name, defaults to wg0
     ONEAPP_VNF_WG_DEVICE = env :ONEAPP_VNF_WG_DEVICE, 'wg0'
 
-    # Peers by IP address, each address MUST no be assigned to any VM (i.e. put
-    # on hold or exclude from VNET AR's) (MANDATORY)
-    # For example 5 PEERS:
-    #    ONEAPP_VNG_WG_PEERS = "10.0.0.1 10.0.0.2 10.0.0.3 10.0.0.4 10.0.0.5"
-    ONEAPP_VNF_WG_PEERS = env :ONEAPP_VNF_WG_PEERS, ''
+    # Number of peers, it will generate peer configuration and associated keys
+    ONEAPP_VNF_WG_PEERS = env :ONEAPP_VNF_WG_PEERS, 5
+
+    # Subnet used to interconnect WG peers these address should not be part
+    # of an OpenNebula virtual network
+    ONEAPP_VNF_WG_SUBNET = env :ONEAPP_VNF_WG_SUBNET, '169.254.33.0/24'
+
+    # WG device name, defaults to wg0
+    ONEAPP_VNF_WG_DEVICE = env :ONEAPP_VNF_WG_DEVICE, 'wg0'
 
     #Base folder to store WG configuration
     ETC_DIR = '/etc/wireguard'
@@ -117,39 +130,63 @@ module WireGuard
 
         raise "Forbidden ONEAPP_VNF_WG_INTERFACE_OUT interface: #{iout}" if mgmt.include?(iout)
 
+        conf = {}
+
         #-----------------------------------------------------------------------
-        # Get IP address information for INTERFACE_IN
+        # Endpoint: IP address peers will use to connect to the WG
+        # server
+        #   conf[:server_addr]
+        #   conf[:server_prefix]
         #-----------------------------------------------------------------------
         eps = detect_endpoints
 
-        raise "Cannot find address information for #{iin}" if eps[iin].nil?
+        raise "Cannot find address information for #{iout}" if eps[iout].nil?
 
-        rc = iin.match /eth(\d+)/i
+        rc = iout.match /eth(\d+)/i
 
-        raise "Wrong format for ONEAPP_VNF_WG_INTERFACE_IN: #{iin}" if rc.nil?
+        raise "Wrong format for ONEAPP_VNF_WG_INTERFACE_IN: #{iout}" if rc.nil?
 
-        addr_in = eps[iin]["ETH#{rc[1]}_EP0"]
+        addr_in = eps[iout]["ETH#{rc[1]}_EP0"]
 
-        raise "Cannot get IP address for #{iin}" if addr_in.nil? || addr_in.empty?
+        raise "Cannot get IP address for #{iout}" if addr_in.nil? || addr_in.empty?
 
-        server_addr, server_prefix = addr_in.split('/')
+        conf[:server_addr], conf[:server_prefix] = addr_in.split('/')
 
+        #-----------------------------------------------------------------------
+        # AllowedIPs: IP addresses (CIDR) from which traffic is allowed
+        # and to which traffic is directed. This is the OpenNebula virtual
+        # network address space.
+        #   conf[:subnet]
+        #-----------------------------------------------------------------------
         nets_in  = nics_to_subnets([iin])
         net_in   = nets_in[iin]
 
         raise "Cannot get net addres for #{iin}" if nets_in[iin].nil? || net_in[0].empty?
 
+        conf[:allowedips] = net_in[0]
+
         #-----------------------------------------------------------------------
-        # Return configuration for the WG device
+        # Server keys
+        #   conf[:server_private]
+        #   conf[:server_public]
         #-----------------------------------------------------------------------
-        {
-            'listen_port' => ONEAPP_VNF_WG_LISTEN_PORT,
-            'iface_out'   => iout,
-            'server_addr' => server_addr,
-            'private_key' => bash('wg genkey', chomp: true),
-            'peer_subnet' => net_in[0],
-            'peers'       => ONEAPP_VNF_WG_PEERS.split(' ').map {|p| p.chomp }
-        }
+        conf[:server_private] = bash('wg genkey', chomp: true)
+        conf[:server_public]  = bash("wg pubkey <<< '#{conf[:server_private]}'",
+                                     chomp: true)
+
+        #-----------------------------------------------------------------------
+        # Misc. configuration parameters
+        #-----------------------------------------------------------------------
+        conf[:listenport] = ONEAPP_VNF_WG_LISTEN_PORT
+        conf[:subnet]     = IPAddr.new(ONEAPP_VNF_WG_SUBNET)
+        conf[:dev]        = ONEAPP_VNF_WG_DEVICE
+        conf[:num_peers]  = ONEAPP_VNF_WG_PEERS
+
+        #-----------------------------------------------------------------------
+        # Return configuration
+        # TODO Support multiple devices
+        #-----------------------------------------------------------------------
+        conf
     end
 
     # --------------------------------------------------------------------------
@@ -160,7 +197,7 @@ module WireGuard
         msg :info, 'WireGuard::install'
 
         puts bash 'apk --no-cache add cdrkit ruby wireguard-tools-wg-quick'
-        puts bash 'gem install --no-document json-schema'
+        #puts bash 'gem install --no-document json-schema'
 
         file "#{initdir}/one-wg", <<~SERVICE, mode: 'u=rwx,g=rx,o='
             #!/sbin/openrc-run
@@ -215,21 +252,25 @@ module WireGuard
 
         ids    = onegate_vmids
         conf64 = ''
+        vm64   = -1
         tstamp = 0
 
         ids.each do |vmid|
             t, c = onegate_conf(vmid)
 
-            conf64 = c if (tstamp == 0 || t > tstamp) && c && !c.empty?
+            if (tstamp == 0 || t > tstamp) && c && !c.empty?
+                conf64 = c
+                vm64   = vmid
+            end
         end
 
         if !conf64.empty?
             # ------------------------------------------------------------------
             # Reuse existing configuration file in virtual router
             # ------------------------------------------------------------------
-            msg :info, '[WireGuard::execute] Using existing configuration'
+            msg :info, "[WireGuard::execute] Using configuration found in VM #{vm64}"
 
-            file "#{ETC_DIR}/#{ONEAPP_VNF_WG_DEVICE}.conf",
+            file "#{ETC_DIR}/#{conf[:dev]}.conf",
                  Base64.strict_decode64(conf64),
                  mode: 'u=rw,g=r,o=',
                  overwrite: true
@@ -241,8 +282,8 @@ module WireGuard
             # ------------------------------------------------------------------
             peers  = []
 
-            opts['peers'].each do |ip|
-                p = Peer.new opts['peer_subnet'], ip
+            opts[:num_peers].to_i.times do |ip|
+                p = Peer.new opts
                 peers << p
             rescue StandardError => e
                 msg :error, e.message
@@ -251,15 +292,15 @@ module WireGuard
 
             conf = ERB.new(<<~CONF, trim_mode: '-').result(binding)
                 [Interface]
-                Address    = <%= opts['server_addr'] %>
-                ListenPort = <%= opts['listen_port'] %>
-                PrivateKey = <%= opts['private_key'] %>
+                Address    = <%= "#{conf[:subnet].succ}/#{conf[:subnet].prefix}" %>
+                ListenPort = <%= conf[:listenport] %>
+                PrivateKey = <%= conf[:server_private] %>
                 <% peers.each do |p| %>
                 <%= p.to_s_server %>
                 <% end %>
             CONF
 
-            file "#{ETC_DIR}/#{ONEAPP_VNF_WG_DEVICE}.conf",
+            file "#{ETC_DIR}/#{conf[:dev]}.conf",
                  conf,
                  mode: 'u=rw,g=r,o=',
                  overwrite: true
@@ -270,7 +311,7 @@ module WireGuard
             info = []
 
             peers.each do |p|
-              info << p.to_template(opts)
+              info << p.to_template
             end
 
             info << "ONEAPP_VNF_WG_SERVER=#{Base64.strict_encode64(conf)}"
@@ -288,11 +329,11 @@ module WireGuard
             end
         end
 
-        msg :info, "[WireGuard::execute] bringing up #{ONEAPP_VNF_WG_DEVICE}"
+        msg :info, "[WireGuard::execute] bringing up #{conf[:dev]}"
 
         bash <<~BASH
-            wg-quick up '#{ONEAPP_VNF_WG_DEVICE}'
-            echo 1 > '/proc/sys/net/ipv4/conf/#{ONEAPP_VNF_WG_DEVICE}/forwarding'
+            wg-quick up '#{conf[:dev]}'
+            echo 1 > '/proc/sys/net/ipv4/conf/#{conf[:dev]}/forwarding'
         BASH
     end
 
