@@ -37,7 +37,7 @@ module WireGuard
             #-------------------------------------------------------------------
             @wgpeer[:shared]  = bash('wg genpsk', chomp: true)
             @wgpeer[:private] = bash('wg genkey', chomp: true)
-            @wgpeer[:public]  = bash("wg pubkey <<< '#{private_k}'", chomp: true)
+            @wgpeer[:public]  = bash("wg pubkey <<< '#{@wgpeer[:private]}'", chomp: true)
 
             @wgpeer[:allowedips] = conf[:allowedips]
 
@@ -180,8 +180,11 @@ module WireGuard
         conf[:listenport] = ONEAPP_VNF_WG_LISTEN_PORT
         conf[:subnet]     = IPAddr.new(ONEAPP_VNF_WG_SUBNET)
         conf[:dev]        = ONEAPP_VNF_WG_DEVICE
-        conf[:num_peers]  = ONEAPP_VNF_WG_PEERS
-
+        conf[:num_peers]  = begin
+                                Integer(ONEAPP_VNF_WG_PEERS)
+                            rescue
+                                5
+                            end
         #-----------------------------------------------------------------------
         # Return configuration
         # TODO Support multiple devices
@@ -270,7 +273,7 @@ module WireGuard
             # ------------------------------------------------------------------
             msg :info, "[WireGuard::execute] Using configuration found in VM #{vm64}"
 
-            file "#{ETC_DIR}/#{conf[:dev]}.conf",
+            file "#{ETC_DIR}/#{opts[:dev]}.conf",
                  Base64.strict_decode64(conf64),
                  mode: 'u=rw,g=r,o=',
                  overwrite: true
@@ -292,15 +295,15 @@ module WireGuard
 
             conf = ERB.new(<<~CONF, trim_mode: '-').result(binding)
                 [Interface]
-                Address    = <%= "#{conf[:subnet].succ}/#{conf[:subnet].prefix}" %>
-                ListenPort = <%= conf[:listenport] %>
-                PrivateKey = <%= conf[:server_private] %>
+                Address    = <%= "#{opts[:subnet].succ}/#{opts[:subnet].prefix}" %>
+                ListenPort = <%= opts[:listenport] %>
+                PrivateKey = <%= opts[:server_private] %>
                 <% peers.each do |p| %>
                 <%= p.to_s_server %>
                 <% end %>
             CONF
 
-            file "#{ETC_DIR}/#{conf[:dev]}.conf",
+            file "#{ETC_DIR}/#{opts[:dev]}.conf",
                  conf,
                  mode: 'u=rw,g=r,o=',
                  overwrite: true
@@ -329,11 +332,11 @@ module WireGuard
             end
         end
 
-        msg :info, "[WireGuard::execute] bringing up #{conf[:dev]}"
+        msg :info, "[WireGuard::execute] bringing up #{opts[:dev]}"
 
         bash <<~BASH
-            wg-quick up '#{conf[:dev]}'
-            echo 1 > '/proc/sys/net/ipv4/conf/#{conf[:dev]}/forwarding'
+            wg-quick up '#{opts[:dev]}'
+            echo 1 > '/proc/sys/net/ipv4/conf/#{opts[:dev]}/forwarding'
         BASH
     end
 
