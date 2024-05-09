@@ -37,7 +37,7 @@ def fetch_cleaner(addon_dir = ONE_ADDON_DIR, cron = '*/2 * * * *', ttl = 180)
                 node-role.kubernetes.io/master: "true"
               containers:
               - name: one-cleaner
-                image: ruby:2.7-alpine3.16
+                image: "ruby:#{ONEAPP_K8S_RUBY_VERSION}"
                 imagePullPolicy: IfNotPresent
                 command:
                 - /usr/local/bin/ruby
