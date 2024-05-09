@@ -38,7 +38,7 @@ ONE_SERVICE_PARAMS=(
 
 # Appliance metadata
 ONE_SERVICE_NAME='Service Harbor - KVM'
-ONE_SERVICE_VERSION='6.8.3'   #latest
+ONE_SERVICE_VERSION='2.9.4'   #latest
 ONE_SERVICE_BUILD=$(date +%s)
 ONE_SERVICE_SHORT_DESCRIPTION='Appliance running Harbor Docker repository for KVM hosts'
 ONE_SERVICE_DESCRIPTION=$(cat <<EOF
@@ -237,7 +237,7 @@ download_unpack_harbor() {
     | grep browser_download_url \
     | cut -d '"' -f 4 \
     | grep '\.tgz$' \
-    | grep online)
+    | grep offline)
 
     # Check all pipe exit codes
     for status in "${PIPESTATUS[@]}"; do
@@ -255,7 +255,7 @@ download_unpack_harbor() {
     else
         msg info "Harbor downloaded successfully"
     fi
-    tar -xvzf /root/harbor-online-installer-v*.tgz
+    tar -xvzf /root/harbor-offline-installer-v*.tgz
     if [ $? -ne 0 ]; then
         msg info "Harbor unpacking failed. Aborting..."
         exit 1
@@ -354,5 +354,5 @@ wait_for_docker_containers() {
 cleanup_installation() {
     msg info "Cleaning up installation residues..."
     apt-get clean
-    rm /root/harbor-online-installer-v*.tgz
+    rm /root/harbor-offline-installer-v*.tgz
 }
