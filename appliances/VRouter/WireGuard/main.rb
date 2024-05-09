@@ -73,10 +73,9 @@ module WireGuard
         end
 
         def to_template
-            "ONEAPP_VNF_WG_PEER#{@peer}=#{Base64.strict_encode64(to_s_client)}"
+            "ONEGATE_VNF_WG_PEER#{@peer}=#{Base64.strict_encode64(to_s_client)}"
         end
     end
-
 
     DEPENDS_ON = %w[Service::Failover]
 
@@ -206,7 +205,6 @@ module WireGuard
         msg :info, 'WireGuard::install'
 
         puts bash 'apk --no-cache add cdrkit ruby wireguard-tools-wg-quick'
-        #puts bash 'gem install --no-document json-schema'
 
         file "#{initdir}/one-wg", <<~SERVICE, mode: 'u=rwx,g=rx,o='
             #!/sbin/openrc-run
@@ -323,8 +321,8 @@ module WireGuard
               info << p.to_template
             end
 
-            info << "ONEAPP_VNF_WG_SERVER=#{Base64.strict_encode64(conf)}"
-            info << "ONEAPP_VNF_WG_SERVER_TIMESTAMP=#{Time.now.to_i}"
+            info << "ONEGATE_VNF_WG_SERVER=#{Base64.strict_encode64(conf)}"
+            info << "ONEGATE_VNF_WG_SERVER_TIMESTAMP=#{Time.now.to_i}"
 
             data = info.join("\n")
 
@@ -380,7 +378,7 @@ module WireGuard
         vm   = onegate_vm_show(vm_id)
         utmp = vm['VM']['USER_TEMPLATE']
 
-        [utmp['ONEAPP_VNF_WG_SERVER_TIMESTAMP'], utmp['ONEAPP_VNF_WG_SERVER']]
+        [utmp['ONEGATE_VNF_WG_SERVER_TIMESTAMP'], utmp['ONEGATE_VNF_WG_SERVER']]
     rescue
         [0, '']
     end
