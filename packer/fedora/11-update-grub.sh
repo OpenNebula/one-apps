@@ -11,22 +11,22 @@ rm -rf /etc/default/grub.d/
 # Drop unwanted.
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<quiet\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<splash\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<console=ttyS[^ ]*\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<earlyprintk=ttyS[^ ]*\>/, "") }
-/^GRUB_CMDLINE_LINUX=/ { gsub(/\<crashkernel=[^ ]*\>/, "crashkernel=no") }
+/^GRUB_CMDLINE_LINUX/ { gsub(/\<quiet\>/, "") }
+/^GRUB_CMDLINE_LINUX/ { gsub(/\<splash\>/, "") }
+/^GRUB_CMDLINE_LINUX/ { gsub(/\<console=ttyS[^ ]*\>/, "") }
+/^GRUB_CMDLINE_LINUX/ { gsub(/\<earlyprintk=ttyS[^ ]*\>/, "") }
+/^GRUB_CMDLINE_LINUX/ { gsub(/\<crashkernel=[^ ]*\>/, "crashkernel=no") }
 { print }
 EOF
 
 # Ensure required.
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'
-/^GRUB_CMDLINE_LINUX=/ { found = 1 }
-/^GRUB_CMDLINE_LINUX=/ && !/net.ifnames=0/ { gsub(/"$/, " net.ifnames=0\"") }
-/^GRUB_CMDLINE_LINUX=/ && !/biosdevname=0/ { gsub(/"$/, " biosdevname=0\"") }
+/^GRUB_CMDLINE_LINUX/ { found = 1 }
+/^GRUB_CMDLINE_LINUX/ && !/net.ifnames=0/ { gsub(/"$/, " net.ifnames=0\"") }
+/^GRUB_CMDLINE_LINUX/ && !/biosdevname=0/ { gsub(/"$/, " biosdevname=0\"") }
 { print }
-ENDFILE { if (!found) print "GRUB_CMDLINE_LINUX=\" net.ifnames=0 biosdevname=0\"" }
+ENDFILE { if (!found) print "GRUB_CMDLINE_LINUX\" net.ifnames=0 biosdevname=0\"" }
 EOF
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'

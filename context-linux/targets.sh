@@ -85,7 +85,7 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.el9}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils btrfs-progs cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
         RECOMMENDS=${RECOMMENDS:-open-vm-tools}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
