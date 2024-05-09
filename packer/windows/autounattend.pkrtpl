@@ -93,6 +93,13 @@
                     <Description>Bypass CPU check</Description>
                 </RunAsynchronousCommand>
             </RunAsynchronous>
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>powercfg.exe /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c</Path>
+                    <Description>Set high performance powerplan</Description>
+                </RunSynchronousCommand>
+            </RunSynchronous>
         </component>
         <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <InputLocale>${language}</InputLocale>
@@ -136,12 +143,17 @@
             <RunSynchronous>
                 <RunSynchronousCommand wcm:action="add">
                     <Description>Run scripts</Description>
-                    <Order>1</Order>
+                    <Order>2</Order>
                     <Path>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Hidden -File A:\Run-Scripts.ps1 A:\scripts\specialize</Path>
                     <WillReboot>OnRequest</WillReboot>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Path>powercfg.exe /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c</Path>
+                    <Order>1</Order>
+                    <Description>Set high performance powerplan</Description>
                 </RunSynchronousCommand>
             </RunSynchronous>
         </component>
     </settings>
-    <cpi:offlineImage cpi:source="wim:c:/users/lukas/downloads/bakal%C3%A1rka%20-%20iso/install.wim#Windows 10 Education" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
+    <cpi:offlineImage cpi:source="catalog://c:/users/lukas/downloads/bakalárka - iso/install_windows 10 education.clg" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
 </unattend>
