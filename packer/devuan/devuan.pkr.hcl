@@ -9,7 +9,7 @@ source "qemu" "devuan" {
   headless = var.headless
 
   http_directory = "${var.input_dir}"
-  boot_command   = ["<tab><bs><bs><bs><bs><bs><bs><bs><bs><bs><bs>  auto=true url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/${var.appliance_name}.preseed hostname=localhost domain=localdomain interface=auto <enter>"]
+  boot_command   = lookup(var.boot_cmd, var.version, [])
   boot_wait      = "10s"
 
   disk_cache       = "unsafe"
