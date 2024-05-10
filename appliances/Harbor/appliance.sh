@@ -19,7 +19,7 @@
 ### Utility Functions
 
 gen_db_password() {
-    # In case of password losing, it can be retrieved from the harbor-db container root environment variables 
+    # In case of password losing, it can be retrieved from the harbor-db container root environment variables
     tr -dc A-Za-z0-9 </dev/urandom | head -c 20; echo
 }
 
@@ -42,14 +42,14 @@ ONE_SERVICE_VERSION='2.9.4'   #latest
 ONE_SERVICE_BUILD=$(date +%s)
 ONE_SERVICE_SHORT_DESCRIPTION='Appliance running Harbor Docker repository for KVM hosts'
 ONE_SERVICE_DESCRIPTION=$(cat <<EOF
-Appliance with preinstalled Harbor. Run with default values and manually 
-configure it, or use contextualization variables to automate the bootstrap. 
+Appliance with preinstalled Harbor. Run with default values and manually
+configure it, or use contextualization variables to automate the bootstrap.
 
 After deploying the appliance, check the status of the deployment in
-/etc/one-appliance/status. You chan check the appliance logs in 
+/etc/one-appliance/status. You chan check the appliance logs in
 /var/log/one-appliance/.
 
-In order to configure data persistency, please arrach a secondary disk to the 
+In order to configure data persistency, please arrach a secondary disk to the
 VM, indicate the disk label in HARBOR_PERSISTENT_DEV and launch the appliance.
 
 **WARNING: Do not use localhost or loopback for \`HARBOR_HOSTNAME\`, it
@@ -73,7 +73,7 @@ HARBOR_SSL_KEY="${HARBOR_SSL_KEY:-AG}" # Defaults to "AG", indicating "AutoGener
 HARBOR_PERSISTENT_DEV="${HARBOR_PERSISTENT_DEV:-None}" # Listens in all interfaces by default
 
 
-### Installation Stage => Installs requirements, downloads and unpacks Harbor 
+### Installation Stage => Installs requirements, downloads and unpacks Harbor
 service_install() {
     msg info "Checking internet access..."
     check_internet_access
@@ -84,15 +84,13 @@ service_install() {
 }
 
 ### Configuration Stage => Configures Harbor YAML and SSL certificates
-service_configure() { 
+service_configure() {
     msg info "Starting configuration..."
     mount_persistent
 
     ## SSL CERTS
 
-    if [ ! -d "/root/certs" ]; then
-        mkdir -p /root/certs
-    fi
+    mkdir -p /root/certs
 
     # If one of both files (cert or key) does not exist...
     if [ ! -f "/root/certs/server.crt" ] || [ ! -f "/root/certs/server.key" ]; then
@@ -267,10 +265,8 @@ download_unpack_harbor() {
 
 
 mount_persistent() {
-    # Check if /data directory exists, if not create it
-    if [ ! -d "/data" ]; then
-        mkdir -p /data
-    fi
+    # Create /data directory
+    mkdir -p /data
 
     # Check if the user provided a persistent device
     if [ "$HARBOR_PERSISTENT_DEV" = "None" ]; then
@@ -328,7 +324,6 @@ wait_for_docker_containers() {
         # Iterate through each container ID to check its health
         for container_id in $container_ids; do
             local health=$(docker inspect --format "{{.State.Health.Status}}" "$container_id")
-            
             # Check if the container is healthy
             if [ "$health" != "healthy" ]; then
                 all_healthy=0
