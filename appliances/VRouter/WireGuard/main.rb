@@ -245,10 +245,6 @@ module WireGuard
         msg :info, 'WireGuard::bootstrap'
     end
 
-    def bootstrap
-        msg :info, 'WireGuard::bootstrap'
-    end
-
     # --------------------------------------------------------------------------
     # WG helper functions
     # --------------------------------------------------------------------------
