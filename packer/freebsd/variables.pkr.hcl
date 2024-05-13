@@ -25,11 +25,6 @@ variable "freebsd" {
   type = map(map(string))
 
   default = {
-    "12" = {
-      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.4/FreeBSD-12.4-RELEASE-amd64-disc1.iso"
-      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/12.4/CHECKSUM.SHA256-FreeBSD-12.4-RELEASE-amd64"
-    }
-
     "13" = {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/FreeBSD-13.2-RELEASE-amd64-disc1.iso"
       iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/CHECKSUM.SHA256-FreeBSD-13.2-RELEASE-amd64"
