@@ -1,18 +1,19 @@
-﻿$scriptsRoot = $Args[0]
-
+﻿param(
+    [String]$ScriptsRoot
+)
 
 # exit if no script root provided
-if ($null -eq $scriptsRoot) {
+if (!$ScriptsRoot) {
     Write-Warning "No script root provided, exiting"
     exit 0;
 }
 # exit if script root does not exist
-if (-Not (Test-Path -Path $scriptsRoot)) {
+if (!(Test-Path -Path $ScriptsRoot)) {
     Write-Warning "Provided script root does not exist, exiting"
     exit 0;
 }
 
-$progressFilePath = Join-Path -Path $scriptsRoot -ChildPath "progress.json"
+$progressFilePath = Join-Path -Path $ScriptsRoot -ChildPath "progress.json"
 
 # get script files
 if (Test-Path -Path $progressFilePath) {
@@ -21,7 +22,7 @@ if (Test-Path -Path $progressFilePath) {
 }
 else {
     # get scripts from scripts folder
-    $scriptFiles = [String[]]@(Get-ChildItem -Path $scriptsRoot -Recurse -Include *.ps1 | Select-Object -ExpandProperty FullName | Sort-Object)
+    $scriptFiles = [String[]]@(Get-ChildItem -Path $ScriptsRoot -Recurse -Include *.ps1 | Select-Object -ExpandProperty FullName | Sort-Object)
 }
 
 
