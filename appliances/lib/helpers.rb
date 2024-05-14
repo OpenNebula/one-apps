@@ -41,30 +41,27 @@ def load_env(path = '/run/one-context/one_env')
     #       literal newlines!
     folded = Enumerator.new do |y|
         cached = []
-        File.read(path).lines.each do |line|
-            if (stripped = line.strip).end_with?(%["])
-                cached << stripped
-                y << cached.join
+
+        yield_prev_line = -> do
+            unless cached.empty?
+                y << cached.join.gsub(/./m, replacements)
                 cached = []
-            else
-                escaped = line.gsub(/./m, replacements)
-                cached << escaped
             end
         end
+
+        File.read(path).lines.each do |line|
+            yield_prev_line.call if line =~ /^export [^=]+="/
+            cached << line
+        end
+
+        yield_prev_line.call
     end
 
     folded.each do |line|
-        line.strip!
-        next if line.empty?
+        # Everything to the right of the last " is discarded!
+        next unless line =~ /^export ([^=]+)=(".*")[^"]*$/
 
-        next unless line.start_with?(%[export ]) && line.end_with?(%["])
-
-        line.delete_prefix!(%[export ])
-
-        k, v = line.split(%[=], 2)
-        next if v.nil?
-
-        ENV[k] = v.undump
+        ENV[$1] = $2.undump
     end
 end
 

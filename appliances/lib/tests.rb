@@ -34,6 +34,27 @@ RSpec.describe 'load_env' do
                 export E2="A
                 B\nC"
               INPUT
+            ],
+            [ { :E1 => "\nA\nB\n",
+                :E2 => "\nA\nB",
+                :E3 => "A\n\nB\n" },
+              <<~'INPUT'
+
+                export E1="
+                A
+                B
+                "
+
+                export E2="
+                A
+                B"
+
+                export E3="A
+
+                B
+                "
+
+              INPUT
             ]
         ]
         Dir.mktmpdir do |dir|
