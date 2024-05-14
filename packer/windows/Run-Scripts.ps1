@@ -12,7 +12,7 @@ if (-Not (Test-Path -Path $scriptsRoot)) {
     exit 0;
 }
 
-$progressFilePath = "$scriptsRoot\progress.json"
+$progressFilePath = Join-Path -Path $scriptsRoot -ChildPath "progress.json"
 
 # get script files
 if (Test-Path -Path $progressFilePath) {
