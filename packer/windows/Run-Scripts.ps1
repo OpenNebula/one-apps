@@ -33,7 +33,14 @@ $scriptFileQueue = [System.Collections.Generic.Queue[String]]::new($scriptFiles)
 while ($scriptFileQueue.Count -gt 0) {
     # run script
     $scriptFile = $scriptFileQueue.Peek()
+    try {
     & $scriptFile
+    }
+    catch {
+        Write-Warning "Skipping script $($scriptFile) because of error: $_"
+        # override exit code to prevent system reboot
+        $LASTEXITCODE = 0;
+    }
     $exitCode = $LASTEXITCODE
     # save and exit if script requests reboot
     if ($exitCode -in 1, 2) {
