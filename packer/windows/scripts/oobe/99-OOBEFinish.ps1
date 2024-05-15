@@ -2,7 +2,7 @@
 Remove-Item -Recurse -Force $env:systemdrive\scripts, $env:systemdrive\Unattend.xml, $env:windir\Panther\Unattend.xml, $env:systemdrive\Run-Scripts.ps1
 # Wait for OOBE to finish provisioning apps (finished when user desktop shows up)
 $RegistryKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE\Stats"
-$RegistryKeyName = "OOBEUserSignedIn2"
+$RegistryKeyName = "OOBEUserSignedIn"
 $OOBEFinished = $false
 while ($OOBEFinished -eq $false) {
     try {
