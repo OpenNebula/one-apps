@@ -3,11 +3,15 @@ Remove-Item -Recurse -Force $env:systemdrive\scripts, $env:systemdrive\Unattend.
 # Wait for OOBE to finish provisioning apps (finished when user desktop shows up)
 $RegistryKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE\Stats"
 $RegistryKeyName = "OOBEUserSignedIn"
+$AnimationProcessName = "FirstLogonAnim"
 $OOBEFinished = $false
 while ($OOBEFinished -eq $false) {
     try {
         Get-ItemProperty -Path $RegistryKeyPath -Name $RegistryKeyName -ErrorAction Stop | Out-Null
-        $OOBEFinished = $true
+        $FirstLogonAnimationProcess = Get-Process -Name $AnimationProcessName -ErrorAction SilentlyContinue
+        if ($null -eq $FirstLogonAnimationProcess) {
+            $OOBEFinished = $true
+        }
     }
     catch {
         Start-Sleep -Seconds 1
