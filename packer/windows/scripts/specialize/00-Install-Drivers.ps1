@@ -3,5 +3,5 @@ $DriveLetter = Get-WmiObject Win32_CDRomDrive | Where-Object VolumeName -like vi
 # Get the installer executable path
 $InstallerExecutablePath = "$DriveLetter\virtio-win-guest-tools.exe"
 # Run the installer
-& $InstallerExecutablePath /install /quiet
+Start-Process -FilePath $InstallerExecutablePath -ArgumentList "/install", "/quiet" -Wait
 exit 0
