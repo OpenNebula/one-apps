@@ -5,7 +5,7 @@ variable "appliance_name" {
 
 variable "version" {
   type    = string
-  default = "2"
+  default = "2023"
 }
 
 variable "input_dir" {
@@ -29,6 +29,11 @@ variable "amazon" {
       # navigate via https://cdn.amazonlinux.com/os-images/latest/kvm/
       iso_url      = "https://cdn.amazonlinux.com/os-images/2.0.20231101.0/kvm/amzn2-kvm-2.0.20231101.0-x86_64.xfs.gpt.qcow2"
       iso_checksum = "file:https://cdn.amazonlinux.com/os-images/2.0.20231101.0/kvm/SHA256SUMS"
+    }
+    "2023" = {
+      # navigate via https://cdn.amazonlinux.com/al2023/os-images/2023.4.20240513.0/
+      iso_url      = "https://cdn.amazonlinux.com/al2023/os-images/2023.4.20240513.0/kvm/al2023-kvm-2023.4.20240513.0-kernel-6.1-x86_64.xfs.gpt.qcow2"
+      iso_checksum = "file:https://cdn.amazonlinux.com/al2023/os-images/2023.4.20240513.0/kvm/SHA256SUMS"
     }
   }
 }
