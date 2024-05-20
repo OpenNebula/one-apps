@@ -6,6 +6,7 @@ exec 1>&2
 set -eux -o pipefail
 
 # NOTE: in this old version of OL, dnf is not available.
+pgrep yum && pkill yum ||:
 
 yum update -y --skip-broken
 
