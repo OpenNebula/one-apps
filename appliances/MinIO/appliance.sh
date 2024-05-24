@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and          #
 # limitations under the License.                                               #
 # ---------------------------------------------------------------------------- #
+set -o errexit -o pipefail
 
 ### Important notes ##################################################
 #
@@ -300,13 +301,13 @@ EOF
 update_environment_variable_file()
 {
     msg info "Update MinIO root user"
-    sed -i "s/^MINIO_ROOT_USER.*/MINIO_ROOT_USER=${ONEAPP_MINIO_ROOT_USER}/g" /etc/default/minio
+    sed -i "s/^MINIO_ROOT_USER\\s*=.*/MINIO_ROOT_USER=${ONEAPP_MINIO_ROOT_USER}/" /etc/default/minio
     msg info "Update MinIO root user password"
-    sed -i "s/^MINIO_ROOT_PASSWORD.*/MINIO_ROOT_PASSWORD=${ONEAPP_MINIO_ROOT_PASSWORD}/g" /etc/default/minio
+    sed -i "s/^MINIO_ROOT_PASSWORD\\s*=.*/MINIO_ROOT_PASSWORD=${ONEAPP_MINIO_ROOT_PASSWORD}/" /etc/default/minio
     msg info "Update MinIO volumes"
-    sed -i "s|^MINIO_VOLUMES.*|MINIO_VOLUMES=\"${1}\"|g" /etc/default/minio
+    sed -i "s|^MINIO_VOLUMES\\s*=.*|MINIO_VOLUMES=\"${1}\"|" /etc/default/minio
     msg info "Update MinIO opts"
-    sed -i "s/^MINIO_OPTS.*/MINIO_OPTS=\"${ONEAPP_MINIO_OPTS}\"/g" /etc/default/minio
+    sed -i "s/^MINIO_OPTS\\s*=.*/MINIO_OPTS=\"${ONEAPP_MINIO_OPTS}\"/" /etc/default/minio
 
     msg info "Restart minio service"
     systemctl restart minio
