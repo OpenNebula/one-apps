@@ -144,61 +144,61 @@ variable "windows" {
     # Windows Server 2016
     "2016Standard" = {
       iso = "server2016"
-      edition_name = "Windows Server 2016 Standard (Desktop Experience)"
+      edition_name = "Windows Server 2016 SERVERSTANDARD"
     }
     "2016StandardCore" = {
       iso = "server2016"
-      edition_name = "Windows Server 2016 Standard"
+      edition_name = "Windows Server 2016 SERVERSTANDARDCORE"
     }
     "2016Datacenter" = {
       iso = "server2016"
-      edition_name = "Windows Server 2016 Datacenter (Desktop Experience)"
+      edition_name = "Windows Server 2016 SERVERDATACENTER"
     }
     "2016DatacenterCore" = {
       iso = "server2016"
-      edition_name = "Windows Server 2016 Datacenter"
+      edition_name = "Windows Server 2016 SERVERDATACENTERCORE"
     }
     "2016Essentials" = {
       iso = "server2016Essentials"
-      edition_name = "Windows Server 2016 Essentials"
+      edition_name = "Windows Server 2016 SERVERSOLUTION"
     }
     # Windows Server 2019
     "2019Standard" = {
       iso = "server2019"
-      edition_name = "Windows Server 2019 Standard (Desktop Experience)"
+      edition_name = "Windows Server 2019 SERVERSTANDARD"
     }
     "2019StandardCore" = {
       iso = "server2019"
-      edition_name = "Windows Server 2019 Standard"
+      edition_name = "Windows Server 2019 SERVERSTANDARDCORE"
     }
     "2019Datacenter" = {
       iso = "server2019"
-      edition_name = "Windows Server 2019 Datacenter (Desktop Experience)"
+      edition_name = "Windows Server 2019 SERVERDATACENTER"
     }
     "2019DatacenterCore" = {
       iso = "server2019"
-      edition_name = "Windows Server 2019 Datacenter"
+      edition_name = "Windows Server 2019 SERVERDATACENTERCORE"
     }
     "2019Essentials" = {
       iso = "server2019Essentials"
-      edition_name = "Windows Server 2019 Essentials"
+      edition_name = "Windows Server 2019 SERVERSOLUTION"
     }
     # Windows Server 2022
     "2022Standard" = {
       iso = "server2022"
-      edition_name = "Windows Server 2022 Standard (Desktop Experience)"
+      edition_name = "Windows Server 2022 SERVERSTANDARD"
     }
     "2022StandardCore" = {
       iso = "server2022"
-      edition_name = "Windows Server 2022 Standard"
+      edition_name = "Windows Server 2022 SERVERSTANDARDCORE"
     }
     "2022Datacenter" = {
       iso = "server2022"
-      edition_name = "Windows Server 2022 Datacenter (Desktop Experience)"
+      edition_name = "Windows Server 2022 SERVERDATACENTER"
     }
     "2022DatacenterCore" = {
       iso = "server2022"
-      edition_name = "Windows Server 2022 Datacenter"
+      edition_name = "Windows Server 2022 SERVERDATACENTERCORE"
     }
   }
 }
