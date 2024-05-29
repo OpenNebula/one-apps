@@ -20,12 +20,12 @@ isoFiles = {
 
   }
   server2016 = {
-    iso_url      = ""
-    iso_checksum = ""
+    iso_url      = "/mnt/c/SMBshare/en_windows_server_2016_x64_dvd_9327751.iso"
+    iso_checksum = "sha256:4CAEB24B661FCEDE81CD90661AEC31AA69753BF49A5AC247253DD021BC1B5CBB"
   }
   server2016Essentials = {
-    iso_url      = ""
-    iso_checksum = ""
+    iso_url      = "/mnt/c/SMBshare/en_windows_server_2016_essentials_x64_dvd_9327792.iso"
+    iso_checksum = "sha256:04F1CC3D8D6ADDA18BD5DA6F4897102E77F86B30AFC5C83C7E5949A05A672E40"
   }
   server2019 = {
     iso_url      = "/mnt/c/SMBshare/en-us_windows_server_2019_x64_dvd_f9475476.iso"
