@@ -157,6 +157,7 @@ service_configure()
     msg info "Mount fstab"
     if ! mount -a -t xfs; then
         msg error "Error mounting MinIO drives"
+        exit 1
     fi
 
     msg info "Give ownership to minio-user on ${local_minio_volumes}"
