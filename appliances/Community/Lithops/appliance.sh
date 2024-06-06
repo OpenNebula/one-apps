@@ -18,8 +18,8 @@ set -o errexit -o pipefail
 
 # List of contextualization parameters
 ONE_SERVICE_PARAMS=(
-    'ONEAPP_BACKEND'                    'configure'  'Lithops compute backend'                                          'O|text'
-    'ONEAPP_STORAGE'                    'configure'  'Lithops storage backend'                                          'O|text'
+    'ONEAPP_LITHOPS_BACKEND'                    'configure'  'Lithops compute backend'                                          'O|text'
+    'ONEAPP_LITHOPS_STORAGE'                    'configure'  'Lithops storage backend'                                          'O|text'
     'ONEAPP_MINIO_ENDPOINT'             'configure'  'Lithops storage backend MinIO endpoint URL'                       'O|text'
     'ONEAPP_MINIO_ACCESS_KEY_ID'        'configure'  'Lithops storage backend MinIO account user access key'            'O|text'
     'ONEAPP_MINIO_SECRET_ACCESS_KEY'    'configure'  'Lithops storage backend MinIO account user secret access key'     'O|text'
@@ -40,7 +40,7 @@ Appliance with preinstalled Lithops v3.4.0.
 
 By default, it uses localhost both for Compute and Storage Backend.
 
-To configure MinIO as Storage Backend use the parameter ONEAPP_STORAGE=minio
+To configure MinIO as Storage Backend use the parameter ONEAPP_LITHOPS_STORAGE=minio
 with ONEAPP_MINIO_ENDPOINT, ONEAPP_MINIO_ACCESS_KEY_ID and ONEAPP_MINIO_SECRET_ACCESS_KEY.
 These parameters values have to point to a valid and reachable MinIO server endpoint.
 
@@ -56,8 +56,8 @@ ONE_SERVICE_RECONFIGURABLE=true
 
 ### Contextualization defaults #######################################
 
-ONEAPP_BACKEND="${ONEAPP_BACKEND:-localhost}"
-ONEAPP_STORAGE="${ONEAPP_STORAGE:-localhost}"
+ONEAPP_LITHOPS_BACKEND="${ONEAPP_LITHOPS_BACKEND:-localhost}"
+ONEAPP_LITHOPS_STORAGE="${ONEAPP_LITHOPS_STORAGE:-localhost}"
 
 ### Globals ##########################################################
 
@@ -195,8 +195,6 @@ install_lithops()
 
     msg info "Create /etc/lithops folder"
     mkdir /etc/lithops
-
-    return $?
 }
 
 create_lithops_config()
@@ -217,13 +215,13 @@ EOF
 
 update_lithops_config(){
     msg info "Update compute and storage backend modes"
-    sed -i "s/backend: .*/backend: ${ONEAPP_BACKEND}/g" /etc/lithops/config
-    sed -i "s/storage: .*/storage: ${ONEAPP_STORAGE}/g" /etc/lithops/config
+    sed -i "s/backend: .*/backend: ${ONEAPP_LITHOPS_BACKEND}/g" /etc/lithops/config
+    sed -i "s/storage: .*/storage: ${ONEAPP_LITHOPS_STORAGE}/g" /etc/lithops/config
 
-    if [ ${ONEAPP_STORAGE} = "localhost" ]; then
+    if [[ ${ONEAPP_LITHOPS_STORAGE} = "localhost" ]]; then
         msg info "Edit config file for localhost Storage Backend"
         sed -i -ne "/# Start Storage/ {p;" -e ":a; n; /# End Storage/ {p; b}; ba}; p" /etc/lithops/config
-    elif [ ${ONEAPP_STORAGE} = "minio" ]; then
+    elif [[ ${ONEAPP_LITHOPS_STORAGE} = "minio" ]]; then
         msg info "Edit config file for MinIO Storage Backend"
         if ! check_minio_attrs; then
             echo
@@ -239,9 +237,9 @@ update_lithops_config(){
 
 check_minio_attrs()
 {
-    [ -z "$ONEAPP_MINIO_ENDPOINT" ] && return 1
-    [ -z "$ONEAPP_MINIO_ACCESS_KEY_ID" ] && return 1
-    [ -z "$ONEAPP_MINIO_SECRET_ACCESS_KEY" ] && return 1
+    [[ -z "$ONEAPP_MINIO_ENDPOINT" ]] && return 1
+    [[ -z "$ONEAPP_MINIO_ACCESS_KEY_ID" ]] && return 1
+    [[ -z "$ONEAPP_MINIO_SECRET_ACCESS_KEY" ]] && return 1
 
     return 0
 }
