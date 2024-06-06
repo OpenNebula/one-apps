@@ -18,8 +18,8 @@ set -o errexit -o pipefail
 
 # List of contextualization parameters
 ONE_SERVICE_PARAMS=(
-    'ONEAPP_LITHOPS_BACKEND'                    'configure'  'Lithops compute backend'                                          'O|text'
-    'ONEAPP_LITHOPS_STORAGE'                    'configure'  'Lithops storage backend'                                          'O|text'
+    'ONEAPP_LITHOPS_BACKEND'            'configure'  'Lithops compute backend'                                          'O|text'
+    'ONEAPP_LITHOPS_STORAGE'            'configure'  'Lithops storage backend'                                          'O|text'
     'ONEAPP_MINIO_ENDPOINT'             'configure'  'Lithops storage backend MinIO endpoint URL'                       'O|text'
     'ONEAPP_MINIO_ACCESS_KEY_ID'        'configure'  'Lithops storage backend MinIO account user access key'            'O|text'
     'ONEAPP_MINIO_SECRET_ACCESS_KEY'    'configure'  'Lithops storage backend MinIO account user secret access key'     'O|text'
@@ -115,7 +115,7 @@ service_configure()
     update_lithops_config
 
     local_ca_folder="/usr/local/share/ca-certificates/minio"
-    if [[ ! -z "${ONE_APP_MINIO_ENDPOINT_CERT}" ]] && [[ ! -f "${local_ca_folder}/ca.crt" ]]; then
+    if [[ ! -z "${ONEAPP_MINIO_ENDPOINT_CERT}" ]] && [[ ! -f "${local_ca_folder}/ca.crt" ]]; then
         msg info "Adding trust CA for MinIO endpoint"
 
         if [[ ! -d "${local_ca_folder}" ]]; then
@@ -124,7 +124,7 @@ service_configure()
         fi
 
         msg info "Create CA file and update certificates"
-        echo ${ONE_APP_MINIO_ENDPOINT_CERT} | base64 --decode >> ${local_ca_folder}/ca.crt
+        echo ${ONEAPP_MINIO_ENDPOINT_CERT} | base64 --decode >> ${local_ca_folder}/ca.crt
         update-ca-certificates
     fi
 
