@@ -23,7 +23,7 @@ ONE_SERVICE_PARAMS=(
     'ONEAPP_MINIO_ENDPOINT'             'configure'  'Lithops storage backend MinIO endpoint URL'                       'O|text'
     'ONEAPP_MINIO_ACCESS_KEY_ID'        'configure'  'Lithops storage backend MinIO account user access key'            'O|text'
     'ONEAPP_MINIO_SECRET_ACCESS_KEY'    'configure'  'Lithops storage backend MinIO account user secret access key'     'O|text'
-    'ONEAPP_MINIO_BUCKETT'              'configure'  'Lithops storage backend MinIO existing bucket'                    'O|text'
+    'ONEAPP_MINIO_BUCKET'              'configure'  'Lithops storage backend MinIO existing bucket'                    'O|text'
     'ONEAPP_MINIO_ENDPOINT_CERT'        'configure'  'Lithops storage backend MinIO endpoint certificate'               'O|text64'
 )
 
@@ -44,7 +44,7 @@ To configure MinIO as Storage Backend use the parameter ONEAPP_LITHOPS_STORAGE=m
 with ONEAPP_MINIO_ENDPOINT, ONEAPP_MINIO_ACCESS_KEY_ID and ONEAPP_MINIO_SECRET_ACCESS_KEY.
 These parameters values have to point to a valid and reachable MinIO server endpoint.
 
-The parameter ONEAPP_MINIO_BUCKETT and ONEAPP_MINIO_ENDPOINT_CERT are optional.
+The parameter ONEAPP_MINIO_BUCKET and ONEAPP_MINIO_ENDPOINT_CERT are optional.
 - ONEAPP_MINIO_BUCKET points to an existing bucket in the MinIO server. If the bucket does not exist or if the
 parameter is empty, the MinIO server will generate a bucket automatically.
 - ONEAPP_MINIO_ENDPOINT_CERT is necessary when using self-signed certificates on the MinIO server. This is the
@@ -230,7 +230,7 @@ update_lithops_config(){
             exit 1
         else
             msg info "Adding MinIO configuration to /etc/lithops/config"
-            sed -i -ne "/# Start Storage/ {p; iminio:\n  endpoint: ${ONEAPP_MINIO_ENDPOINT}\n  access_key_id: ${ONEAPP_MINIO_ACCESS_KEY_ID}\n  secret_access_key: ${ONEAPP_MINIO_SECRET_ACCESS_KEY}\n  storage_bucket: ${ONEAPP_MINIO_BUCKETT}" -e ":a; n; /# End Storage/ {p; b}; ba}; p" /etc/lithops/config
+            sed -i -ne "/# Start Storage/ {p; iminio:\n  endpoint: ${ONEAPP_MINIO_ENDPOINT}\n  access_key_id: ${ONEAPP_MINIO_ACCESS_KEY_ID}\n  secret_access_key: ${ONEAPP_MINIO_SECRET_ACCESS_KEY}\n  storage_bucket: ${ONEAPP_MINIO_BUCKET}" -e ":a; n; /# End Storage/ {p; b}; ba}; p" /etc/lithops/config
         fi
     fi
 }
