@@ -111,9 +111,6 @@ module WireGuard
     # Listen port number, defaults to 51820
     ONEAPP_VNF_WG_LISTEN_PORT = env :ONEAPP_VNF_WG_LISTEN_PORT, 51820
 
-    # WG device name, defaults to wg0
-    ONEAPP_VNF_WG_DEVICE = env :ONEAPP_VNF_WG_DEVICE, 'wg0'
-
     # Number of peers, it will generate peer configuration and associated keys
     ONEAPP_VNF_WG_PEERS = env :ONEAPP_VNF_WG_PEERS, 5
 
@@ -325,7 +322,7 @@ module WireGuard
             ids.each do |vmid|
                 msg :info, "[WireGuard::execute] Updating VM #{vmid}"
 
-                bash "onegate vm update #{vmid} --data \"#{data}\""
+                OneGate.instance.vm_update(data, vmid)
             rescue StandardError => e
                 msg :error, e.message
                 next
@@ -362,7 +359,7 @@ module WireGuard
 
     # Get the vm ids of the virtual router. Used to get/set WG configuration
     def onegate_vmids
-        vr = onegate_vrouter_show
+        vr = OneGate.instance.vrouter_show
 
         vr['VROUTER']['VMS']['ID']
     rescue
@@ -371,7 +368,7 @@ module WireGuard
 
     # Get configuration from the VM template
     def onegate_conf(vm_id)
-        vm   = onegate_vm_show(vm_id)
+        vm   = OneGate.instance.vm_show(vm_id)
         utmp = vm['VM']['USER_TEMPLATE']
 
         [utmp['ONEGATE_VNF_WG_SERVER_TIMESTAMP'], utmp['ONEGATE_VNF_WG_SERVER']]
