@@ -19,6 +19,10 @@ packer-%: ${DIR_EXPORT}/%.qcow2
 packer-service_Wordpress: packer-alma8 ${DIR_EXPORT}/service_Wordpress.qcow2
 	@${INFO} "Packer service_Wordpress done"
 
+# Define if your appliance depends on a distro. This example builds on top of alma8 packer build
+packer-service_example: packer-alma8 ${DIR_EXPORT}/service_example.qcow2
+	@${INFO} "Packer service_example done"
+
 packer-service_VRouter: packer-alpine318 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"
 
