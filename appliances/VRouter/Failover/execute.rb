@@ -131,6 +131,19 @@ module Failover
 
         load_env
 
+        # Give keepalived 30 seconds to setup VIPs..
+        6.times do
+            bash 'rc-service keepalived ready', terminate: false
+            break
+        rescue RuntimeError
+            sleep 5
+        end.then do |result|
+            unless result.nil?
+                msg :error, 'Keepalived not ready!'
+                return
+            end
+        end
+
         SERVICES.each do |service, settings|
             enabled = env settings[:_ENABLED], settings[:fallback]
 
