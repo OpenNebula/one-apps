@@ -19,7 +19,7 @@ apt-get install -y --fix-broken
 apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 
 # Ensure packages needed for post-processing scripts do exist.
-apt-get install -y curl gawk grep jq
+apt-get install -y curl gawk grep jq initramfs-tools
 
 policy_rc_d_enable
 

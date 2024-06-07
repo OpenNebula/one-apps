@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'base64'
 require 'securerandom'
 require 'uri'
 require 'yaml'
@@ -212,6 +213,12 @@ def init_master
 
     wait_for_control_plane
     wait_for_kubelets
+
+    # Please make sure you add VM_ENCRYPTED_ATTR="ONEKE_KUBECONFIG" to /etc/one/oned.conf.
+    unless (kubeconfig = resolv_kubeconfig).nil?
+        encoded = Base64.strict_encode64 kubeconfig
+        onegate_vm_update ["ONEKE_KUBECONFIG=#{encoded}"]
+    end
 end
 
 def join_master(token, retries = RETRIES, seconds = SECONDS)
@@ -270,6 +277,12 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
 
     wait_for_control_plane
     wait_for_kubelets
+
+    # Please make sure you add VM_ENCRYPTED_ATTR="ONEKE_KUBECONFIG" to /etc/one/oned.conf.
+    unless (kubeconfig = resolv_kubeconfig).nil?
+        encoded = Base64.strict_encode64 kubeconfig
+        onegate_vm_update ["ONEKE_KUBECONFIG=#{encoded}"]
+    end
 end
 
 def join_worker(token)

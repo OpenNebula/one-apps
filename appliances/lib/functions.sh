@@ -229,7 +229,7 @@ _check_service_status()
                         msg info "Starting reconfiguration of the service"
                         return 0
                     else
-                        msg error "Configure step cannot be run - go check: ${ONE_SERVICE_STATUS}"
+                        msg error "Configure step will not run since the appliance is set as non-reconfigurable. Chech the value of ONE_SERVICE_RECONFIGURABLE"
                         exit 1
                     fi
                     ;;

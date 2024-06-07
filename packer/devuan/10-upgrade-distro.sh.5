@@ -11,9 +11,9 @@ set -eux -o pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 sed -i '/^deb cdrom/d' /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged beowulf          main" >> /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged beowulf-updates  main" >> /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged beowulf-security main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged daedalus          main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged daedalus-updates  main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged daedalus-security main" >> /etc/apt/sources.list
 
 apt-get update -y
 

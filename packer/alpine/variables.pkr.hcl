@@ -26,8 +26,8 @@ variable "alpine" {
 
   default = {
     "316" = {
-      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.7-x86_64.iso"
-      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.7-x86_64.iso.sha256"
+      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.9-x86_64.iso"
+      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-virt-3.16.9-x86_64.iso.sha256"
     }
 
     "317" = {
@@ -38,6 +38,16 @@ variable "alpine" {
     "318" = {
       iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/x86_64/alpine-virt-3.18.4-x86_64.iso"
       iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/x86_64/alpine-virt-3.18.4-x86_64.iso.sha256"
+    }
+
+    "319" = {
+      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.1-x86_64.iso"
+      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/x86_64/alpine-virt-3.19.1-x86_64.iso.sha256"
+    }
+
+    "320" = {
+      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.0-x86_64.iso"
+      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.0-x86_64.iso.sha256"
     }
   }
 }

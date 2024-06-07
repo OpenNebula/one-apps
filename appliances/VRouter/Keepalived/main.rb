@@ -51,10 +51,29 @@ module Keepalived
         end
     end
 
-    def install
+    def install(initdir: '/etc/init.d')
         msg :info, 'Keepalived::install'
 
         puts bash 'apk --no-cache add keepalived'
+
+        script = File.open("#{initdir}/keepalived").each_with_object([]) do |line, acc|
+            if line =~ /^extra_started_commands="(.*)"$/
+                acc << %{extra_started_commands="#{$1} ready"\n}
+            else
+                acc << line
+            end
+        end.join
+
+        file "#{initdir}/keepalived", <<~SCRIPT, mode: 'u=rwx,go=rx', overwrite: true
+            #{script}
+
+            ready() {
+                ebegin "Checking readiness"
+                source /run/one-context/one_env
+                /usr/bin/ruby -r #{__FILE__} -e Service::Keepalived.ready
+                eend $?
+            }
+        SCRIPT
     end
 
     def configure(basedir: '/etc/keepalived')
@@ -74,7 +93,7 @@ module Keepalived
         # NOTE: When running inside OneFlow we construct VRID out of the service's ID.
         #       To *completely* avoid possible conflicts, deploy each OneFlow service in an *isolated* VNET.
         default_vrid = if ONEAPP_VNF_KEEPALIVED_VRID.nil?
-            unless (svcid = SERVICE_ID || onegate_service_show&.dig('SERVICE', 'id')).nil?
+            unless (svcid = SERVICE_ID || OneGate.instance.service_show&.dig('SERVICE', 'id')).nil?
                 svcid.to_i % 255 + 1
             else
                 # Please don't rely on this.. If you must, deploy just a single VM per an *isolated* VNET.
@@ -172,6 +191,25 @@ module Keepalived
 
     def bootstrap
         msg :info, 'Keepalived::bootstrap'
+    end
+
+    def ready
+        detect_vips.each do |nic, vips|
+            vips = vips.values.map do |vip|
+                vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
+            end
+
+            addrs = ip_addr_show(nic)['addr_info']&.each_with_object([]) do |item, acc|
+                acc << item['local'] unless item['local'].nil?
+            end
+
+            if (vips & addrs) != vips
+                msg :debug, { nic => { vips: vips, addrs: addrs, ready: false } }
+                exit 1
+            end
+        end
+
+        exit 0
     end
 end
 end

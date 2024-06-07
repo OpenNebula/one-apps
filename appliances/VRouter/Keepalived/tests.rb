@@ -125,6 +125,8 @@ RSpec.describe self do
     it 'should render vrrp.conf' do
         clear_env
 
+        ENV['ONEGATE_ENDPOINT'] = 'http://127.0.0.1:5030'
+
         ENV['ONEAPP_VNF_KEEPALIVED_INTERFACES'] = 'eth0 eth1 eth2 eth3'
 
         ENV['ONEAPP_VNF_KEEPALIVED_ETH0_INTERVAL'] = '1'
@@ -162,7 +164,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
-        allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
+        allow(OneGate.instance).to receive(:service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:toggle).and_return(nil)
@@ -215,6 +217,8 @@ RSpec.describe self do
     it 'should render vrrp.conf (passwords)' do
         clear_env
 
+        ENV['ONEGATE_ENDPOINT'] = 'http://127.0.0.1:5030'
+
         ENV['VROUTER_KEEPALIVED_PASSWORD'] = 'asd123'
         ENV['ONEAPP_VNF_KEEPALIVED_ETH3_PASSWORD'] = 'asd456'
 
@@ -232,7 +236,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::Keepalived
 
-        allow(Service::Keepalived).to receive(:onegate_service_show).and_return(nil)
+        allow(OneGate.instance).to receive(:service_show).and_return(nil)
         allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
         allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::Keepalived).to receive(:toggle).and_return(nil)

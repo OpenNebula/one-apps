@@ -32,38 +32,6 @@ case "${TARGET}" in
         POSTUP=${POSTUP:-}
         ;;
 
-
-    'el6')
-        NAME=${NAME:-one-context}
-        RELSUFFIX=${RELSUFFIX:-.el6}
-        TYPE=${TYPE:-rpm}
-        TAGS=${TAGS:-linux rpm sysv one network-scripts crond}
-        DEPENDS=${DEPENDS:-util-linux-ng bash curl bind-utils cloud-utils-growpart dracut-modules-growroot parted ruby rubygem-json sudo shadow-utils openssh-server open-vm-tools qemu-guest-agent gawk virt-what}
-        PROVIDES=${PROVIDES:-}
-        REPLACES=${REPLACES:-cloud-init}
-        CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
-        POSTIN=${POSTINST:-pkg/postinstall}
-        PREUN=${PREUN:-pkg/preuninstall}
-        POSTUN=${POSTUN:-pkg/postuninstall}
-        POSTUP=${POSTUP:-pkg/postupgrade}
-        ;;
-
-    'el7')
-        NAME=${NAME:-one-context}
-        RELSUFFIX=${RELSUFFIX:-.el7}
-        TYPE=${TYPE:-rpm}
-        TAGS=${TAGS:-linux rpm systemd one network-scripts}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-open-vm-tools}
-        PROVIDES=${PROVIDES:-}
-        REPLACES=${REPLACES:-cloud-init}
-        CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
-        POSTIN=${POSTINST:-pkg/postinstall}
-        PREUN=${PREUN:-pkg/preuninstall}
-        POSTUN=${POSTUN:-pkg/postuninstall}
-        POSTUP=${POSTUP:-pkg/postupgrade}
-        ;;
-
     'el8')
         NAME=${NAME:-one-context}
         RELSUFFIX=${RELSUFFIX:-.el8}
@@ -95,6 +63,55 @@ case "${TARGET}" in
         POSTUN=${POSTUN:-pkg/postuninstall}
         POSTUP=${POSTUP:-pkg/postupgrade}
         ;;
+
+    'fc')
+        NAME=${NAME:-one-context}
+        RELSUFFIX=${RELSUFFIX:-.fc}
+        TYPE=${TYPE:-rpm}
+        TAGS=${TAGS:-linux rpm systemd one}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils btrfs-progs cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-open-vm-tools}
+        PROVIDES=${PROVIDES:-}
+        REPLACES=${REPLACES:-cloud-init}
+        CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
+        POSTIN=${POSTINST:-pkg/postinstall}
+        PREUN=${PREUN:-pkg/preuninstall}
+        POSTUN=${POSTUN:-pkg/postuninstall}
+        POSTUP=${POSTUP:-pkg/postupgrade}
+        ;;
+
+    'amzn2')
+        NAME=${NAME:-one-context}
+        RELSUFFIX=${RELSUFFIX:-.amzn2}
+        TYPE=${TYPE:-rpm}
+        TAGS=${TAGS:-linux rpm systemd one network-scripts}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted qemu-guest-agent ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-open-vm-tools}
+        PROVIDES=${PROVIDES:-}
+        REPLACES=${REPLACES:-cloud-init}
+        CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
+        POSTIN=${POSTINST:-pkg/postinstall}
+        PREUN=${PREUN:-pkg/preuninstall}
+        POSTUN=${POSTUN:-pkg/postuninstall}
+        POSTUP=${POSTUP:-pkg/postupgrade}
+        ;;
+
+    'amzn2023')
+        NAME=${NAME:-one-context}
+        RELSUFFIX=${RELSUFFIX:-.amzn2023}
+        TYPE=${TYPE:-rpm}
+        TAGS=${TAGS:-linux rpm systemd one network-scripts}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server network-scripts gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-open-vm-tools}
+        PROVIDES=${PROVIDES:-}
+        REPLACES=${REPLACES:-cloud-init cloud-init-cfg-onprem}
+        CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
+        POSTIN=${POSTINST:-pkg/postinstall}
+        PREUN=${PREUN:-pkg/preuninstall}
+        POSTUN=${POSTUN:-pkg/postuninstall}
+        POSTUP=${POSTUP:-pkg/postupgrade}
+        ;;
+
 
     'alt')
         NAME=${NAME:-one-context}

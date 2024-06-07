@@ -15,60 +15,14 @@ Previously, OpenNebula Team maintained two different repositories for the Linux 
 
 Both of them were merged here, together with the image building tools. The original repositories has been archived, please use this one to get the latest release or to report any issues.
 
-## Contents
-
-* Build Instructions
-  * [Requirements](../../wiki/tool_reqs)
-  * [Using the build tools](../../wiki/tool_use)
-  * [Developer information](../../wiki/tool_dev)
-* Linux Contextualization Packages
-  * [Release Notes](../../wiki/linux_release)
-  * [Installation](../../wiki/linux_installation)
-  * [Features and usage](../../wiki/linux_feature)
-  * [Context Attributes Reference](../../wiki/linux_ref)
-  * [Developer information](../../wiki/linux_dev)
-* Windows Contextualization Packages
-  * [Release Notes](../../wiki/win_release)
-  * [Installation](../../wiki/win_installation)
-  * [Features and usage](../../wiki/win_feature)
-  * [Context Attributes Reference](../../wiki/win_ref)
-  * [Developer information](../../wiki/win_dev)
-* OpenNebula Apps
-  * [Overview](../../wiki/apps_intro)
-  * OneKE (OpenNebula Kubernetes Edition)
-    * [Release Notes](../../wiki/oneke_release)
-    * [Overview](../../wiki/oneke_intro)
-    * [Architecture](../../wiki/oneke_architecture)
-    * [Kubernetes Components](../../wiki/oneke_components)
-      * [Persistent Storage](../../wiki/oneke_longhorn)
-      * [Ingress Controller](../../wiki/oneke_traefik)
-      * [Load Balancing](../../wiki/oneke_lb) 
-    * [Deploying a OneKE cluster](../../wiki/oneke_deploy)
-    * [Operating OneKE](../../wiki/oneke_ops)
-    * [Troubleshooting](../../wiki/oneke_troubleshoot)
-  * Virtual Router
-    * [Release notes](../../wiki/vr_release)
-    * [Overview](../../wiki/vr_intro)
-    * [Quick Start](../../wiki/vr_quick)
-    * [OpenRC Services](../../wiki/vr_services)
-    * Virtual Router Modules
-      * [Router4](../../wiki/vr_router4)
-      * [NAT4](../../wiki/vr_nat4)
-      * [SDNAT4](../../wiki/vr_sdnat4)
-      * [Load Balancing](../../wiki/vr_balancing)
-      * [DNS](../../wiki/vr_dns)
-      * [DHCP4](../../wiki/vr_dhcp4)
-      * [Keepalived: Failover](vr_keepalive)   
-      * [Glossary](../../wiki/vr_glossary)
-  * WordPress
-    * [Release Notes](../../wiki/wp_release)
-    * [Features and usage](../../wiki/wp_feature)
+## Documentation
+[Documentation for one-apps is in the project Wiki](../../wiki)
 
 ## Contributing
 
 * Guidelines
 * [Development and issue tracking](https://github.com/OpenNebula/one-apps/issues).
-* [Community Forum](https://forum.opennebula.io).
+* [Community Forum](https://forum.opennebula.io/c/development/one-apps).
 
 ## Contact Information
 

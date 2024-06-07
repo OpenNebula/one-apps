@@ -4,6 +4,7 @@ require 'base64'
 require 'fileutils'
 require 'json'
 require 'net/http'
+require 'resolv'
 require 'tempfile'
 require 'uri'
 require 'yaml'
@@ -165,4 +166,40 @@ def http_status_200?(url,
     http.get(url.path).code == '200'
 rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::EHOSTUNREACH, Errno::ETIMEDOUT, Net::OpenTimeout
     false
+end
+
+def resolv_kubeconfig(kubeconfig: KUBECONFIG)
+    kubeconfig = [kubeconfig].flatten.find { |path| !path.nil? && File.exist?(path) }
+
+    return if kubeconfig.nil?
+
+    document = YAML.safe_load File.read(kubeconfig)
+
+    cluster = document.dig 'clusters', 0, 'cluster'
+
+    return if cluster.nil?
+
+    cp = URI.parse "https://#{ONEAPP_K8S_CONTROL_PLANE_EP}"
+
+    port = (cp.port || ONEAPP_VNF_HAPROXY_LB1_PORT).to_i
+
+    fallback_addr = if ONEAPP_VROUTER_ETH0_VIP0.nil? || ONEAPP_VROUTER_ETH0_VIP0.empty?
+        '127.0.0.1'
+    else
+        ONEAPP_VROUTER_ETH0_VIP0
+    end
+
+    addr = if cp.host.nil? || cp.host.empty?
+        fallback_addr
+    else
+        begin
+            Resolv.getaddress cp.host
+        rescue ResolvError
+            fallback_addr
+        end
+    end
+
+    cluster['server'] = "https://#{addr}:#{port}"
+
+    return YAML.dump document
 end

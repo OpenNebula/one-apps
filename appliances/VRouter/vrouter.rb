@@ -2,11 +2,77 @@
 
 require 'ipaddr'
 require 'json'
+require 'net/https'
+require 'singleton'
+require 'uri'
 
 begin
     require '/etc/one-appliance/lib/helpers.rb'
 rescue LoadError
     require_relative '../lib/helpers.rb'
+end
+
+class OneGate
+    include Singleton
+
+    def initialize
+        @uri   = URI.parse(ENV['ONEGATE_ENDPOINT'])
+        @vmid  = ENV['VMID']
+        @token = ENV['TOKENTXT']
+
+        @http             = Net::HTTP.new(@uri.host, @uri.port)
+        @http.use_ssl     = @uri.scheme == 'https'
+        @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
+
+    def vrouter_show(keep_alive: false)
+        path     = '/vrouter'
+        req      = Net::HTTP::Get.new(path)
+        req.body = URI.encode_www_form('extended' => true)
+        do_request req, keep_alive
+    end
+
+    def vnet_show(vnid, keep_alive: false)
+        path     = "/vnet/#{vnid}"
+        req      = Net::HTTP::Get.new(path)
+        req.body = URI.encode_www_form('extended' => true)
+        do_request req, keep_alive
+    end
+
+    def service_show(keep_alive: false)
+        path = '/service'
+        req  = Net::HTTP::Get.new(path)
+        do_request req, keep_alive
+    end
+
+    def vm_show(vmid = nil, keep_alive: false)
+        path = vmid.nil? ? '/vm' : "/vms/#{vmid}"
+        req  = Net::HTTP::Get.new(path)
+        do_request req, keep_alive
+    end
+
+    def vm_update(data, vmid = nil, erase: false, keep_alive: false)
+        path     = vmid.nil? ? '/vm' : "/vms/#{vmid}"
+        req      = Net::HTTP::Put.new(path)
+        req.body = erase ? URI.encode_www_form('type' => 2, 'data' => data) : data
+        do_request req, keep_alive, expect_json: false
+    end
+
+    private
+
+    def do_request(req, keep_alive, expect_json: true)
+        @http.start unless @http.started?
+
+        req['X-ONEGATE-VMID']  = @vmid
+        req['X-ONEGATE-TOKEN'] = @token
+
+        expect_json ? JSON.parse(@http.request(req).body) : @http.request(req).body
+    rescue StandardError => e
+        msg :error, e.full_message
+        nil
+    ensure
+        @http.finish unless keep_alive
+    end
 end
 
 def ip_link_set_up(nic)
@@ -163,6 +229,7 @@ def parse_interfaces(interfaces, pattern: /^[!]?eth\d+$/)
                     acc[vip] << nic
                 end
             end
+
             unless (nics = vips[parts[:addr].downcase]).nil?
                 nics.each do |nic|
                     parts[:name] = nic
@@ -203,6 +270,21 @@ def nics_to_addrs(nics = detect_nics)
             next unless nics.include?(nic = "eth#{$1}")
             acc[nic] ||= []
             acc[nic] << v
+        end
+    end
+end
+
+def nics_to_subnets(nics = detect_nics)
+    ENV.each_with_object({}) do |(name, v), acc|
+        next if v.empty?
+        case name
+        when /^ETH(\d+)_IP$/
+            next unless nics.include?(nic = "eth#{$1}")
+            ip       = v.split(%[/])[0]
+            subnet   = IPAddr.new("#{ip}/#{infer_pfxlen($1.to_i, v)}")
+
+            acc[nic] ||= []
+            acc[nic] << "#{subnet}/#{subnet.prefix}"
         end
     end
 end
@@ -262,24 +344,8 @@ def subnets_to_ranges(subnets = addrs_to_subnets.values)
     end
 end
 
-def onegate_vrouter_show
-    stdout = bash 'onegate vrouter show --json --extended', terminate: false
-    JSON.parse(stdout)
-rescue StandardError => e
-    msg :error, e.full_message
-    nil
-end
-
-def onegate_vnet_show(network_id)
-    stdout = bash "onegate vnet show --json --extended '#{network_id}'", terminate: false
-    JSON.parse(stdout)
-rescue StandardError => e
-    msg :error, e.full_message
-    nil
-end
-
 def get_vrouter_vnets
-    return [] if (document = onegate_vrouter_show).nil?
+    return [] if (document = OneGate.instance.vrouter_show).nil?
     return [] if (nics = document.dig('VROUTER', 'TEMPLATE', 'NIC')).nil?
 
     initial_network_ids = nics.map { |nic| nic['NETWORK_ID'] }
@@ -290,7 +356,7 @@ def get_vrouter_vnets
 
     def recurse(network_ids)
         network_ids.each_with_object([]) do |network_id, vnets|
-            next if (vnet = onegate_vnet_show(network_id)).nil?
+            next if (vnet = OneGate.instance.vnet_show(network_id)).nil?
 
             vnets << vnet
 
@@ -317,24 +383,8 @@ def get_vrouter_vnets
     recurse(initial_network_ids)
 end
 
-def onegate_service_show
-    stdout = bash 'onegate service show --json', terminate: false
-    JSON.parse(stdout)
-rescue StandardError => e
-    msg :error, e.full_message
-    nil
-end
-
-def onegate_vm_show(vm_id)
-    stdout = bash "onegate vm show --json '#{vm_id}'", terminate: false
-    JSON.parse(stdout)
-rescue StandardError => e
-    msg :error, e.full_message
-    nil
-end
-
 def get_service_vms # OneFlow
-    return [] if (document = onegate_service_show).nil?
+    return [] if (document = OneGate.instance.service_show).nil?
     return [] if (roles = document.dig('SERVICE', 'roles')).nil?
 
     roles.each_with_object([]) do |role, acc|
@@ -346,7 +396,7 @@ def get_service_vms # OneFlow
             acc << vm_id
         end
     end.uniq.each_with_object([]) do |vm_id, acc|
-        next if (vm = onegate_vm_show(vm_id)).nil?
+        next if (vm = OneGate.instance.vm_show(vm_id)).nil?
 
         acc << vm
     end

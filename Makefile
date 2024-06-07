@@ -13,7 +13,7 @@ services: $(patsubst %, packer-%, $(SERVICES))
 $(DISTROS) $(SERVICES):  %: packer-% ;
 
 # aliases + dependency
-packer-%: context-linux ${DIR_EXPORT}/%.qcow2
+packer-%: ${DIR_EXPORT}/%.qcow2
 	@${INFO} "Packer ${*} done"
 
 packer-service_Wordpress: packer-alma8 ${DIR_EXPORT}/service_Wordpress.qcow2
@@ -26,6 +26,12 @@ packer-service_example: packer-alma8 ${DIR_EXPORT}/service_example.qcow2
 packer-service_VRouter: packer-alpine318 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"
 
+packer-service_Harbor: packer-ubuntu2204 ${DIR_EXPORT}/service_Harbor.qcow2
+	@${INFO} "Packer service_Harbor done"
+
+packer-service_MinIO: packer-ubuntu2204 ${DIR_EXPORT}/service_MinIO.qcow2
+	@${INFO} "Packer service_MinIO done"
+
 packer-service_OneKE: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKE.qcow2
 	@${INFO} "Packer service_OneKE done"
 
@@ -35,7 +41,7 @@ packer-service_OneKEa: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKEa.qcow2
 	@${INFO} "Packer service_OneKEa done"
 
 # run packer build for given distro or service
-${DIR_EXPORT}/%.qcow2:
+${DIR_EXPORT}/%.qcow2: $(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES))
 	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9].*//'))
 	$(eval DISTRO_VER  := $(shell echo ${*} | sed 's/^.[^0-9]*\(.*\)/\1/'))
 	packer/build.sh "${DISTRO_NAME}" "${DISTRO_VER}" ${@}

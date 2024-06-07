@@ -20,9 +20,14 @@ runcmd:
     ENDFILE { if (!found) print update }
     EOF
   - |
-    gawk -i inplace -f- /etc/ssh/sshd_config.d/10-cloudimg-settings.conf <<'EOF'
+    gawk -i inplace -f- /etc/ssh/sshd_config.d/*-cloudimg-settings.conf <<'EOF'
     BEGIN { update = "PasswordAuthentication yes" }
     /^PasswordAuthentication\s/ { $0 = update }
     { print }
     EOF
-  - systemctl reload sshd
+
+  # Ubuntu 24.04min missing gawk
+  - gawk '' || rm -rf /etc/ssh/sshd_config.d/*-cloudimg-settings.conf
+  - gawk '' || echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+
+  - systemctl reload sshd || systemctl reload ssh

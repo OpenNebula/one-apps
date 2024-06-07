@@ -349,7 +349,9 @@ end
 
 RSpec.describe 'get_service_vms' do
     it 'should list all available vms (oneflow)' do
-        allow(self).to receive(:onegate_service_show).and_return(JSON.parse(<<~'SERVICE_SHOW'))
+        ENV['ONEGATE_ENDPOINT'] = 'http://127.0.0.1:5030'
+
+        allow(OneGate.instance).to receive(:service_show).and_return(JSON.parse(<<~'SERVICE_SHOW'))
             {
               "SERVICE": {
                 "name": "asd",
@@ -480,7 +482,7 @@ RSpec.describe 'get_service_vms' do
             }
         VM1_SHOW
 
-        allow(self).to receive(:onegate_vm_show).and_return(*vms)
+        allow(OneGate.instance).to receive(:vm_show).and_return(*vms)
 
         expect(get_service_vms).to eq vms
     end
@@ -488,7 +490,9 @@ end
 
 RSpec.describe 'get_vrouter_vnets' do
     it 'should recursively resolve all viable vnets' do
-        allow(self).to receive(:onegate_vrouter_show).and_return(JSON.parse(<<~'VROUTER_SHOW'))
+        ENV['ONEGATE_ENDPOINT'] = 'http://127.0.0.1:5030'
+
+        allow(OneGate.instance).to receive(:vrouter_show).and_return(JSON.parse(<<~'VROUTER_SHOW'))
             {
               "VROUTER": {
                 "NAME": "vrouter",
@@ -661,7 +665,7 @@ RSpec.describe 'get_vrouter_vnets' do
             }
         RESERVATION_VNET_SHOW
 
-        allow(self).to receive(:onegate_vnet_show).and_return(*vnets)
+        allow(OneGate.instance).to receive(:vnet_show).and_return(*vnets)
 
         expect(get_vrouter_vnets).to eq vnets
     end
