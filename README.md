@@ -16,7 +16,9 @@ Previously, OpenNebula Team maintained two different repositories for the Linux 
 Both of them were merged here, together with the image building tools. The original repositories has been archived, please use this one to get the latest release or to report any issues.
 
 ## Documentation
-[Documentation for one-apps is in the project Wiki](../../wiki)
+[Documentation for one-apps is in the project Wiki](https://github.com/OpenNebula/one-apps/wiki)
+
+For a quick start, please read the [requirements](https://github.com/OpenNebula/one-apps/wiki/tool_reqs) and the [usage reference](https://github.com/OpenNebula/one-apps/wiki/tool_use).
 
 ## Contributing
 
