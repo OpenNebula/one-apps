@@ -19,6 +19,7 @@ while ($OOBEFinished -eq $false) {
 }
 # logoff user 5 seconds after OOBE finishes
 Start-Sleep 5
-logoff.exe
+Disable-LocalUser -Name Administrator
+shutdown.exe /l
 # exit script withour restart
 exit 0
