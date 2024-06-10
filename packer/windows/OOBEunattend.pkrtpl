@@ -31,5 +31,17 @@
             </AutoLogon>
         </component>
     </settings>
-    <cpi:offlineImage cpi:source="wim:c:/users/lukas/downloads/bakal%C3%A1rka%20-%20iso/install.wim#Windows 10 Education" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>%systemroot%\system32\reg.exe add &quot;HKLM\Software\microsoft\Windows\CurrentVersion\Setup\OOBE&quot; /v SetupDisplayedProductKey /t REG_DWORD /d 1 /f</Path>
+                    <Description>Skip product key OOBE page</Description>
+                    <WillReboot>Never</WillReboot>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+    </settings>
+    <cpi:offlineImage cpi:source="catalog://c:/users/lukas/downloads/bakalárka - iso/install_windows 10 education.clg" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
 </unattend>
