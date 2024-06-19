@@ -131,6 +131,19 @@ module Failover
 
         load_env
 
+        # Give one-context 30 seconds to fully start..
+        6.times do
+            bash 'rc-service one-context status', terminate: false
+            break
+        rescue RuntimeError
+            sleep 5
+        end.then do |result|
+            unless result.nil?
+                msg :error, 'one-context not ready!'
+                return
+            end
+        end
+
         # Give keepalived 30 seconds to setup VIPs..
         6.times do
             bash 'rc-service keepalived ready', terminate: false
@@ -139,7 +152,7 @@ module Failover
             sleep 5
         end.then do |result|
             unless result.nil?
-                msg :error, 'Keepalived not ready!'
+                msg :error, 'keepalived not ready!'
                 return
             end
         end
