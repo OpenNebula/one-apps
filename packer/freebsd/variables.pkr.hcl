@@ -26,8 +26,8 @@ variable "freebsd" {
 
   default = {
     "13" = {
-      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/FreeBSD-13.2-RELEASE-amd64-disc1.iso"
-      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.2/CHECKSUM.SHA256-FreeBSD-13.2-RELEASE-amd64"
+      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.3/FreeBSD-13.3-RELEASE-amd64-disc1.iso"
+      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.3/CHECKSUM.SHA256-FreeBSD-13.3-RELEASE-amd64"
     }
 
     "14" = {
