@@ -2,7 +2,7 @@
 
 # Downloads and installs the latest one-context package.
 
-: "${CTXEXT:=alt1.noarch.rpm}"
+: "${CTXEXT:=alt*.noarch.rpm}"
 
 exec 1>&2
 set -eux -o pipefail
