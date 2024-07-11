@@ -76,8 +76,8 @@ ONEAPP_MINIO_HOSTNAME="${ONEAPP_MINIO_HOSTNAME:-localhost,minio-*.example.net}"
 
 ### Globals ##########################################################
 
-MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20240510014138.0.0_amd64.deb"
-CERTGEN_VERSION="https://github.com/minio/certgen/releases/download/v1.2.1/certgen_1.2.1_linux_amd64.deb"
+MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20240704142545.0.0_amd64.deb"
+CERTGEN_VERSION="https://github.com/minio/certgen/releases/download/v1.3.0/certgen_1.3.0_linux_amd64.deb"
 
 ###############################################################################
 ###############################################################################
@@ -186,7 +186,9 @@ service_configure()
             msg info "Configuring provided TLS certificates..."
             echo ${ONEAPP_MINIO_TLS_CERT} | base64 --decode >> /opt/minio/certs/public.crt
             echo ${ONEAPP_MINIO_TLS_KEY} | base64 --decode >> /opt/minio/certs/private.key
+            add_trusted_ca
         fi
+
         msg info "Give ownership of /opt/minio to minio-user"
         chown -R minio-user:minio-user /opt/minio
     fi
@@ -368,6 +370,21 @@ generate_tls_certs()
     chown minio-user:minio-user private.key public.crt
 
     cd /root
+}
+
+add_trusted_ca()
+{
+    local_ca_folder="/usr/local/share/ca-certificates/minio"
+
+    msg info "Adding trust CA for MinIO endpoint"
+    if [[ ! -d "${local_ca_folder}" ]]; then
+        msg info "Create folder ${local_ca_folder}"
+        mkdir "${local_ca_folder}"
+    fi
+
+    msg info "Create CA file and update certificates"
+    cp /opt/minio/certs/public.crt ${local_ca_folder}/ca.crt
+    update-ca-certificates
 }
 
 update_environment_variable_file()
