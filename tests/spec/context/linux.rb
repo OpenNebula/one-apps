@@ -157,8 +157,8 @@ shared_examples_for 'linux' do |name, hv|
         include_examples 'context_linux_grow_fs', name, hv, prefix
     end
 
-    if defaults[:tests][name].key?(:dev_prefixes)
-        prefixes = defaults[:tests][name][:dev_prefixes]
+    if defaults[:apps][:linux][name].key?(:dev_prefixes)
+        prefixes = defaults[:apps][:linux][name][:dev_prefixes]
     else
         prefixes = ['hd', 'vd', 'sd']
     end

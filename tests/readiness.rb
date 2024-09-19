@@ -119,10 +119,6 @@ if formats.size != outputs.size
     exit 1
 end
 
-# Create timestamp file, some tests are schedules per week-days
-# and if the readiness hits midnight it's mixed-up
-File.write('/var/lib/one/readiness/start.timestamp', '')
-
 # build command
 cmd = "rspec #{fail_fast}"
 formats.zip(outputs).each do |f, o|

@@ -14,8 +14,9 @@ export PATH=$PATH:$GEM_PATH/bin
 
 ## How to run
 
-The tests exist at `./readiness/spec/` as ruby files. These will be loaded depending on what is stated on `./tests.yaml`. The appliances to be tested are defined at `./defaults.yaml`.
+The tests exist at `./tests/spec/` as ruby files. These will be loaded depending on what is stated on `./tests/tests.yaml`. The appliances to be tested are defined at `./defaults.yaml`.
 
 ```bash
-cd ~/readiness && mkdir -p results && ./readiness.rb --microenv ../tests.yaml --defaults ../defaults.yaml --format h --output results/results.html --format d --output results/results.txt --format j --output results/results.json; cd -
+cd ./tests
+./readiness.rb --microenv ./tests.yaml --defaults ./defaults.yaml --format h --output results.html --format d --output results.txt --format j --output results.json
 ```
