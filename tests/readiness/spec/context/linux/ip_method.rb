@@ -235,11 +235,7 @@ def guess_nic_prefix(image, model, hv)
         when 'e1000'
             prefix = 'em'
         when '', nil # default unspecified
-            if hv == 'VCENTER'
-                prefix = 'vmx'
-            else
-                prefix = 'vtnet'
-            end
+            prefix = 'vtnet'
         end
     else
         prefix = 'eth'

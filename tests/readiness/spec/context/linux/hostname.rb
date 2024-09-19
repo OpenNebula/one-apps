@@ -214,10 +214,8 @@ shared_examples_for 'context_linux_ec2_hostname' do |image, hv, prefix|
 
         if out =~ /^ip-/
             exp = 'ip-' + @info[:vm].ip.tr('.', '-')
-        elsif out =~ /\.novalocal$/
-            exp = 'mxfun-vbx02-vsrxm066' # metadata server
         else
-            exp = 'cannot get expected hostname'
+            exp = @defaults[:infra][:ec2_hostname][:name]
         end
 
         expect(out).to eq(exp)
@@ -228,10 +226,8 @@ shared_examples_for 'context_linux_ec2_hostname' do |image, hv, prefix|
 
         if out =~ /^ip-/
             exp = 'ip-' + @info[:vm].ip.tr('.', '-')
-        elsif out =~ /\.novalocal$/
-            exp = 'mxfun-vbx02-vsrxm066.novalocal' # metadata server
         else
-            exp = 'cannot get expected hostname'
+            exp = "#{@defaults[:infra][:ec2_hostname][:name]}.#{@defaults[:infra][:ec2_hostname][:domain]}"
         end
 
         expect(out).to eq(exp)

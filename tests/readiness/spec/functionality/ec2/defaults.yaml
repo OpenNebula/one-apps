@@ -1,9 +1,0 @@
-:oned_conf_extra: ec2/oned.extra.yaml
-:monitor_conf_extra: ec2/monitord.extra.conf
-:oneadmin: oneadmin
-
-:ec2_ami: ami-66a7871c
-:ec2_instancetype: m1.small
-:ec2_keypair: test
-:ec2_userdata: I2Nsb3VkLWNvbmZpZwo=
-:credentials_url: http://services/secrets/auth.yaml

@@ -1,6 +1,0 @@
-NAME = hook-vm
-TYPE = state
-COMMAND = /usr/bin/printenv
-ON = PROLOG
-RESOURCE = VM
-REMOTE = yes

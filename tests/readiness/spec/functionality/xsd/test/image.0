@@ -1,4 +1,0 @@
-NAME          = "Ubuntu"
-PATH          = /var/tmp/image_empty
-TYPE          = OS
-DESCRIPTION   = "Ubuntu 10.04 desktop for students."

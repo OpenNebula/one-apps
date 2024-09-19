@@ -1,8 +1,0 @@
----
-users:
-groups:
-    oneadmin:
-        - admin
-        - user
-default:
-    - user

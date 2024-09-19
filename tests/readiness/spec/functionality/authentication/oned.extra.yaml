@@ -1,4 +1,0 @@
----
-DEFAULT_AUTH: "ldap"
-SESSION_EXPIRATION_TIME: "0"
-

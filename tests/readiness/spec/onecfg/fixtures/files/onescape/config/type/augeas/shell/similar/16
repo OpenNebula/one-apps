@@ -1,8 +1,0 @@
-export LANG=en_US.UTF-8...will_be_overriden
-export LIBVIRT_URI=qemu:///system
-export QEMU_PROTOCOL=qemu+tcp
-export LIBVIRT_MD_URI=http://opennebula.org/xmlns/libvirt/1.0
-export LIBVIRT_MD_KEY=one
-export SHUTDOWN_TIMEOUT=300
-export QEMU_PROTOCOL=qemu+ssh
-export LANG=C

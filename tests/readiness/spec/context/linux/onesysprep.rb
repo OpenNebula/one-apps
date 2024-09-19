@@ -7,19 +7,11 @@ shared_examples_for 'onesysprep_reboot' do |image, hv|
     it 'powers off (required)' do
         skip 'VM not running' if @info[:vm].state != 'RUNNING'
 
-        # === LXD bug workaround ===
-        # LXD driver sucks when poweroff operation timeouts, leaves container
-        # running, but with alternating VM state in OpenNebula. We better issue
-        # hard power off https://github.com/OpenNebula/one/issues/5580
-        if hv == 'LXD'
+        case image
+        when /^alt/
             @info[:vm].poweroff_hard
         else
-            case image
-            when /^alt/
-                @info[:vm].poweroff_hard
-            else
-                @info[:vm].safe_poweroff
-            end
+            @info[:vm].safe_poweroff
         end
     end
 

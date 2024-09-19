@@ -178,7 +178,7 @@ shared_examples_for 'context_linux_common1' do |image, hv, prefix, context|
 
     it 'poweroff' do
         # on ALT p9 the qemu-ga ?segfaults? and system services goes crazy
-        if hv == 'KVM' && image =~ /^alt9/
+        if image =~ /^alt9/
             @info[:vm].ssh('poweroff')
             @info[:vm].state?('POWEROFF')
         else

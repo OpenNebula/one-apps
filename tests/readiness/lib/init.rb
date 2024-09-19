@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
 
-ROOT_DIR ||= File.realpath(File.join(__FILE__,'../..'))
+ROOT_DIR ||= File.realpath(File.join(__FILE__, '../..'))
 LIB_DIR  ||= ROOT_DIR + '/lib'
 
 DEFAULTS_YAML ||= ENV['DEFAULTS'] || ROOT_DIR + '/defaults.yaml'
 
-ONE_LOCATION = ENV['ONE_LOCATION'] if !defined?(ONE_LOCATION)
+ONE_LOCATION = ENV['ONE_LOCATION'] unless defined?(ONE_LOCATION)
 
 if !ONE_LOCATION
     ONE_LIB_LOCATION ||= '/usr/lib/one'
@@ -27,7 +27,7 @@ if File.directory?(GEMS_LOCATION)
 end
 
 $LOAD_PATH << LIB_DIR
-$LOAD_PATH << ONE_LIB_LOCATION + "/ruby"
+$LOAD_PATH << ONE_LIB_LOCATION + '/ruby'
 
 require 'yaml'
 require 'rspec'
@@ -54,16 +54,14 @@ require 'TempTemplate'
 require 'OneFlowService'
 require 'host'
 
-require 'fileutils'
-
 include OpenNebula
 include CLITester
 
 def save_log_files(name)
-    dir = File.join(Dir.pwd, "results")
+    dir = File.join(Dir.pwd, 'results')
     FileUtils.mkdir_p(dir)
 
-    sanitized_name = name.gsub(/[\s\/'"]/, "_")
+    sanitized_name = name.gsub(%r{[\s/'"]}, '_')
     tar_file = File.join(dir, "#{sanitized_name}.tar.bz2")
 
     cmd = "tar --ignore-failed-read -cjf '#{tar_file}' #{ONE_LOG_LOCATION} 2>/dev/null"
@@ -73,22 +71,16 @@ end
 RSpec.configure do |c|
     c.add_setting :defaults
     c.add_setting :main_defaults
-        begin
-            # For vcenter-sunstone tests c.defaults is the same as c.main_defaults
-            c.defaults = YAML.load_file(DEFAULTS_YAML)
-            c.main_defaults = YAML.load_file(DEFAULTS_YAML)
-        rescue
-            STDERR.puts "Can't load defaults.yaml file. Make sure it exists."
-            exit -1
-        end
-    c.before do |e|
+    begin
+        # For vcenter-sunstone tests c.defaults is the same as c.main_defaults
+        c.defaults = YAML.load_file(DEFAULTS_YAML)
+        c.main_defaults = YAML.load_file(DEFAULTS_YAML)
+    rescue StandardError
+        STDERR.puts "Can't load defaults.yaml file. Make sure it exists."
+        exit(-1)
+    end
+    c.before do |_e|
         @defaults = c.defaults
         @main_defaults = c.main_defaults
-
-        # Keep this if in the future I need specific configuration for tests
-        # fp        = e.file_path.match(/\.\/spec\/(.*)\.rb/)[1]
-        # test_conf = DEF[:tests].select{|t| t[:name] == fp}.first rescue nil
-        # @conf.merge!(test_conf) if test_conf
     end
-
 end

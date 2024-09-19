@@ -13,12 +13,7 @@ shared_examples_for 'service' do |type, name, hv|
         vm_context = "MEMORY=3072\nVCPU=2"
     end
 
-    case hv
-    when /VCENTER/
-        prefix = 'sd'
-    else
-        prefix = 'vd'
-    end
+    prefix = 'vd'
 
     # run limited common tests
     context 'Linux' do

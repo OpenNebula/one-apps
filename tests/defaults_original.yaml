@@ -1,0 +1,133 @@
+---
+:tests:
+  'alpine317':
+    :image_name: alpine317.qcow2
+    :type: linux
+  'alpine318':
+    :image_name: alpine318.qcow2
+    :type: linux
+  'alpine319':
+    :image_name: alpine319.qcow2
+    :type: linux
+  'alpine320':
+    :image_name: alpine320.qcow2
+    :type: linux
+  'alt10':
+    :image_name: alt10.qcow2
+    :type: linux
+    :dev_prefixes: ['vd'] # alt linux fstab and initramfs use UUID based disks. Only works with virtio
+  'alma8':
+    :image_name: alma8.qcow2
+    :type: linux
+  'alma9':
+    :image_name: alma9.qcow2
+    :type: linux
+  'amazon2':
+    :image_name: amazon2.qcow2
+    :type: linux
+  'amazon2023':
+    :image_name: amazon2023.qcow2
+    :type: linux
+  'rhel8':
+    :image_name: rhel8.qcow2
+    :type: linux
+  'rhel9':
+    :image_name: rhel9.qcow2
+    :type: linux
+  'fedora38':
+    :image_name: fedora38.qcow2
+    :type: linux
+  'fedora39':
+    :image_name: fedora39.qcow2
+    :type: linux
+  'fedora40':
+    :image_name: fedora40.qcow2
+    :type: linux
+  'opensuse15':
+    :image_name: opensuse15.qcow2
+    :type: linux
+  'debian11':
+    :image_name: debian11.qcow2
+    :type: linux
+  'debian12':
+    :image_name: debian12.qcow2
+    :type: linux
+  'devuan4':
+    :image_name: devuan4.qcow2
+    :type: linux
+  'devuan5':
+    :image_name: devuan5.qcow2
+    :type: linux
+  'rocky8':
+    :image_name: rocky8.qcow2
+    :type: linux
+  'rocky9':
+    :image_name: rocky9.qcow2
+    :type: linux
+  'ubuntu2004':
+    :image_name: ubuntu2004.qcow2
+    :type: linux
+  'ubuntu2204':
+    :image_name: ubuntu2204.qcow2
+    :type: linux
+  'ubuntu2404':
+    :image_name: ubuntu2404.qcow2
+    :type: linux
+  'ubuntu2004min':
+    :image_name: ubuntu2004min.qcow2
+    :type: linux
+  'ubuntu2204min':
+    :image_name: ubuntu2204min.qcow2
+    :type: linux
+  'ubuntu2404min':
+    :image_name: ubuntu2404min.qcow2
+    :type: linux
+  'freebsd13':
+    :image_name: freebsd13.qcow2
+    :type: linux
+  'freebsd14':
+    :image_name: freebsd14.qcow2
+    :type: linux
+  'windows2022':
+    :image_name: windows2022.qcow2
+    :type: windows
+    :user: oneadmin
+    :pass: 0p3nN3bul4
+  'windows10':
+    :image_name: windows10.qcow2
+    :type: windows
+    :user: oneadmin
+    :pass: opennebula
+  'windows11':
+    :image_name: windows11.qcow2
+    :type: windows
+    :user: oneadmin
+    :pass: opennebula
+  # Images with Applications
+  'service_Wordpress':
+    :image_name: service_Wordpress.qcow2
+    :type: service_Wordpress
+  'service_VRouter':
+    :image_name: service_VRouter.qcow2
+    :type: service_VRouter
+  'service_Harbor':
+    :image_name: service_Harbor.qcow2
+    :type: service_Harbor
+:examples:
+  :basic: true
+  :growfs: true
+  :netcfg_common: true
+  :netcfg_ip_methods: true
+:one:
+  :template: base
+  :datastore_name: "default"
+  :xpath_pub_nic: "TEMPLATE/NIC[1]"
+  :network_attach: 'private'
+:infra:
+  :apps_path: /opt/one-apps/export
+  :resolve_names:
+    - services
+    - www.google.com
+  :ec2_hostname:
+    :name: "mxfun-vbx02-vsrxm066"
+    :domain: "novalocal"

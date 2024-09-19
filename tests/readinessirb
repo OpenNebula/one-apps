@@ -3,14 +3,14 @@
 ROOT_DIR = File.dirname(__FILE__)
 LIB_DIR  = ROOT_DIR + '/lib'
 
-ONE_LOCATION = ENV["ONE_LOCATION"] if !defined?(ONE_LOCATION)
+ONE_LOCATION = ENV['ONE_LOCATION'] unless defined?(ONE_LOCATION)
 
 if !ONE_LOCATION
-   ONE_LIB_LOCATION = '/usr/lib/one'
-   GEMS_LOCATION    = '/usr/share/one/gems'
+    ONE_LIB_LOCATION = '/usr/lib/one'
+    GEMS_LOCATION    = '/usr/share/one/gems'
 else
-   ONE_LIB_LOCATION = ONE_LOCATION + '/lib'
-   GEMS_LOCATION    = ONE_LOCATION + '/share/gems'
+    ONE_LIB_LOCATION = ONE_LOCATION + '/lib'
+    GEMS_LOCATION    = ONE_LOCATION + '/share/gems'
 end
 
 if File.directory?(GEMS_LOCATION)
@@ -41,22 +41,17 @@ include CLITester
 
 RSpec.configure do |c|
     c.add_setting :defaults
-        begin
-            c.defaults = YAML.load_file(ROOT_DIR+'/defaults.yaml')
-        rescue
-            STDERR.puts "Can't load defaults.yaml file. Make sure it exists."
-            exit -1
-        end
-    c.before do |e|
+    begin
+        c.defaults = YAML.load_file(ROOT_DIR+'/defaults.yaml')
+    rescue StandardError
+        STDERR.puts "Can't load defaults.yaml file. Make sure it exists."
+        exit(-1)
+    end
+    c.before do |_e|
         @defaults = c.defaults
-
-        # Keep this if in the future I need specific configuration for tests
-        # fp        = e.file_path.match(/\.\/spec\/(.*)\.rb/)[1]
-        # test_conf = DEF[:tests].select{|t| t[:name] == fp}.first rescue nil
-        # @conf.merge!(test_conf) if test_conf
     end
 end
 
-version = ">= 0"
+version = '>= 0'
 gem 'pry', version
 load Gem.bin_path('pry', 'pry', version)

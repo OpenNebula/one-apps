@@ -240,9 +240,6 @@ shared_examples_for 'context_linux_network_common' do |image, hv|
     end
 
     it 'pings attached NIC alias' do
-        skip 'Issue OpenNebula/addon-context-linux#249' if image =~ /(devuan|ubuntu14)/i && hv == 'VCENTER'
-        skip 'Issue OpenNebula/addon-context-linux#250' if image =~ /freebsd/i && hv == 'VCENTER'
-
         # ping newly configured IP
         wait_loop(:timeout => 120) do
             @info[:vm].wait_ping(@info[:alias_ip])

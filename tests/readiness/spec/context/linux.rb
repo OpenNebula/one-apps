@@ -106,7 +106,7 @@ shared_examples_for 'context_linux' do |image, hv, prefix, context, image_size =
         @info[:vm].reachable?
     end
 
-    if description == 'common (1)' && hv != 'VCENTER'
+    if description == 'common (1)'
         it 'boots under 60 seconds' do
             boot_time = Time.now.to_i - @info[:vm_stime]
             STDERR.puts "BOOT_TIME (#{image}) - #{boot_time}"
@@ -133,7 +133,7 @@ end
 #####
 
 shared_examples_for 'linux' do |name, hv|
-    hv == 'VCENTER' ? (prefix = 'sd') : (prefix = 'vd')
+    prefix = 'vd'
 
     context 'common (1)' do
         include_examples 'context_linux_common1', name, hv, prefix
@@ -153,35 +153,30 @@ shared_examples_for 'linux' do |name, hv|
         include_examples 'context_linux_common3', name, hv, prefix
     end
 
-    unless ['LXD', 'LXC'].include? hv
-        context 'filesystem growing' do
-            include_examples 'context_linux_grow_fs', name, hv, prefix
+    context 'filesystem growing' do
+        include_examples 'context_linux_grow_fs', name, hv, prefix
+    end
+
+    if defaults[:tests][name].key?(:dev_prefixes)
+        prefixes = defaults[:tests][name][:dev_prefixes]
+    else
+        prefixes = ['hd', 'vd', 'sd']
+    end
+
+    prefixes.each do |pref|
+        context "with boot disk on #{pref}" do
+            include_examples 'context_linux_boot_prefix',
+                                name,
+                                hv,
+                                pref
         end
     end
 
-    # these tests will run only on KVM
-    if hv == 'KVM'
-        if defaults[:tests][name].key?(:dev_prefixes)
-            prefixes = defaults[:tests][name][:dev_prefixes]
-        else
-            prefixes = ['hd', 'vd', 'sd']
-        end
-
-        prefixes.each do |pref|
-            context "with boot disk on #{pref}" do
-                include_examples 'context_linux_boot_prefix',
-                                 name,
-                                 hv,
-                                 pref
-            end
-        end
-
-        # NOTE: vdb/virtio is not supported in recent KVM/QEMUs
-        # error: unsupported configuration: disk type of 'vdb' does not support ejectable media
-        ['hda', 'sda'].each do |target|
-            context "with context disk on #{target}" do
-                include_examples 'context_linux_context_target', name, hv, 'vd', target
-            end
+    # NOTE: vdb/virtio is not supported in recent KVM/QEMUs
+    # error: unsupported configuration: disk type of 'vdb' does not support ejectable media
+    ['hda', 'sda'].each do |target|
+        context "with context disk on #{target}" do
+            include_examples 'context_linux_context_target', name, hv, 'vd', target
         end
     end
 
@@ -210,12 +205,9 @@ shared_examples_for 'linux' do |name, hv|
         include_examples 'context_linux_sudo', name, hv, prefix, 'non-root'
     end
 
-    ###### Temporarily disable following tests for LXD
-    if hv == 'KVM'
-        ['myh', 'myh.', 'myh.myd.tld', 'myh.sub.myd.tld'].each do |hostname|
-            context "context hostname SET_HOSTNAME=#{hostname}" do
-                include_examples 'context_linux_set_hostname', name, hv, 'vd', hostname
-            end
+    ['myh', 'myh.', 'myh.myd.tld', 'myh.sub.myd.tld'].each do |hostname|
+        context "context hostname SET_HOSTNAME=#{hostname}" do
+            include_examples 'context_linux_set_hostname', name, hv, 'vd', hostname
         end
     end
 
@@ -235,129 +227,107 @@ shared_examples_for 'linux' do |name, hv|
         include_examples 'context_linux_init_scripts', name, hv, prefix
     end
 
-    # TODO: test with qcow2 caching enabled
-    # onesysprep disk zeroing breaks the host
-    # https://github.com/OpenNebula/one/issues/5582
-    if hv != 'LXD'
-        context 'onesysprep' do
-            include_examples 'context_linux_onesysprep', name, hv, prefix
-        end
+    context 'onesysprep' do
+        include_examples 'context_linux_onesysprep', name, hv, prefix
     end
 
-    if hv == 'KVM'
-        # Description of each distribution image (matching :distro RE), with
-        # default network configuration renderer (:netcfg_type_default) and
-        # other non-default rendrers to test (:netcfg_types).
-        # IMPORTANT: Data must be in sync with capabilities of each image!!!
-        distro_netcfg = [
-            {
-                :distro => /^alpine/i,
-                :netcfg_type_default => 'interfaces'
-            },
-            {
-                :distro => /^amazon2$/i,
-                :netcfg_type_default => 'scripts'
-            },
-            {
-                :distro => /^(centos|ol|rhel)[67]$/i,
-                :netcfg_type_default => 'nm'
-            },
-            {
-                :distro => /^(alma|centos|ol|rhel|rocky|springdale)[89]/i,
-                :netcfg_types => ['nm', 'networkd'],
-                :netcfg_type_default => 'nm'
-            },
-            {
-                :distro => /^alt/i,
-                :netcfg_types => ['nm'],
-                :netcfg_type_default => 'networkd'
-            },
-            {
-                :distro => /^fedora/i,
-                :netcfg_types => ['nm', 'networkd'],
-                :netcfg_type_default => 'nm'
-            },
-            {
-                :distro => /^opensuse/i,
-                :netcfg_type_default => 'scripts'
-            },
-            {
-                :distro => /^debian9$/i,
-                :netcfg_type_default => 'interfaces'
-            },
-            {
-                :distro => /^debian1/i,
-                :netcfg_types => ['netplan', ['netplan', 'NetworkManager'], 'nm', 'networkd'],
-                :netcfg_type_default => 'interfaces'
-            },
-            {
-                :distro => /^devuan/i,
-                :netcfg_type_default => 'interfaces'
-            },
-            {
-                :distro => /^ubuntu\d+/i,
-                :netcfg_types => ['netplan', ['netplan', 'NetworkManager'], 'nm', 'networkd'],
-                :netcfg_type_default => 'netplan'
-            },
-            {
-                :distro => /^freebsd/i,
-                :netcfg_type_default => 'bsd'
-            }
-        ]
+    # Description of each distribution image (matching :distro RE), with
+    # default network configuration renderer (:netcfg_type_default) and
+    # other non-default rendrers to test (:netcfg_types).
+    # IMPORTANT: Data must be in sync with capabilities of each image!!!
+    distro_netcfg = [
+        {
+            :distro => /^alpine/i,
+            :netcfg_type_default => 'interfaces'
+        },
+        {
+            :distro => /^amazon2$/i,
+            :netcfg_type_default => 'scripts'
+        },
+        {
+            :distro => /^(centos|ol|rhel)[67]$/i,
+            :netcfg_type_default => 'nm'
+        },
+        {
+            :distro => /^(alma|centos|ol|rhel|rocky|springdale)[89]/i,
+            :netcfg_types => ['nm', 'networkd'],
+            :netcfg_type_default => 'nm'
+        },
+        {
+            :distro => /^alt/i,
+            :netcfg_types => ['nm'],
+            :netcfg_type_default => 'networkd'
+        },
+        {
+            :distro => /^fedora/i,
+            :netcfg_types => ['nm', 'networkd'],
+            :netcfg_type_default => 'nm'
+        },
+        {
+            :distro => /^opensuse/i,
+            :netcfg_type_default => 'scripts'
+        },
+        {
+            :distro => /^debian9$/i,
+            :netcfg_type_default => 'interfaces'
+        },
+        {
+            :distro => /^debian1/i,
+            :netcfg_types => ['netplan', ['netplan', 'NetworkManager'], 'nm', 'networkd'],
+            :netcfg_type_default => 'interfaces'
+        },
+        {
+            :distro => /^devuan/i,
+            :netcfg_type_default => 'interfaces'
+        },
+        {
+            :distro => /^ubuntu\d+/i,
+            :netcfg_types => ['netplan', ['netplan', 'NetworkManager'], 'nm', 'networkd'],
+            :netcfg_type_default => 'netplan'
+        },
+        {
+            :distro => /^freebsd/i,
+            :netcfg_type_default => 'bsd'
+        }
+    ]
 
-        if defaults && defaults.key?(:tests) && defaults[:tests][name]
-            distro_netcfg.each do |c|
-                next unless name.match(c[:distro])
+    if defaults && defaults.key?(:tests) && defaults[:tests][name]
+        distro_netcfg.each do |c|
+            next unless name.match(c[:distro])
 
-                # prepare list of netcfg_types to test
-                netcfg_types = c[:netcfg_types]
-                netcfg_types ||= []
-                netcfg_types.insert(0, '') # always use a default (unspecified) renderer
-                netcfg_types.uniq!
+            # prepare list of netcfg_types to test
+            netcfg_types = c[:netcfg_types]
+            netcfg_types ||= []
+            netcfg_types.insert(0, '') # always use a default (unspecified) renderer
+            netcfg_types.uniq!
 
-                netcfg_types.each do |netcfg_type, netcfg_netplan_renderer|
-                    test_name = "network renderer #{netcfg_type}"
-                    test_name << 'default' if netcfg_type.empty?
-                    test_name << "(#{netcfg_netplan_renderer})" if netcfg_netplan_renderer
+            netcfg_types.each do |netcfg_type, netcfg_netplan_renderer|
+                test_name = "network renderer #{netcfg_type}"
+                test_name << 'default' if netcfg_type.empty?
+                test_name << "(#{netcfg_netplan_renderer})" if netcfg_netplan_renderer
 
-                    context "#{test_name}" do
-                        if netcfg_type != '' && defaults[:tests][name][:enable_netcfg_common]
-                            context 'common' do
-                                include_examples 'context_linux_network_netcfg_type_common',
-                                                 name, hv, prefix, nil,
-                                                 netcfg_type, netcfg_netplan_renderer,
-                                                 c[:netcfg_type_default]
-                            end
+                context test_name do
+                    if netcfg_type != '' && defaults[:examples][:netcfg_common]
+                        context 'common' do
+                            include_examples 'context_linux_network_netcfg_type_common',
+                                             name, hv, prefix, nil,
+                                             netcfg_type, netcfg_netplan_renderer,
+                                             c[:netcfg_type_default]
                         end
+                    end
 
-                        if defaults[:tests][name][:enable_netcfg_ip_methods]
-                            context 'IP configuration' do
-                                include_examples 'context_linux_ip_methods',
-                                                 name, hv, prefix, nil,
-                                                 netcfg_type, netcfg_netplan_renderer,
-                                                 c[:netcfg_type_default]
-                            end
+                    if defaults[:examples][:netcfg_ip_methods]
+                        context 'IP configuration' do
+                            include_examples 'context_linux_ip_methods',
+                                             name, hv, prefix, nil,
+                                             netcfg_type, netcfg_netplan_renderer,
+                                             c[:netcfg_type_default]
                         end
                     end
                 end
-
-                break
             end
-        end
-    end
 
-    # spare a disk space and avoid orphans across different test runs
-    # on vCenter by deleting an image after image testing is finished
-    if hv == 'VCENTER'
-        context "delete image #{name}" do
-            it "delete image #{name}" do
-                cli_action("oneimage delete '#{name}' >/dev/null", nil)
-
-                wait_loop do
-                    cmd = cli_action("oneimage show '#{name}'", nil)
-                    !cmd.success?
-                end
-            end
+            break
         end
     end
 end

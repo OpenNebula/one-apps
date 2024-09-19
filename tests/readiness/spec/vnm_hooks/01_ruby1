@@ -1,9 +1,0 @@
-#!/usr/bin/ruby
-
-require 'base64'
-
-log = '/tmp/01_vnm_hooks.log'
-
-File.open(log, 'w') do |file|
-    file.write("#{ARGV}\n#{Base64.decode64(STDIN.read)}\n")
-end

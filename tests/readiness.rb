@@ -2,14 +2,14 @@
 
 ROOT_DIR = File.dirname(__FILE__)
 
-ONE_LOCATION = ENV['ONE_LOCATION'] if !defined?(ONE_LOCATION)
+ONE_LOCATION = ENV['ONE_LOCATION'] unless defined?(ONE_LOCATION)
 
 if !ONE_LOCATION
-   GEMS_LOCATION     = '/usr/share/one/gems'
-   GEMS_BIN_LOCATION = '/usr/share/one/gems/bin'
+    GEMS_LOCATION     = '/usr/share/one/gems'
+    GEMS_BIN_LOCATION = '/usr/share/one/gems/bin'
 else
-   GEMS_LOCATION     = ONE_LOCATION + '/share/gems'
-   GEMS_BIN_LOCATION = ONE_LOCATION + '/share/gems/bin'
+    GEMS_LOCATION     = ONE_LOCATION + '/share/gems'
+    GEMS_BIN_LOCATION = ONE_LOCATION + '/share/gems/bin'
 end
 
 if File.directory?(GEMS_LOCATION)
@@ -33,30 +33,30 @@ end
 require 'getoptlong'
 require 'yaml'
 
-USAGE = <<EOF
-Usage: #{$0} --microenv <microenv> [--format <format>] [--output <output>] [--defaults <defaults>]
+USAGE = <<~EOF
+    Usage: #{$0} --microenv <microenv> [--format <format>] [--output <output>] [--defaults <defaults>]
 
-Options:
+    Options:
 
-    --microenv    Yaml file with a array of tests (or globs) to be tested.
-    --format      Choose a formatter. Defaults to h[tml].
-    --output      Write output to a file. Defaults to 'results.html'
-    --defaults    Defaults file for the readiness tests.
+        --microenv    Yaml file with a array of tests (or globs) to be tested.
+        --format      Choose a formatter. Defaults to h[tml].
+        --output      Write output to a file. Defaults to 'results.html'
+        --defaults    Defaults file for the readiness tests.
 
 EOF
 
 opts = GetoptLong.new(
-  [ '--microenv',  GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--format',    GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--output',    GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--fail-fast', GetoptLong::NO_ARGUMENT ],
-  [ '--defaults',  GetoptLong::REQUIRED_ARGUMENT ]
+    ['--microenv', GetoptLong::REQUIRED_ARGUMENT],
+    ['--format',    GetoptLong::REQUIRED_ARGUMENT],
+    ['--output',    GetoptLong::REQUIRED_ARGUMENT],
+    ['--fail-fast', GetoptLong::NO_ARGUMENT],
+    ['--defaults',  GetoptLong::REQUIRED_ARGUMENT]
 )
 
-microenv_file = "../tests.yaml"
-defaults      = "/var/lib/one/defaults.yaml"
-format        = "h"
-output        = "results.html"
+microenv_file = '../tests.yaml'
+defaults      = '/var/lib/one/defaults.yaml'
+format        = 'h'
+output        = 'results.html'
 fail_fast     = nil
 
 opts.each do |opt, arg|
@@ -72,7 +72,7 @@ opts.each do |opt, arg|
             output = [arg]
         end
     when '--fail-fast'
-        fail_fast = "--fail-fast"
+        fail_fast = '--fail-fast'
     when '--format'
         if format.is_a? Array
             format << arg
@@ -85,7 +85,7 @@ end
 microenv = YAML.load_file microenv_file
 
 if !microenv.instance_of?(Array)
-    STDERR.puts "Error: Incorrect format of the microenv yaml file. It should be an array."
+    STDERR.puts 'Error: Incorrect format of the microenv yaml file. It should be an array.'
     exit 1
 end
 
@@ -93,18 +93,18 @@ tests = []
 exclude_tests = []
 microenv.each do |t|
     if t.match(/^exclude: (.*)/)
-        ex_ts = Dir[File.join(ROOT_DIR,"spec", $1)].sort
+        ex_ts = Dir[File.join(ROOT_DIR, 'spec', Regexp.last_match(1))].sort
         exclude_tests += ex_ts
     else
-        ts = Dir[File.join(ROOT_DIR,"spec", t.to_s)].sort
-        tests = tests + ts
+        ts = Dir[File.join(ROOT_DIR, 'spec', t.to_s)].sort
+        tests += ts
     end
 end
 
-tests = tests - exclude_tests
+tests -= exclude_tests
 
 if tests.empty?
-    STDERR.puts "Error: no tests found"
+    STDERR.puts 'Error: no tests found'
     exit 1
 end
 
@@ -115,7 +115,7 @@ env['DEFAULTS'] = defaults if defaults
 formats = [format].flatten
 outputs = [output].flatten
 if formats.size != outputs.size
-    STDERR.puts "Error: Number of formats and outputs is not same"
+    STDERR.puts 'Error: Number of formats and outputs is not same'
     exit 1
 end
 

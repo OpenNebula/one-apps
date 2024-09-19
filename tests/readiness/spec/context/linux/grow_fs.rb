@@ -177,7 +177,7 @@ shared_examples_for 'context_linux_grow_fs' do |image, hv, prefix, context|
 
     it 'poweroff' do
         # on ALT p9 the qemu-ga ?segfaults? and system services goes crazy
-        if hv == 'KVM' && image =~ /^alt/
+        if image =~ /^alt/
             @info[:vm].ssh('poweroff')
             @info[:vm].wait_no_ping
 

@@ -1,11 +1,10 @@
-require "base64"
-require "init"
-require 'lib/DiskResize'
+require 'base64'
+require 'init'
+require 'DiskResize'
 require 'ipaddr'
 require 'json'
 
 include DiskResize
-
 
 #
 # functions
@@ -16,11 +15,11 @@ def get_vm_ip(vm, eth)
 
     result = []
     cmd.stdout.split("\n").each do |inetline|
-        if inetline.match(/^\s*inet\s.*/)
-            inetline = inetline.split
-            if inetline.size > 1
-                result.push(inetline[1].gsub(/(.*)\/.*/, "\\1"))
-            end
+        next unless inetline.match(/^\s*inet\s.*/)
+
+        inetline = inetline.split
+        if inetline.size > 1
+            result.push(inetline[1].gsub(%r{(.*)/.*}, '\\1'))
         end
     end
 
@@ -28,12 +27,12 @@ def get_vm_ip(vm, eth)
 end
 
 def count_ifaces(vm)
-    cmd = vm.ssh("ip a")
+    cmd = vm.ssh('ip a')
     ifaces = []
     cmd.stdout.split("\n").each do |line|
         line = line.match(/^[0-9]+:/).to_s
         if !line.empty?
-            ifaces.push(line.gsub(/^([0-9]+):.*/, "\\1").to_i)
+            ifaces.push(line.gsub(/^([0-9]+):.*/, '\\1').to_i)
         end
     end
 
@@ -42,11 +41,11 @@ end
 
 # TODO: translate eth<num> to actual iface<num> in the VM, so we can keep using
 # eth names for clarity
-def eth2if(vm, eth)
+def eth2if(_vm, eth)
     return eth
 end
 
-def onevr_cli(action_string, template=nil, expected_result=true)
+def onevr_cli(action_string, template = nil, expected_result = true)
     if !template.nil?
         file = Tempfile.new('functionality')
         file << template
@@ -56,19 +55,18 @@ def onevr_cli(action_string, template=nil, expected_result=true)
         action_string += " #{file.path}"
     end
 
-    cmd  = cli_action(action_string, expected_result)
+    cmd = cli_action(action_string, expected_result)
 
-    if expected_result == false
-        return cmd
-    end
+    return unless expected_result == false
+
+    return cmd
 end
-
 
 #
 # DEPLOY
 #
 
-shared_examples_for "one_service_bootstrapped" do |vm|
+shared_examples_for 'one_service_bootstrapped' do |vm|
     it 'ONE: service appliance finished with SUCCESS (required)' do
         wait_loop(:success => /bootstrap_success/,
                   :break => /_failure/) do
@@ -85,8 +83,8 @@ shared_examples_for "one_service_bootstrapped" do |vm|
     end
 end
 
-shared_examples_for "one_context" do |vm|
-    it "ONE: #{vm.to_s} contextualized (required)" do
+shared_examples_for 'one_context' do |vm|
+    it "ONE: #{vm} contextualized (required)" do
         # wait for variables for after-network contextualization to be ready
         wait_loop do
             cmd = @info[vm][:vm].ssh('test -f /var/run/one-context/context.sh.network')
@@ -98,19 +96,10 @@ shared_examples_for "one_context" do |vm|
             cmd = @info[vm][:vm].ssh('test -e /var/run/one-context/one-context.lock')
             cmd.fail?
         end
-
-        if @info[:hv] == "VCENTER"
-            # the previous is insufficiant so...
-            # we wait until all one-context scripts are finished
-            wait_loop(:success => true) do
-                cmd = @info[vm][:vm].ssh('pgrep -f one-context')
-                cmd.fail?
-            end
-        end
     end
 end
 
-shared_examples_for "wait_for_vrouter" do |vms=[:vrouter]|
+shared_examples_for 'wait_for_vrouter' do |vms = [:vrouter]|
     vms.each do |vm|
         it "ONE: #{vm} is running" do
             @info[vm][:vm].running?
@@ -127,10 +116,10 @@ shared_examples_for "wait_for_vrouter" do |vms=[:vrouter]|
     end
 end
 
-shared_examples_for "update_keepalived_master" do |vms|
+shared_examples_for 'update_keepalived_master' do |vms|
     master_found = false
 
-    it "VROUTER: waiting for one-failover..." do
+    it 'VROUTER: waiting for one-failover...' do
         vms.each do |vm|
             wait_loop(:success => true,
                       :timeout => 120) do
@@ -140,30 +129,30 @@ shared_examples_for "update_keepalived_master" do |vms|
         end
     end
 
-    it "VROUTER: searching for keepalived MASTER..." do
+    it 'VROUTER: searching for keepalived MASTER...' do
         wait_loop(:success => /MASTER/) do
-            output = ""
+            output = ''
             vms.each do |vm|
-                cmd = @info[vm][:vm].ssh("cat /run/one-failover.state")
+                cmd = @info[vm][:vm].ssh('cat /run/one-failover.state')
                 state = JSON.parse(cmd.stdout)['state']
-                if state =~ /MASTER/
-                    @info[:vrouter][:vm] = @info[vm][:vm]
-                    @info[:vrouter][:master] = vm
-                    master_found = true
-                    output = cmd.stdout
-                end
+                next unless state =~ /MASTER/
+
+                @info[:vrouter][:vm] = @info[vm][:vm]
+                @info[:vrouter][:master] = vm
+                master_found = true
+                output = cmd.stdout
             end
             output
         end
     end
 
-    it "VROUTER: verify that keepalived cluster has a MASTER" do
+    it 'VROUTER: verify that keepalived cluster has a MASTER' do
         expect(master_found).to be(true)
     end
 end
 
 shared_examples_for 'simulate_failover' do
-    it "VROUTER: simulate failover - terminate current MASTER" do
+    it 'VROUTER: simulate failover - terminate current MASTER' do
         master = @info[:vrouter][:master]
         vm_id = @info[master][:vm_id]
         cli_action("onevm terminate --hard #{vm_id}")
@@ -171,7 +160,7 @@ shared_examples_for 'simulate_failover' do
     end
 
     vms = []
-    it "VROUTER: find at least one backup server" do
+    it 'VROUTER: find at least one backup server' do
         @info[:vrouter][:vms].each do |vm|
             if vm != @info[:vrouter][:master]
                 vms.push(vm)
@@ -185,10 +174,9 @@ shared_examples_for 'simulate_failover' do
     include_examples 'update_keepalived_master', vms
 end
 
-
 # VNF
 
-shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_image_url, vms|
+shared_examples_for 'prep_vnf' do |as_vrouter, image, hv, prefix, context, vm_image_url, vms|
     before(:all) do
         @defaults = RSpec.configuration.defaults
 
@@ -197,18 +185,18 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
         @info[:image] = image
         @info[:prefix] = prefix
         @info[:context] = context
-        @info[:bootstrap_checksum] = ""
+        @info[:bootstrap_checksum] = ''
         @info[:hv] = hv
 
-        @info[:datastore_name] = "#{@defaults[:datastore_name]}"
-        @info[:template] = @defaults[:template]
-        @info[:network_attach] = @defaults[:network_attach]
+        @info[:datastore_name] = @defaults[:one][:datastore_name]
+        @info[:template] = @defaults[:one][:template]
+        @info[:network_attach] = @defaults[:one][:network_attach]
 
         # Store network info
-        @info[:vnet_a] = { name: 'vnet_a' }
-        @info[:vnet_b] = { name: 'vnet_b' }
-        @info[:vnet_mgt] = { name: 'vnet_mgt' }
-        @info[:vnet_dmz] = { name: 'vnet_dmz' }
+        @info[:vnet_a] = { :name => 'vnet_a' }
+        @info[:vnet_b] = { :name => 'vnet_b' }
+        @info[:vnet_mgt] = { :name => 'vnet_mgt' }
+        @info[:vnet_dmz] = { :name => 'vnet_dmz' }
 
         [:vnet_a, :vnet_b, :vnet_mgt, :vnet_dmz].each do |vnet|
             xml = cli_action_xml("onevnet show '#{@info[vnet][:name]}' -x")
@@ -216,7 +204,7 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
             @info[vnet][:dns] = xml['TEMPLATE/DNS'].to_s
 
             network_address = xml['TEMPLATE/NETWORK_ADDRESS'].to_s
-            if network_address == ""
+            if network_address == ''
                 network_address = xml['AR_POOL/AR[AR_ID="0"]/IP'].to_s
             end
 
@@ -227,8 +215,8 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
         end
 
         # vnet ip reservation
-        @info[:vnet_dmz_reserved1] = { name: 'vnet_dmz_reserved1' }
-        @info[:vnet_dmz_reserved2] = { name: 'vnet_dmz_reserved2' }
+        @info[:vnet_dmz_reserved1] = { :name => 'vnet_dmz_reserved1' }
+        @info[:vnet_dmz_reserved2] = { :name => 'vnet_dmz_reserved2' }
 
         # delete reservations if already exists
         [:vnet_dmz_reserved1, :vnet_dmz_reserved2].each do |vnet|
@@ -253,10 +241,10 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
         end
 
         # context template (expand placeholders)
-        @info[:context] = @info[:context].gsub(/%VNET_A_GATEWAY%/, @info[:vnet_a][:gateway])
-        @info[:context] = @info[:context].gsub(/%VNET_B_GATEWAY%/, @info[:vnet_b][:gateway])
-        @info[:context] = @info[:context].gsub(/%VNET_MGT_GATEWAY%/, @info[:vnet_mgt][:gateway])
-        @info[:context] = @info[:context].gsub(/%VNET_DMZ_GATEWAY%/, @info[:vnet_dmz][:gateway])
+        @info[:context] = @info[:context].gsub('%VNET_A_GATEWAY%', @info[:vnet_a][:gateway])
+        @info[:context] = @info[:context].gsub('%VNET_B_GATEWAY%', @info[:vnet_b][:gateway])
+        @info[:context] = @info[:context].gsub('%VNET_MGT_GATEWAY%', @info[:vnet_mgt][:gateway])
+        @info[:context] = @info[:context].gsub('%VNET_DMZ_GATEWAY%', @info[:vnet_dmz][:gateway])
 
         # import VRouter image if missing
         if cli_action("oneimage show '#{@info[:image]}' >/dev/null", nil).fail?
@@ -267,10 +255,10 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
             cli_create(cmd)
         end
 
-        wait_loop(:success => "READY", :break => "ERROR") {
+        wait_loop(:success => 'READY', :break => 'ERROR') do
             xml = cli_action_xml("oneimage show -x '#{@info[:image]}'")
             Image::IMAGE_STATES[xml['STATE'].to_i]
-        }
+        end
 
         # import VM image if missing
         if cli_action("oneimage show '#{@info[:image]}_vm' >/dev/null", nil).fail?
@@ -280,10 +268,10 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
             cli_create(cmd)
         end
 
-        wait_loop(:success => "READY", :break => "ERROR") {
+        wait_loop(:success => 'READY', :break => 'ERROR') do
             xml = cli_action_xml("oneimage show -x '#{@info[:image]}_vm'")
             Image::IMAGE_STATES[xml['STATE'].to_i]
-        }
+        end
     end
 
     after(:all) do
@@ -315,8 +303,8 @@ shared_examples_for "prep_vnf" do |as_vrouter, image, hv, prefix, context, vm_im
         $continue = true
     end
 
-    before(:each) do |example|
-        raise StandardError.new "Deploy failed, dependency error" unless $continue
+    before(:each) do |_example|
+        raise StandardError.new 'Deploy failed, dependency error' unless $continue
     end
 
     after(:each) do |example|
@@ -328,10 +316,9 @@ end
 
 # VMS
 
-shared_examples_for "deploy_vms" do |vms|
+shared_examples_for 'deploy_vms' do |vms|
     vms.each do |vm|
         it "VM: deploy #{vm[:name]} (required)" do
-
             # Clone template and append new content
             tmpl = "vm_#{@info[:template]}_#{vm[:name]}_#{rand(36**8).to_s(36)}"
 
@@ -358,7 +345,8 @@ shared_examples_for "deploy_vms" do |vms|
             # Instantiate from modified template
             @info[vm[:name]] = {}
             @info[vm[:name]][:vm_dtime] = Time.now.to_i
-            @info[vm[:name]][:vm_id] = cli_create("onetemplate instantiate --disk '#{@info[:image]}_vm':cache=unsafe:dev_prefix=#{@info[:prefix]} #{vm_tmpl_id}")
+            @info[vm[:name]][:vm_id] =
+                cli_create("onetemplate instantiate --disk '#{@info[:image]}_vm':cache=unsafe:dev_prefix=#{@info[:prefix]} #{vm_tmpl_id}")
             @info[vm[:name]][:vm] = VM.new(@info[vm[:name]][:vm_id])
             @info[vm[:name]][:vm].running?
 
@@ -367,11 +355,11 @@ shared_examples_for "deploy_vms" do |vms|
     end
 
     # wait for contextualization and store IPs
-    names = vms.map {|x| x[:name]}
+    names = vms.map {|x| x[:name] }
     include_examples 'verify_vms', names
 end
 
-shared_examples_for "verify_vms" do |vms|
+shared_examples_for 'verify_vms' do |vms|
     vms.each do |vm|
         # wait for contextualization
         include_examples 'one_context', vm
@@ -382,7 +370,7 @@ shared_examples_for "verify_vms" do |vms|
                 wait_loop(:success => false) do
                     ip = get_vm_ip(@info[vm][:vm], 'eth1')
                     if ip.empty?
-                        @info[vm][:ip] = ""
+                        @info[vm][:ip] = ''
                     else
                         @info[vm][:ip] = ip[0].to_s
                     end
@@ -393,11 +381,11 @@ shared_examples_for "verify_vms" do |vms|
     end
 end
 
-shared_examples_for "vm_attach_nic" do |vm, vnet, ip=""|
+shared_examples_for 'vm_attach_nic' do |vm, vnet, ip = ''|
     it "VM: attach new #{vnet} NIC (required)" do
         nic_attach_cmd = "onevm nic-attach #{@info[vm][:vm_id]} --network #{@info[vnet][:name]}"
 
-        if ip != ""
+        if ip != ''
             nic_attach_cmd += " --ip #{ip}"
         end
 
@@ -413,11 +401,11 @@ shared_examples_for "vm_attach_nic" do |vm, vnet, ip=""|
     end
 end
 
-shared_examples_for "vm_attach_nic_external_alias" do |vm, vnet, parent_nic=1|
+shared_examples_for 'vm_attach_nic_external_alias' do |vm, vnet, parent_nic = 1|
     it "VM: attach new #{vnet} NIC external alias (required)" do
         vnet_name = @info[vnet][:name]
         vnet_xml = cli_action_xml("onevnet show -x #{vnet_name}")
-        vnet_id = vnet_xml["ID"].to_s
+        vnet_id = vnet_xml['ID'].to_s
 
         onevr_cli("onevm nic-attach #{@info[vm][:vm_id]} --file", <<-EOT, true)
             NIC_ALIAS = [
@@ -446,14 +434,14 @@ shared_examples_for "vm_attach_nic_external_alias" do |vm, vnet, parent_nic=1|
     end
 end
 
-shared_examples_for "vm_detach_nic" do |vm, vnet|
+shared_examples_for 'vm_detach_nic' do |vm, vnet|
     it "VM: detach #{vnet} NIC (required)" do
         vnet_name = @info[vnet][:name]
-        #vnet_xml = cli_action_xml("onevnet show -x #{vnet_name}")
-        #vnet_id = vnet_xml["ID"].to_s
+        # vnet_xml = cli_action_xml("onevnet show -x #{vnet_name}")
+        # vnet_id = vnet_xml["ID"].to_s
         vm_xml = cli_action_xml("onevm show -x #{@info[vm][:vm_id]}")
 
-        nic_id = ""
+        nic_id = ''
         vm_xml.each('/VM/TEMPLATE/NIC') do |nic|
             if nic['NETWORK'].to_s == vnet_name
                 nic_id = nic['NIC_ID'].to_s
@@ -475,14 +463,13 @@ shared_examples_for "vm_detach_nic" do |vm, vnet|
     end
 end
 
-
 # Service VNF
 
 shared_examples_for 'deploy_vnf' do |image, hv, prefix, context, vm_image_url, vms|
     # setup globals, prepare images for both VNF and VMs and cleanup
     include_examples 'prep_vnf', false, image, hv, prefix, context, vm_image_url, vms
 
-    it "VNF: deploy as VM (required)" do
+    it 'VNF: deploy as VM (required)' do
         # Clone template and append new content
         tmpl = "vrouter_#{@info[:template]}_#{@info[:image]}_#{rand(36**8).to_s(36)}"
         @info[:tmpl_id] = cli_create("onetemplate clone '#{@info[:template]}' '#{tmpl}'")
@@ -493,7 +480,8 @@ shared_examples_for 'deploy_vnf' do |image, hv, prefix, context, vm_image_url, v
         # Instantiate from modified template
         @info[:vnf] = {}
         @info[:vnf][:vm_dtime] = Time.now.to_i
-        @info[:vnf][:vm_id] = cli_create("onetemplate instantiate --disk '#{@info[:image]}':cache=unsafe:dev_prefix=#{@info[:prefix]} #{@info[:tmpl_id]}")
+        @info[:vnf][:vm_id] =
+            cli_create("onetemplate instantiate --disk '#{@info[:image]}':cache=unsafe:dev_prefix=#{@info[:prefix]} #{@info[:tmpl_id]}")
         @info[:vnf][:vm] = VM.new(@info[:vnf][:vm_id])
         @info[:vnf][:vm].running?
 
@@ -510,10 +498,10 @@ shared_examples_for 'deploy_vnf' do |image, hv, prefix, context, vm_image_url, v
     include_examples 'deploy_vms', vms
 end
 
-shared_examples_for "vm_update_context" do |vm, context_params|
-    it "VNF: update context (required)" do
+shared_examples_for 'vm_update_context' do |vm, context_params|
+    it 'VNF: update context (required)' do
         if context_params.empty?
-            expect(@info[vm][:context_params]).not_to eq(nil), "No updated context provided!"
+            expect(@info[vm][:context_params]).not_to eq(nil), 'No updated context provided!'
             context_params = @info[vm][:context_params]
         end
 
@@ -532,11 +520,11 @@ shared_examples_for "vm_update_context" do |vm, context_params|
                 xml.delete_element("/VM/TEMPLATE/CONTEXT/#{param}")
             end
 
-            parsed_value = value.gsub(/%VNF_PUBLIC_IP%/, @info[vm][:vnf_public_ip])
+            parsed_value = value.gsub('%VNF_PUBLIC_IP%', @info[vm][:vnf_public_ip])
             xml.add_element('/VM/TEMPLATE/CONTEXT', param => parsed_value)
         end
 
-        context = xml.template_like_str("TEMPLATE", true, '/TEMPLATE/CONTEXT')
+        context = xml.template_like_str('TEMPLATE', true, '/TEMPLATE/CONTEXT')
         cli_update("onevm updateconf #{@info[vm][:vm_id]}", <<-EOT, false, true)
             GRAPHICS = [
               LISTEN = "0.0.0.0",
@@ -550,13 +538,13 @@ shared_examples_for "vm_update_context" do |vm, context_params|
     # wait for contextualization
     include_examples 'one_context', vm
 
-    it "VNF: wait until context update is triggered..." do
+    it 'VNF: wait until context update is triggered...' do
         # I have no better way to signal that updateconf really triggered anything...
         # this will wait until service log changes
         wait_loop do
             cmd = @info[vm][:vm].ssh('md5sum /var/log/one-appliance/configure.log')
             # repeat until checksum differs
-            (!cmd.stdout.empty?) and (cmd.stdout != @info[vm][:log_md5sum])
+            !cmd.stdout.empty? and (cmd.stdout != @info[vm][:log_md5sum])
         end
     end
 
@@ -564,14 +552,13 @@ shared_examples_for "vm_update_context" do |vm, context_params|
     include_examples 'one_service_bootstrapped', vm
 end
 
-
 # VROUTER
 
-shared_examples_for 'deploy_vrouter' do |image, hv, prefix, context, vrouter_template,  vm_image_url, vms, count=1|
+shared_examples_for 'deploy_vrouter' do |image, hv, prefix, context, vrouter_template, vm_image_url, vms, count = 1|
     # setup globals, prepare images for both VNF and VMs and cleanup
     include_examples 'prep_vnf', true, image, hv, prefix, context, vm_image_url, vms
 
-    it "VROUTER: deploy as vrouter (required)" do
+    it 'VROUTER: deploy as vrouter (required)' do
         # Clone template and append new content
         tmpl = "vrouter_#{@info[:template]}_#{@info[:image]}_#{rand(36**8).to_s(36)}"
         @info[:tmpl_id] = cli_create("onetemplate clone '#{@info[:template]}' '#{tmpl}'")
@@ -580,15 +567,15 @@ shared_examples_for 'deploy_vrouter' do |image, hv, prefix, context, vrouter_tem
         cli_update("onetemplate update '#{@info[:tmpl_id]}'", @info[:context], true)
 
         # vrouter context template (expand placeholders)
-        vrouter_template = vrouter_template.gsub(/%VNET_A_GATEWAY%/, @info[:vnet_a][:gateway])
-        vrouter_template = vrouter_template.gsub(/%VNET_B_GATEWAY%/, @info[:vnet_b][:gateway])
-        vrouter_template = vrouter_template.gsub(/%VNET_MGT_GATEWAY%/, @info[:vnet_mgt][:gateway])
-        vrouter_template = vrouter_template.gsub(/%VNET_DMZ_GATEWAY%/, @info[:vnet_dmz][:gateway])
+        vrouter_template = vrouter_template.gsub('%VNET_A_GATEWAY%', @info[:vnet_a][:gateway])
+        vrouter_template = vrouter_template.gsub('%VNET_B_GATEWAY%', @info[:vnet_b][:gateway])
+        vrouter_template = vrouter_template.gsub('%VNET_MGT_GATEWAY%', @info[:vnet_mgt][:gateway])
+        vrouter_template = vrouter_template.gsub('%VNET_DMZ_GATEWAY%', @info[:vnet_dmz][:gateway])
 
         # create vrouter context
         vr_name = "vrouter-#{$$}"
         @info[:vrouter] = {}
-        @info[:vrouter][:vr_id] = cli_create("onevrouter create", vrouter_template)
+        @info[:vrouter][:vr_id] = cli_create('onevrouter create', vrouter_template)
 
         # Instantiate from modified template
         @info[:vrouter][:vrouter_dtime] = Time.now.to_i
@@ -600,7 +587,7 @@ shared_examples_for 'deploy_vrouter' do |image, hv, prefix, context, vrouter_tem
         # populate vrouters list
         vr_xml = cli_action_xml("onevrouter show -x #{@info[:vrouter][:vr_id]}")
         @info[:vrouter][:vms] = []
-        vrouters = vr_xml['VMS'].split.map {|x| x.strip.to_i}
+        vrouters = vr_xml['VMS'].split.map {|x| x.strip.to_i }
         vrouters.sort.each do |vm_id|
             num = @info[:vrouter][:vms].size + 1
             vr_name = "vr#{num}"
@@ -623,7 +610,7 @@ shared_examples_for 'deploy_vrouter' do |image, hv, prefix, context, vrouter_tem
     include_examples 'deploy_vms', vms
 end
 
-shared_examples_for "vrouter_attach_nic" do |vnet, mgt=false, float=false, ip=""|
+shared_examples_for 'vrouter_attach_nic' do |vnet, mgt = false, float = false, ip = ''|
     it "VROUTER: attach new #{vnet} NIC (required)" do
         # store the current interface count
         @info[:vrouter][:vms].each do |vm|
@@ -643,12 +630,12 @@ shared_examples_for "vrouter_attach_nic" do |vnet, mgt=false, float=false, ip=""
             if float
                 nic_attach_cmd += ' --float'
 
-                if ip == ""
+                if ip == ''
                     ip = @info[vnet][:gateway]
                 end
             end
 
-            if ip != ""
+            if ip != ''
                 nic_attach_cmd += " --ip #{ip}"
             end
 
@@ -658,18 +645,18 @@ shared_examples_for "vrouter_attach_nic" do |vnet, mgt=false, float=false, ip=""
         # wait until new interface emerges inside the vm
         @info[:vrouter][:vms].each do |vm|
             old_iface_count = @info[vm][:iface_count]
-            # note: zero means that not even loopback was found -> skip
-            if old_iface_count > 0
-                wait_loop do
-                    @info[vm][:iface_count] = count_ifaces(@info[vm][:vm])
-                    @info[vm][:iface_count] > old_iface_count
-                end
+            # NOTE: zero means that not even loopback was found -> skip
+            next unless old_iface_count > 0
+
+            wait_loop do
+                @info[vm][:iface_count] = count_ifaces(@info[vm][:vm])
+                @info[vm][:iface_count] > old_iface_count
             end
         end
     end
 end
 
-shared_examples_for "vrouter_detach_nic" do |vnet|
+shared_examples_for 'vrouter_detach_nic' do |vnet|
     it "VROUTER: detach #{vnet} NIC (required)" do
         # store the current interface count
         @info[:vrouter][:vms].each do |vm|
@@ -678,7 +665,7 @@ shared_examples_for "vrouter_detach_nic" do |vnet|
 
         vnet_name = @info[vnet][:name]
         vr_xml = cli_action_xml("onevrouter show -x #{@info[:vrouter][:vr_id]}")
-        nic_id = ""
+        nic_id = ''
         vr_xml.each('/VROUTER/TEMPLATE/NIC') do |nic|
             if nic['NETWORK'].to_s == vnet_name
                 nic_id = nic['NIC_ID'].to_s
@@ -691,17 +678,16 @@ shared_examples_for "vrouter_detach_nic" do |vnet|
         # wait until detached interface disappears
         @info[:vrouter][:vms].each do |vm|
             old_iface_count = @info[vm][:iface_count]
-            # note: zero means that not even loopback was found -> skip
-            if old_iface_count > 0
-                wait_loop do
-                    @info[vm][:iface_count] = count_ifaces(@info[vm][:vm])
-                    @info[vm][:iface_count] < old_iface_count
-                end
+            # NOTE: zero means that not even loopback was found -> skip
+            next unless old_iface_count > 0
+
+            wait_loop do
+                @info[vm][:iface_count] = count_ifaces(@info[vm][:vm])
+                @info[vm][:iface_count] < old_iface_count
             end
         end
     end
 end
-
 
 #
 # VNFs
@@ -709,7 +695,7 @@ end
 
 # KEEPALIVED
 
-shared_examples_for "vnf_running_keepalived" do |vm, state = ''|
+shared_examples_for 'vnf_running_keepalived' do |vm, state = ''|
     it "VNF: KEEPALIVED - should be Up & Ready on '#{vm}' (required)" do
         wait_loop(:timeout => 120) do
             cmd = @info[vm][:vm].ssh('pgrep -f /usr/sbin/keepalived')
@@ -727,38 +713,37 @@ shared_examples_for "vnf_running_keepalived" do |vm, state = ''|
                   :timeout => 120) do
             cmd = @info[vm][:vm].ssh('cat /run/one-failover.state')
             state = JSON.parse(cmd.stdout)['state']
-        end if %w[MASTER BACKUP].include?(state)
+        end if ['MASTER', 'BACKUP'].include?(state)
     end
 end
 
 shared_examples_for 'vnf_keepalived_vrid' do |vm, vrids|
-    it "VNF: KEEPALIVED - should have a vrrp instance(s) with virtual router id(s) #{vrids.to_s}" do
+    it "VNF: KEEPALIVED - should have a vrrp instance(s) with virtual router id(s) #{vrids}" do
         logcmd = @info[vm][:vm].ssh('cat /etc/keepalived/conf.d/vrrp.conf')
         cmd = @info[vm][:vm].ssh('grep virtual_router_id /etc/keepalived/conf.d/vrrp.conf')
         expect(cmd.success?).to be(true)
-        actual_vrids = cmd.stdout.split("\n").map {|x| x.strip.split[1]}
+        actual_vrids = cmd.stdout.split("\n").map {|x| x.strip.split[1] }
 
-        vrids = vrids.map {|x| x.to_s}
+        vrids = vrids.map {|x| x.to_s }
         expect(actual_vrids).to match_array(vrids), logcmd.stdout
     end
 end
 
 shared_examples_for 'vnf_keepalived_password' do |vm, pass|
-    it "VNF: KEEPALIVED - should have a vrrp instance(s) with password(s) #{pass.to_s}" do
+    it "VNF: KEEPALIVED - should have a vrrp instance(s) with password(s) #{pass}" do
         logcmd = @info[vm][:vm].ssh('cat /etc/keepalived/conf.d/vrrp.conf')
         cmd = @info[vm][:vm].ssh('grep auth_pass /etc/keepalived/conf.d/vrrp.conf')
         expect(cmd.success?).to be(true)
-        actual_pass = cmd.stdout.split("\n").map {|x| x.strip.split[1]}
+        actual_pass = cmd.stdout.split("\n").map {|x| x.strip.split[1] }
 
-        pass = pass.map {|x| x.to_s}
+        pass = pass.map {|x| x.to_s }
         expect(actual_pass).to match_array(pass), logcmd.stdout
     end
 end
 
-
 # DHCP4
 
-shared_examples_for "vnf_dhcp4_running" do |vm, enabled, ifaces = nil|
+shared_examples_for 'vnf_dhcp4_running' do |vm, enabled, ifaces = nil|
     it "VNF: DHCP4 - one-dhcp4 service should be #{enabled ? 'started' : 'stopped'}" do
         wait_loop(:success => /status: #{enabled ? 'started' : 'stopped'}/,
                   :timeout => 120) do
@@ -767,7 +752,7 @@ shared_examples_for "vnf_dhcp4_running" do |vm, enabled, ifaces = nil|
         end
     end
 
-    it "VNF: DHCP4 - wait for process to emerge/disappear..." do
+    it 'VNF: DHCP4 - wait for process to emerge/disappear...' do
         wait_loop(:success => enabled,
                   :timeout => 120) do
             # search for process
@@ -782,12 +767,12 @@ shared_examples_for "vnf_dhcp4_running" do |vm, enabled, ifaces = nil|
             cmd = @info[vm][:vm].ssh('cat /etc/kea/kea-dhcp4.conf')
             expect(cmd.success?).to be(true)
             kea_config = JSON.parse(cmd.stdout)
-            logfile = kea_config["Dhcp4"]["loggers"][0]["output_options"][0]["output"]
+            logfile = kea_config['Dhcp4']['loggers'][0]['output_options'][0]['output']
             cmd = @info[vm][:vm].ssh("cat #{logfile}")
             expect(cmd.success?).to be(true)
             message = cmd.stdout
         else
-            message = "Kea is running..."
+            message = 'Kea is running...'
         end
 
         # search for process
@@ -795,59 +780,58 @@ shared_examples_for "vnf_dhcp4_running" do |vm, enabled, ifaces = nil|
         expect(cmd.success?).to be(enabled), message
     end
 
-    if enabled and ifaces != nil
-        include_examples "vnf_dhcp4_interfaces", vm, ifaces
+    if enabled and !ifaces.nil?
+        include_examples 'vnf_dhcp4_interfaces', vm, ifaces
     end
 end
 
-shared_examples_for "vnf_dhcp4_interfaces" do |vm, ifaces=[]|
+shared_examples_for 'vnf_dhcp4_interfaces' do |vm, ifaces = []|
     it "VNF: DHCP4 - listens on #{ifaces}" do
         cmd = @info[vm][:vm].ssh('cat /etc/kea/kea-dhcp4.conf')
         expect(cmd.success?).to be(true)
         kea_config = JSON.parse(cmd.stdout)
-        actual_ifaces = kea_config["Dhcp4"]["interfaces-config"]["interfaces"]
+        actual_ifaces = kea_config['Dhcp4']['interfaces-config']['interfaces']
         expect(actual_ifaces).to match_array(ifaces), cmd.stdout
     end
 end
 
-shared_examples_for "vnf_dhcp4_pool_check" do |vm, vnet|
-    it "VNF: DHCP4 - check pool range for #{vnet.to_s}" do
+shared_examples_for 'vnf_dhcp4_pool_check' do |vm, vnet|
+    it "VNF: DHCP4 - check pool range for #{vnet}" do
         cmd = @info[vm][:vm].ssh('cat /etc/kea/kea-dhcp4.conf')
         expect(cmd.success?).to be(true)
         kea_config = JSON.parse(cmd.stdout)
-        subnets = kea_config["Dhcp4"]["subnet4"]
+        subnets = kea_config['Dhcp4']['subnet4']
         found = false
-        desired_net = IPAddr.new(@info[vnet][:network_address] + "/" +
+        desired_net = IPAddr.new(@info[vnet][:network_address] + '/' +
                                  @info[vnet][:network_mask])
 
         subnets.each do |subnet|
             config_net = IPAddr.new(subnet['subnet'])
-            if config_net == desired_net
-                found = true
-                start_ip = config_net.to_range.to_a[2].to_s
-                end_ip = config_net.to_range.to_a[-2].to_s
-                expect(subnet["pools"][0]["pool"]).to match(/#{start_ip}\s*-\s*#{end_ip}/)
-            end
+            next unless config_net == desired_net
+
+            found = true
+            start_ip = config_net.to_range.to_a[2].to_s
+            end_ip = config_net.to_range.to_a[-2].to_s
+            expect(subnet['pools'][0]['pool']).to match(/#{start_ip}\s*-\s*#{end_ip}/)
         end
 
         expect(found).to be(true), cmd.stdout
     end
 end
 
-shared_examples_for "vnf_dhcp4_lease_time_check" do |vm, lease|
+shared_examples_for 'vnf_dhcp4_lease_time_check' do |vm, lease|
     it "VNF: DHCP4 - lease time is '#{lease}'" do
         cmd = @info[vm][:vm].ssh('cat /etc/kea/kea-dhcp4.conf')
         expect(cmd.success?).to be(true)
         kea_config = JSON.parse(cmd.stdout)
-        actual_lease = kea_config["Dhcp4"]["valid-lifetime"]
+        actual_lease = kea_config['Dhcp4']['valid-lifetime']
         expect(actual_lease.to_s).to eq(lease.to_s), cmd.stdout
     end
 end
 
-
 # DNS
 
-shared_examples_for "vnf_dns_running" do |vm, enabled, ifaces = []|
+shared_examples_for 'vnf_dns_running' do |vm, enabled, ifaces = []|
     it "VNF: DNS - one-dns service should be #{enabled ? 'started' : 'stopped'}" do
         wait_loop(:success => /status: #{enabled ? 'started' : 'stopped'}/,
                   :timeout => 120) do
@@ -856,7 +840,7 @@ shared_examples_for "vnf_dns_running" do |vm, enabled, ifaces = []|
         end
     end
 
-    it "VNF: DNS - wait for process to emerge/disappear..." do
+    it 'VNF: DNS - wait for process to emerge/disappear...' do
         wait_loop(:success => enabled,
                   :timeout => 120) do
             # search for process
@@ -869,11 +853,10 @@ shared_examples_for "vnf_dns_running" do |vm, enabled, ifaces = []|
         # save log if dns should be running
         if enabled
             logcmd = @info[vm][:vm].ssh('grep -i unbound /var/log/messages')
-            # this can break on LXD where /var/log/messages is full of: can't open tty
-            #expect(logcmd.success?).to be(true)
+            # expect(logcmd.success?).to be(true)
             message = logcmd.stdout
         else
-            message = "Unbound is running..."
+            message = 'Unbound is running...'
         end
 
         # search for process
@@ -882,11 +865,11 @@ shared_examples_for "vnf_dns_running" do |vm, enabled, ifaces = []|
     end
 
     if enabled && ifaces != []
-        include_examples "vnf_dns_interfaces", vm, true, ifaces
+        include_examples 'vnf_dns_interfaces', vm, true, ifaces
     end
 end
 
-shared_examples_for "vnf_dns_interfaces" do |vm, listen=true, ifaces=[]|
+shared_examples_for 'vnf_dns_interfaces' do |vm, listen = true, ifaces = []|
     if listen
         it "VNF: DNS - listens on #{ifaces}" do
             cmd = @info[vm][:vm].ssh('cat /etc/unbound/unbound.conf')
@@ -910,7 +893,7 @@ shared_examples_for "vnf_dns_interfaces" do |vm, listen=true, ifaces=[]|
     end
 end
 
-shared_examples_for "vnf_dns_resolv_domain" do |vm, domain, resolvable=true|
+shared_examples_for 'vnf_dns_resolv_domain' do |vm, domain, resolvable = true|
     if resolvable
         value = 1
     else
@@ -937,10 +920,9 @@ shared_examples_for "vnf_dns_resolv_domain" do |vm, domain, resolvable=true|
     end
 end
 
-
 # ROUTER4
 
-shared_examples_for "vnf_router4" do |vm, enabled, ifaces|
+shared_examples_for 'vnf_router4' do |vm, enabled, ifaces|
     if enabled
         it 'VNF: ROUTER4 - one-router4 service should be started' do
             wait_loop(:success => /status: started/,
@@ -965,7 +947,7 @@ end
 
 # WireGuard
 
-shared_examples_for "vnf_wg" do |vm, enabled, vpn_vm|
+shared_examples_for 'vnf_wg' do |vm, enabled, vpn_vm|
     require 'base64'
     require 'open3'
 
@@ -1022,7 +1004,7 @@ shared_examples_for "vnf_wg" do |vm, enabled, vpn_vm|
         it 'VNF: WG - VR should connect to a VPN VM' do
             File.write('/var/lib/one/wg0.conf', Base64.strict_decode64(wg[:peer1]))
 
-            out, err, status = Open3.capture3("sudo /usr/bin/wg-quick up /var/lib/one/wg0.conf")
+            out, err, status = Open3.capture3('sudo /usr/bin/wg-quick up /var/lib/one/wg0.conf')
 
             expect(status.success?).to be true
 
@@ -1030,7 +1012,7 @@ shared_examples_for "vnf_wg" do |vm, enabled, vpn_vm|
 
             vm.wait_ping(vm.xml['//CONTEXT/ETH1_IP'])
 
-            out, err, status = Open3.capture3("sudo /usr/bin/wg-quick down /var/lib/one/wg0.conf")
+            out, err, status = Open3.capture3('sudo /usr/bin/wg-quick down /var/lib/one/wg0.conf')
 
             expect(status.success?).to be true
         end
@@ -1039,7 +1021,7 @@ end
 
 # NAT
 
-shared_examples_for "vnf_nat" do |vm, enabled, ifaces = []|
+shared_examples_for 'vnf_nat' do |vm, enabled, ifaces = []|
     if enabled
         it 'VNF: NAT4 - one-nat4 service should be started' do
             wait_loop(:success => /status: started/,
@@ -1052,7 +1034,7 @@ shared_examples_for "vnf_nat" do |vm, enabled, ifaces = []|
 
     rules_s = ''
 
-    it "VNF: NAT - custom NAT4 chain should exist in the nat table" do
+    it 'VNF: NAT - custom NAT4 chain should exist in the nat table' do
         cmd = @info[vm][:vm].ssh('iptables -t nat -S NAT4-MASQ')
         expect(cmd.success?).to be(true) if enabled
         rules_s = cmd.stdout
@@ -1075,7 +1057,7 @@ shared_examples_for "vnf_nat" do |vm, enabled, ifaces = []|
     end
 end
 
-shared_examples_for "vnf_nat_verify" do |vm_client, vm_server, vnet|
+shared_examples_for 'vnf_nat_verify' do |vm_client, vm_server, vnet|
     it "VNF: NAT - verify that #{vm_client}'s packets are NATed on '#{vnet}' before they reach '#{vm_server}'" do
         # we start server
         server_script = <<-EOT
@@ -1128,25 +1110,25 @@ shared_examples_for "vnf_nat_verify" do |vm_client, vm_server, vnet|
 end
 
 # TODO: can this be fixed in context?
-shared_examples_for "vnf_start_script_workaround_nodns" do |vm|
+shared_examples_for 'vnf_start_script_workaround_nodns' do |vm|
     it "VNF: TODOFIX (#{vm.to_s.upcase}) - workaround the start script issue by starting simple webserver separately" do
-        #cmd = @info[vm][:vm].ssh("nohup setsid ruby /var/tmp/simple-webserver.rb &")
-        #cmd = @info[vm][:vm].ssh("/bin/bash -c 'nohup ruby /var/tmp/simple-webserver.rb & disown ; true'")
-        cmd = @info[vm][:vm].ssh("rc-service ruby-webserver start")
+        # cmd = @info[vm][:vm].ssh("nohup setsid ruby /var/tmp/simple-webserver.rb &")
+        # cmd = @info[vm][:vm].ssh("/bin/bash -c 'nohup ruby /var/tmp/simple-webserver.rb & disown ; true'")
+        cmd = @info[vm][:vm].ssh('rc-service ruby-webserver start')
         expect(cmd.success?).to be(true)
     end
 end
 
-shared_examples_for "vnf_start_script_workaround_dns" do |vm|
+shared_examples_for 'vnf_start_script_workaround_dns' do |vm|
     it "VNF: TODOFIX (#{vm.to_s.upcase}) - workaround the start script issue by starting nginx webserver separately" do
-        cmd = @info[vm][:vm].ssh("rc-service nginx start")
+        cmd = @info[vm][:vm].ssh('rc-service nginx start')
         expect(cmd.success?).to be(true)
     end
 end
 
 # SDNAT
 
-shared_examples_for "vnf_sdnat_running" do |vm, enabled|
+shared_examples_for 'vnf_sdnat_running' do |vm, enabled|
     it "VNF: SDNAT4 - one-sdnat4 service should be #{enabled ? 'started' : 'stopped'}" do
         wait_loop(:success => /status: #{enabled ? 'started' : 'stopped'}/, :timeout => 120) do
             cmd = @info[vm][:vm].ssh('rc-service one-sdnat4 status')
@@ -1155,7 +1137,7 @@ shared_examples_for "vnf_sdnat_running" do |vm, enabled|
     end
 end
 
-shared_examples_for "vnf_sdnat_verify" do |vm_client, vm_server|
+shared_examples_for 'vnf_sdnat_verify' do |vm_client, vm_server|
     it "VNF: SDNAT4 - verify that #{vm_client} is reaching the #{vm_server} via the external alias" do
         wait_loop(:success => /^Hello from: #{@info[vm_server][:ip]}/,
                   :timeout => 30) do
@@ -1165,10 +1147,9 @@ shared_examples_for "vnf_sdnat_verify" do |vm_client, vm_server|
     end
 end
 
-
 # LB
 
-shared_examples_for "vnf_lb_running" do |vm, enabled|
+shared_examples_for 'vnf_lb_running' do |vm, enabled|
     it "VNF: LB - one-lvs service should be #{enabled ? 'started' : 'stopped'}" do
         wait_loop(:success => /status: #{enabled ? 'started' : 'stopped'}/, :timeout => 120) do
             cmd = @info[vm][:vm].ssh('rc-service one-lvs status')
@@ -1177,14 +1158,14 @@ shared_examples_for "vnf_lb_running" do |vm, enabled|
     end
 end
 
-shared_examples_for "vnf_lb_is_empty" do |vm|
-    it "VNF: LB - no LVS should be configured" do
+shared_examples_for 'vnf_lb_is_empty' do |vm|
+    it 'VNF: LB - no LVS should be configured' do
         cmd = @info[vm][:vm].ssh('ipvsadm --save')
         expect(cmd.success?).to be(true)
         expect(cmd.stdout.strip).to eq('')
     end
 
-    it "VNF: LB - no iptables should be configured" do
+    it 'VNF: LB - no iptables should be configured' do
         cmd = @info[vm][:vm].ssh('iptables -t mangle -S PREROUTING')
         expect(cmd.success?).to be(true)
         expect(cmd.stdout.strip).to eq('-P PREROUTING ACCEPT')
@@ -1205,15 +1186,15 @@ shared_examples_for 'vnf_lb_setup_dynamic_real_server' do |vm_lb, vm, lb, protoc
     end
 end
 
-shared_examples_for "vnf_lb_verify" do |vm_lb, port|
-    it "VNF: LB - verify that LoadBalancer forwards traffic to real servers" do
+shared_examples_for 'vnf_lb_verify' do |vm_lb, port|
+    it 'VNF: LB - verify that LoadBalancer forwards traffic to real servers' do
         wait_loop(:success => /^Hello from:/,
                   :timeout => 30) do
             uri = URI.parse("http://#{@info[vm_lb][:vnf_public_ip]}:#{port}")
             begin
                 response = Net::HTTP.get_response(uri)
                 response.body
-            rescue
+            rescue StandardError
                 nil
             end
         end
@@ -1224,7 +1205,7 @@ end
 # HAProxy
 #
 
-shared_examples_for "vnf_haproxy_running" do |vm, enabled|
+shared_examples_for 'vnf_haproxy_running' do |vm, enabled|
     it "VNF: HAPROXY - one-haproxy service should be #{enabled ? 'started' : 'stopped'}" do
         wait_loop(:success => /status: #{enabled ? 'started' : 'stopped'}/, :timeout => 120) do
             cmd = @info[vm][:vm].ssh('rc-service one-haproxy status')
@@ -1233,8 +1214,8 @@ shared_examples_for "vnf_haproxy_running" do |vm, enabled|
     end
 end
 
-shared_examples_for "vnf_haproxy_is_empty" do |vm|
-    it "VNF: HAPROXY - no LB should be configured" do
+shared_examples_for 'vnf_haproxy_is_empty' do |vm|
+    it 'VNF: HAPROXY - no LB should be configured' do
         cmd = @info[vm][:vm].ssh('cat /etc/haproxy/servers.cfg || echo')
         expect(cmd.success?).to be(true)
 
@@ -1243,7 +1224,7 @@ shared_examples_for "vnf_haproxy_is_empty" do |vm|
     end
 end
 
-shared_examples_for "vnf_haproxy_setup_dynamic_backend_server" do |vm_lb, vm, lb, protocol, port, server_port|
+shared_examples_for 'vnf_haproxy_setup_dynamic_backend_server' do |vm_lb, vm, lb, protocol, port, server_port|
     it "VNF: HAPROXY (#{vm.to_s.upcase}): create dynamic backend server (#{protocol}:#{port})" do
         @info[vm][:backend_server_ip] = get_vm_ip(@info[vm][:vm], 'eth1')[0]
         expect(@info[vm][:backend_server_ip]).not_to eq('')
@@ -1256,15 +1237,15 @@ shared_examples_for "vnf_haproxy_setup_dynamic_backend_server" do |vm_lb, vm, lb
     end
 end
 
-shared_examples_for "vnf_haproxy_verify" do |vm_lb, port|
-    it "VNF: HAPROXY - verify that HAPROXY forwards traffic to backend servers" do
+shared_examples_for 'vnf_haproxy_verify' do |vm_lb, port|
+    it 'VNF: HAPROXY - verify that HAPROXY forwards traffic to backend servers' do
         wait_loop(:success => /^Hello from:/,
                   :timeout => 30) do
             uri = URI.parse("http://#{@info[vm_lb][:vnf_public_ip]}:#{port}")
             begin
                 response = Net::HTTP.get_response(uri)
                 response.body
-            rescue
+            rescue StandardError
                 nil
             end
         end
@@ -1272,11 +1253,10 @@ shared_examples_for "vnf_haproxy_verify" do |vm_lb, port|
 end
 
 shared_examples_for 'vnf_vm_quadro_vnets_first_verification' do
-
     # dhcp lease
 
     it 'VM1: lease an address (required)' do
-        cmd = @info['vm1'][:vm].ssh("udhcpc -i eth1 -A 5 -nqf -t 3")
+        cmd = @info['vm1'][:vm].ssh('udhcpc -i eth1 -A 5 -nqf -t 3')
         expect(cmd.success?).to be(true)
     end
 
@@ -1287,7 +1267,7 @@ shared_examples_for 'vnf_vm_quadro_vnets_first_verification' do
     end
 
     it 'VM2: lease an address (required)' do
-        cmd = @info['vm2'][:vm].ssh("udhcpc -i eth1 -A 5 -nqf -t 3")
+        cmd = @info['vm2'][:vm].ssh('udhcpc -i eth1 -A 5 -nqf -t 3')
         expect(cmd.success?).to be(true)
     end
 
@@ -1298,12 +1278,12 @@ shared_examples_for 'vnf_vm_quadro_vnets_first_verification' do
     end
 
     it 'VM3: fail to lease an address (required)' do
-        cmd = @info['vm3'][:vm].ssh("udhcpc -i eth1 -A 5 -nqf -t 3")
+        cmd = @info['vm3'][:vm].ssh('udhcpc -i eth1 -A 5 -nqf -t 3')
         expect(cmd.success?).to be(false)
     end
 
     it 'VM4: fail to lease an address (required)' do
-        cmd = @info['vm4'][:vm].ssh("udhcpc -i eth1 -A 5 -nqf -t 3")
+        cmd = @info['vm4'][:vm].ssh('udhcpc -i eth1 -A 5 -nqf -t 3')
         expect(cmd.success?).to be(false)
     end
 
@@ -1385,7 +1365,7 @@ shared_examples_for 'legacy_vrouter_duo_vnets_verification' do
     include_examples 'vnf_running_keepalived', :vrouter, 'MASTER'
 
     # forwarding is enabled on...
-    include_examples 'vnf_router4', :vrouter, true, ["eth0", "eth1", "eth2"]
+    include_examples 'vnf_router4', :vrouter, true, ['eth0', 'eth1', 'eth2']
 
     # NAT is disabled
     include_examples 'vnf_nat', :vrouter, false
@@ -1430,10 +1410,10 @@ shared_examples_for 'legacy_vrouter_trio_vnets_verification' do
     include_examples 'vnf_running_keepalived', :vrouter, 'MASTER'
 
     # forwarding is enabled on...
-    include_examples 'vnf_router4', :vrouter, true, ["eth0", "eth1", "eth2"]
+    include_examples 'vnf_router4', :vrouter, true, ['eth0', 'eth1', 'eth2']
 
     # forwarding is disabled on...
-    include_examples 'vnf_router4', :vrouter, false, ["eth3"]
+    include_examples 'vnf_router4', :vrouter, false, ['eth3']
 
     # NAT is disabled
     include_examples 'vnf_nat', :vrouter, false

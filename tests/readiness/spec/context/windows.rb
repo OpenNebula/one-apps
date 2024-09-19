@@ -53,7 +53,7 @@ shared_examples_for 'windows' do |name, hv|
         end
     end
 
-    if tests[name][:enable_basic]
+    if tests[:examples][:basic]
         1.upto(2).each do |n|
             context "bulk (#{n})" do
                 include_examples "context_windows_basic#{n}", name, hv, 'hd'
@@ -61,13 +61,13 @@ shared_examples_for 'windows' do |name, hv|
         end
     end
 
-    if tests[name][:enable_growfs]
+    if tests[:examples][:growfs]
         context 'filesystem growing' do
             include_examples 'context_windows_grow_fs', name, hv, 'hd'
         end
     end
 
-    if tests[name][:enable_netcfg_ip_methods]
+    if tests[:examples][:netcfg_ip_methods]
         context 'IP configuration' do
             include_examples 'context_windows_ip_methods', name, hv, 'hd'
         end

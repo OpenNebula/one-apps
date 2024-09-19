@@ -1,5 +1,0 @@
-export LANG=C LIBVIRT_URI=qemu:///system
-export QEMU_PROTOCOL=qemu+ssh
-export LIBVIRT_MD_URI=http://opennebula.org/xmlns/libvirt/1.0
-export LIBVIRT_MD_KEY=one
-export SHUTDOWN_TIMEOUT=300

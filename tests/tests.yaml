@@ -1,2 +1,4 @@
 ---
-- '91-*'
+- 'linux.rb'
+- 'windows.rb'
+- 'service.rb'

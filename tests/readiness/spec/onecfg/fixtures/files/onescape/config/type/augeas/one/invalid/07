@@ -1,6 +1,0 @@
-# Structure error:
-# Missing identification for multiple sections
-
-TM_MAD_CONF = [
-    LN_TARGET = "NONE", CLONE_TARGET = "SELF", SHARED = "YES"
-]

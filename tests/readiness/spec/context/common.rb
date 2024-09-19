@@ -1,6 +1,6 @@
 require 'base64'
 require 'init'
-require 'lib/DiskResize'
+require 'DiskResize'
 require 'net/http'
 require 'uri'
 require 'yaml'
@@ -16,9 +16,9 @@ shared_examples_for 'context' do |image, hv, prefix, context = nil, image_size =
         @info[:image] = image
         @info[:prefix] = prefix
         @info[:context] = context
-        @info[:datastore_name] = @defaults[:datastore_name]
-        @info[:template] = @defaults[:template]
-        @info[:network_attach] = @defaults[:network_attach]
+        @info[:datastore_name] = @defaults[:one][:datastore_name]
+        @info[:template] = @defaults[:one][:template]
+        @info[:network_attach] = @defaults[:one][:network_attach]
         @info[:hv] = hv
 
         # import image if missing
@@ -27,7 +27,7 @@ shared_examples_for 'context' do |image, hv, prefix, context = nil, image_size =
             url = if ENV['IMAGES_URL']
                       ENV['IMAGES_URL']
                   else
-                      @defaults[:default_url]
+                      @defaults[:infra][:apps_path]
                   end
 
             url = url.chomp('/') + '/' + @defaults[:tests][@info[:image]][:image_name]
@@ -64,10 +64,7 @@ shared_examples_for 'context' do |image, hv, prefix, context = nil, image_size =
                 s = @info[:vm].state
 
                 if s =~ /FAIL|POWEROFF/
-                    # Mostly LXD (daemon or drivers) is a terrible piece of trash.
-                    # Very often VM state is invalid or broken, so at least
-                    # we try not to propagate hypervisor errors into tests.
-                    STDERR.puts "ERROR: Terminated VM state is #{s}. Retrying termination. #{hv} sucks!"
+                    STDERR.puts "ERROR: Terminated VM state is #{s}. Retrying termination."
 
                     unless windows?
                         @info[:vm].ssh('poweroff')
