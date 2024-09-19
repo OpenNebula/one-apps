@@ -157,8 +157,10 @@ shared_examples_for 'linux' do |name, hv|
         include_examples 'context_linux_grow_fs', name, hv, prefix
     end
 
-    if defaults[:apps][:linux][name].key?(:dev_prefixes)
-        prefixes = defaults[:apps][:linux][name][:dev_prefixes]
+    app_metadata = defaults[:apps][:linux][name]
+
+    if app_metadata && app_metadata.key?(:dev_prefixes)
+        prefixes = app_metadata[:dev_prefixes]
     else
         prefixes = ['hd', 'vd', 'sd']
     end
@@ -166,9 +168,9 @@ shared_examples_for 'linux' do |name, hv|
     prefixes.each do |pref|
         context "with boot disk on #{pref}" do
             include_examples 'context_linux_boot_prefix',
-                                name,
-                                hv,
-                                pref
+                             name,
+                             hv,
+                             pref
         end
     end
 

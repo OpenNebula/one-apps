@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Have an OpenNebula instance
+- Have an OpenNebula instance with onegate
 - Create OpenNebula resources as described at `bootstrap.yaml`
 - Load OpenNebula gems
 ```bash

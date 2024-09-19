@@ -30,12 +30,14 @@ shared_examples_for 'context' do |image, hv, prefix, context = nil, image_size =
                       @defaults[:infra][:apps_path]
                   end
 
-            url = url.chomp('/') + '/' + @defaults[:tests][@info[:image]][:image_name]
+            disk_format = @defaults[:infra][:disk_format]
+
+            url = "#{url.chomp('/')}/#{image}.#{disk_format}"
 
             cmd = "oneimage create -d '#{@info[:datastore_name]}' --type OS " <<
-                  "  --name '#{@info[:image]}' " <<
+                  "  --name '#{image}' " <<
                   "  --path '#{url}'" <<
-                  ' --format qcow2'
+                  " --format #{disk_format}"
 
             cli_create(cmd)
         end

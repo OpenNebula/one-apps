@@ -2,87 +2,52 @@
 :apps:
   :linux:
     'alpine317':
-      :image_name: alpine317.qcow2
     'alpine318':
-      :image_name: alpine318.qcow2
     'alpine319':
-      :image_name: alpine319.qcow2
     'alpine320':
-      :image_name: alpine320.qcow2
     'alt10':
-      :image_name: alt10.qcow2
       :dev_prefixes: ['vd'] # alt linux fstab and initramfs use UUID based disks. Only works with virtio
     'alma8':
-      :image_name: alma8.qcow2
     'alma9':
-      :image_name: alma9.qcow2
     'amazon2':
-      :image_name: amazon2.qcow2
     'amazon2023':
-      :image_name: amazon2023.qcow2
     'rhel8':
-      :image_name: rhel8.qcow2
     'rhel9':
-      :image_name: rhel9.qcow2
     'fedora38':
-      :image_name: fedora38.qcow2
     'fedora39':
-      :image_name: fedora39.qcow2
     'fedora40':
-      :image_name: fedora40.qcow2
     'opensuse15':
-      :image_name: opensuse15.qcow2
     'debian11':
-      :image_name: debian11.qcow2
     'debian12':
-      :image_name: debian12.qcow2
     'devuan4':
-      :image_name: devuan4.qcow2
     'devuan5':
-      :image_name: devuan5.qcow2
     'rocky8':
-      :image_name: rocky8.qcow2
     'rocky9':
-      :image_name: rocky9.qcow2
     'ubuntu2004':
-      :image_name: ubuntu2004.qcow2
     'ubuntu2204':
-      :image_name: ubuntu2204.qcow2
     'ubuntu2404':
-      :image_name: ubuntu2404.qcow2
     'ubuntu2004min':
-      :image_name: ubuntu2004min.qcow2
     'ubuntu2204min':
-      :image_name: ubuntu2204min.qcow2
     'ubuntu2404min':
-      :image_name: ubuntu2404min.qcow2
     'freebsd13':
-      :image_name: freebsd13.qcow2
     'freebsd14':
-      :image_name: freebsd14.qcow2
   :windows:
     'windows2022':
-      :image_name: windows2022.qcow2
       :type: windows
       :user: oneadmin
       :pass: 0p3nN3bul4
     'windows10':
-      :image_name: windows10.qcow2
       :type: windows
       :user: oneadmin
       :pass: opennebula
     'windows11':
-      :image_name: windows11.qcow2
       :type: windows
       :user: oneadmin
       :pass: opennebula
   :services:
     'service_Wordpress':
-      :image_name: service_Wordpress.qcow2
     'service_VRouter':
-      :image_name: service_VRouter.qcow2
     'service_Harbor':
-      :image_name: service_Harbor.qcow2
 :examples:
   :basic: true
   :growfs: true
@@ -94,6 +59,7 @@
   :xpath_pub_nic: "TEMPLATE/NIC[1]"
   :network_attach: 'private'
 :infra:
+  :disk_format: qcow2
   :apps_path: /opt/one-apps/export
   :resolve_names:
     - services

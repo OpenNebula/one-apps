@@ -53,7 +53,7 @@ opts = GetoptLong.new(
     ['--defaults',  GetoptLong::REQUIRED_ARGUMENT]
 )
 
-microenv_file = '../tests.yaml'
+microenv_file = './tests.yaml'
 defaults      = '/var/lib/one/defaults.yaml'
 format        = 'h'
 output        = 'results.html'
