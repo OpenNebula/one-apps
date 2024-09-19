@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+
+# ---------------------------------------------------------------------------- #
+# Copyright 2002-2017, OpenNebula Project, OpenNebula Systems                  #
+#                                                                              #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may      #
+# not use this file except in compliance with the License. You may obtain      #
+# a copy of the License at                                                     #
+#                                                                              #
+# http://www.apache.org/licenses/LICENSE-2.0                                   #
+#                                                                              #
+# Unless required by applicable law or agreed to in writing, software          #
+# distributed under the License is distributed on an "AS IS" BASIS,            #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.     #
+# See the License for the specific language governing permissions and          #
+# limitations under the License.                                               #
+# ---------------------------------------------------------------------------- #
+
+ONE_LOCATION = ENV["ONE_LOCATION"] if !defined?(ONE_LOCATION)
+
+if !ONE_LOCATION
+    RUBY_LIB_LOCATION="/usr/lib/one/ruby" if !defined?(RUBY_LIB_LOCATION)
+else
+    RUBY_LIB_LOCATION=ONE_LOCATION+"/lib/ruby" if !defined?(RUBY_LIB_LOCATION)
+end
+
+$: << RUBY_LIB_LOCATION
+$: << File.dirname(__FILE__)
+
+require 'vcenter_driver'
+
+VNC_ESX_HOST_FOLDER = "/tmp"
+
+dfile        = ARGV[0]
+cluster_name = ARGV[1]
+vm_id        = ARGV[2]
+
+drv_action = OpenNebula::XMLElement.new
+drv_action.initialize_xml(Base64.decode64(STDIN.read), 'VM')
+
+deploy_id    = drv_action["DEPLOY_ID"]
+host_id      = drv_action["HISTORY_RECORDS/HISTORY/HID"]
+
+begin
+    vi_client = VCenterDriver::VIClient.new_from_host(host_id)
+
+    if deploy_id && !deploy_id.empty?
+        # VM is not new, we just need to reconfigure it and to power it on
+        vm = VCenterDriver::VirtualMachine.new_from_ref(deploy_id, vi_client)
+
+        # Setting one_item is optional, but it saves a couple of API calls if
+        # we already have it
+        one_vm = VCenterDriver::VIHelper.one_item(OpenNebula::VirtualMachine, vm_id)
+        vm.one_item = one_vm
+    else
+        # VM is new
+        vm = VCenterDriver::VirtualMachine.new
+
+        # Clone the VM from template and provide XML info
+        vc_template_ref = drv_action['USER_TEMPLATE/VCENTER_TEMPLATE_REF']
+        vm.clone_vm(drv_action, vi_client)
+
+        one_vm = VCenterDriver::VIHelper.one_item(OpenNebula::VirtualMachine, vm_id)
+        vm.one_item = one_vm
+
+        # Set reference to template disks and nics in VM template for detach ops
+        vm.reference_unmanaged_devices(vc_template_ref)
+    end
+
+    # Resize unmanaged disks
+    vm.resize_unmanaged_disks
+
+    vm.reconfigure
+    vm.poweron
+    vm.set_running(true)
+
+    # Add VCENTER_ESX_HOST to MONITOR info so VNC works for running VMs F#4242
+    esx_host = vm["runtime.host.name"]
+    f = File.open(File.join(VNC_ESX_HOST_FOLDER, "vcenter_vnc_#{one_vm["ID"]}"), 'w')
+    f.write(esx_host)
+    f.close
+
+    puts vm['_ref']
+
+rescue Exception => e
+    message   =  "Deploy of VM #{vm_id} on vCenter cluster #{cluster_name} " +
+                 "with #{dfile} failed due to \"#{e.message}\"\n#{e.backtrace}"
+    STDERR.puts error_message(message)
+    exit -1
+ensure
+    vi_client.close_connection if vi_client
+end

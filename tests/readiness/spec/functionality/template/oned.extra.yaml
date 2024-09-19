@@ -1,0 +1,37 @@
+---
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+
+TM_MAD_CONF:
+  [
+    {
+      NAME: "dummy",
+      LN_TARGET: "NONE",
+      CLONE_TARGET: "SYSTEM",
+      SHARED: "YES",
+      DS_MIGRATE: "YES",
+      TM_MAD_SYSTEM: "ssh",
+      LN_TARGET_SSH: "SYSTEM",
+      CLONE_TARGET_SSH: "SYSTEM",
+      DISK_TYPE_SSH: "FILE"
+    },
+    {
+      NAME: "ssh",
+      LN_TARGET: "SYSTEM",
+      CLONE_TARGET: "SYSTEM",
+      SHARED: "YES",
+      DS_MIGRATE: "YES"
+    }
+  ]
+

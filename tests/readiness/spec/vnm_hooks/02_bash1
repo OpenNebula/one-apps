@@ -1,0 +1,6 @@
+#!/bin/bash
+
+log='02_vnm_hooks.log'
+
+echo "$@" > /tmp/"$log"
+echo "$(</dev/stdin)" >> /tmp/"$log"

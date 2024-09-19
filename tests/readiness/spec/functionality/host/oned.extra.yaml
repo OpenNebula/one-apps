@@ -1,0 +1,14 @@
+---
+
+
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+
+MONITORING_INTERVAL_HOST:      "10"

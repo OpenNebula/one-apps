@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+
+ONE_LOCATION=ENV["ONE_LOCATION"]
+
+if !ONE_LOCATION
+    RUBY_LIB_LOCATION="/usr/lib/one/ruby"
+    ETC_LOCATION="/etc/one/"
+else
+    RUBY_LIB_LOCATION=ONE_LOCATION+"/lib/ruby"
+    ETC_LOCATION=ONE_LOCATION+"/etc/"
+end
+
+$: << RUBY_LIB_LOCATION
+
+
+require 'rexml/document'
+require 'opennebula/error'
+require 'opennebula/xml_utils'
+
+begin
+    xml = OpenNebula::XMLElement.new
+    xml.initialize_xml(STDIN.read, 'AUTHN')
+
+    user   = xml['/AUTHN/USERNAME']
+    pass   = xml['/AUTHN/PASSWORD']
+    secret = xml['/AUTHN/SECRET']
+rescue
+    STDERR.puts "Invalid XML input"
+    exit(-1)
+end
+
+puts "ldap #{user} #{secret} #{`cat /tmp/ldap_dummy.groups`}"

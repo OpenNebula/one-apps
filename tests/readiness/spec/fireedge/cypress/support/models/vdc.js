@@ -1,0 +1,64 @@
+/* ------------------------------------------------------------------------- *
+ * Copyright 2002-2023, OpenNebula Project, OpenNebula Systems               *
+ *                                                                           *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may   *
+ * not use this file except in compliance with the License. You may obtain   *
+ * a copy of the License at                                                  *
+ *                                                                           *
+ * http://www.apache.org/licenses/LICENSE-2.0                                *
+ *                                                                           *
+ * Unless required by applicable law or agreed to in writing, software       *
+ * distributed under the License is distributed on an "AS IS" BASIS,         *
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  *
+ * See the License for the specific language governing permissions and       *
+ * limitations under the License.                                            *
+ * ------------------------------------------------------------------------- */
+
+import { OpenNebulaResource } from '@models'
+
+class Vdc extends OpenNebulaResource {
+  /**
+   * Retrieves information for the VDC.
+   *
+   * @returns {Cypress.Chainable<object>}
+   * - A promise that resolves to the VDC information
+   */
+  info() {
+    const id = this.id ?? this.name
+
+    return cy.apiGetVdc(id).then((vdc) => {
+      this.json = vdc
+
+      return vdc
+    })
+  }
+
+  /**
+   * Allocates a new VDC in OpenNebula.
+   *
+   * @param {object} body - Request body for the POST request
+   * @param {object} body.template - An object containing the template of the VDC
+   * @returns {Cypress.Chainable<object>} A promise that resolves to the VDC information
+   */
+  allocate(body) {
+    return cy
+      .apiAllocateVdc(body)
+      .then((vdcId) => {
+        this.id = vdcId
+      })
+      .then(
+        () => cy.wait(20) // eslint-disable-line cypress/no-unnecessary-waiting
+      )
+      .then(() => this.info())
+  }
+
+  /**
+   * @returns {Cypress.Chainable<Cypress.Response>}
+   * A promise that resolves to the VDC id
+   */
+  delete() {
+    return cy.apiDeleteVdc(this.id)
+  }
+}
+
+export default Vdc

@@ -1,0 +1,20 @@
+require 'init_functionality'
+
+require_relative '../cleanup'
+require_relative '../provision'
+require_relative 'aws'
+require_relative 'tf'
+
+RSpec.describe 'AWS provision [QEMU]' do
+    prepend_before(:all) do
+        @defaults_yaml = File.realpath(
+            File.join(File.dirname(__FILE__), '../../defaults.yaml')
+        )
+    end
+
+    hypervisor = 'qemu'
+    type       = 'virtual'
+    instance   = 't2.small'
+
+    it_behaves_like 'aws_provision', hypervisor, type, instance
+end

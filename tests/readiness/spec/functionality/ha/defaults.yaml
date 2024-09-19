@@ -1,0 +1,4 @@
+# :oned_conf_extra: Path to additional settings for oned.conf for this tests in
+# yml format. It should include dummy drivers. See oned.extra.yml for an example
+
+:oned_conf_extra: ha/oned.extra.yaml

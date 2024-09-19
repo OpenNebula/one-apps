@@ -1,0 +1,11 @@
+--- old
++++ new
+@@ -19,7 +19,7 @@
+ ################################################################################
+ 
+ # Enable ARP Cache Poisoning Prevention Rules
+-:arp_cache_poisoning: true
++:arp_cache_poisoning: false
+ 
+ ################################################################################
+ # VXLAN Options

@@ -1,0 +1,69 @@
+#*******************************************************************************
+#                       OpenNebula Configuration file
+#*******************************************************************************
+
+#*******************************************************************************
+# Daemon configuration attributes
+#-------------------------------------------------------------------------------
+#  ONED_PORT: Port to connect to the OpenNebula daemon (oned)
+#
+#  SCHED_INTERVAL: Seconds between two scheduling actions
+#
+#  MAX_VM: Maximum number of Virtual Machines scheduled in each scheduling
+#          action. Use 0 to schedule all pending VMs each time.
+#
+#  MAX_DISPATCH: Maximum number of Virtual Machines actually dispatched to a
+#                host in each scheduling action
+#
+#  MAX_HOST: Maximum number of Virtual Machines dispatched to a given host in
+#            each scheduling action
+#
+#  LIVE_RESCHEDS: Perform live (1) or cold migrations (0) when rescheduling a VM
+#
+#  HYPERVISOR_MEM: Fraction of total MEMORY reserved for the hypervisor.
+#                  E.g. 0.1 means that only 90% of the total MEMORY will be used
+#
+#  DEFAULT_SCHED: Definition of the default scheduling algorithm
+#    - policy:
+#      0 = Packing. Heuristic that minimizes the number of hosts in use by
+#          packing the VMs in the hosts to reduce VM fragmentation
+#      1 = Striping. Heuristic that tries to maximize resources available for
+#          the VMs by spreading the VMs in the hosts
+#      2 = Load-aware. Heuristic that tries to maximize resources available for
+#          the VMs by usingthose nodes with less load
+#      3 = Custom.
+#    - rank: Custom arithmetic exprission to rank suitable hosts based in their
+#            attributes
+#
+#  LOG: Configuration for the logging system
+#    - system: defines the logging system:
+#          file      to log in the sched.log file
+#          syslog    to use the syslog facilities
+#    - debug_level: 0 = ERROR, 1 = WARNING, 2 = INFO, 3 = DEBU
+#*******************************************************************************
+
+ONED_PORT = 2633
+
+SCHED_INTERVAL = 30
+
+MAX_VM       = 5000
+MAX_DISPATCH = 30
+MAX_HOST     = 1
+
+LIVE_RESCHEDS  = 0
+
+HYPERVISOR_MEM = 0.1
+
+DEFAULT_SCHED = [
+    policy = 1
+]
+
+#DEFAULT_SCHED = [
+#   policy = 3,
+#   rank   = "- (RUNNING_VMS * 50  + FREE_CPU)"
+#]
+
+LOG = [
+  system      = "file",
+  debug_level = 3
+]

@@ -1,0 +1,12 @@
+---
+# :oned_conf_extra: Path to additional settings for oned.conf for this tests in
+# yml format. It should include dummy drivers. See oned.extra.yml for an example
+
+:oned_conf_extra: terraform/oned.extra.yaml
+
+:monitor_conf_extra: terraform/monitord.extra.conf
+
+:goca_src_url: null
+
+:provider_versions:
+  - master

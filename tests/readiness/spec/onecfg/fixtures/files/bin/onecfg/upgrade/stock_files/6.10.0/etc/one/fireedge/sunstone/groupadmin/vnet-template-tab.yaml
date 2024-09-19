@@ -1,0 +1,67 @@
+---
+# This file describes the information and actions available in the V. NETWORK TEMPLATE tab
+
+# Resource
+
+resource_name: "NETWORK-TEMPLATE"
+
+# Actions - Which buttons are visible to operate over the resources
+
+actions:
+  create_dialog: false
+  instantiate_dialog: true
+  update_dialog: true
+  delete: true
+  chown: true
+  chgrp: true
+  lock: true
+  unlock: true
+
+# Filters - List of criteria to filter the resources
+
+filters:
+  label: true
+
+# Info Tabs - Which info tabs are used to show extended information
+
+info-tabs:
+  info:
+    enabled: true
+    information_panel:
+      enabled: true
+      actions:
+        rename: true
+    permissions_panel:
+      enabled: true
+      actions:
+        chmod: true
+    ownership_panel:
+      enabled: true
+      actions:
+        chown: true
+        chgrp: true
+    qos_panel:
+      enabled: true
+    attributes_panel:
+      enabled: true
+      actions:
+        copy: true
+        add: true
+        edit: true
+        delete: true
+
+  address:
+    enabled: true
+    actions:
+      add_ar: true
+      update_ar: true
+      delete_ar: true
+
+  security:
+    enabled: true
+
+  cluster:
+    enabled: true
+
+  template:
+    enabled: true

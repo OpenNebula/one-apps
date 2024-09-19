@@ -1,0 +1,20 @@
+---
+name: 'Dummy'
+
+playbook:
+  - default
+
+defaults:
+  provision:
+    provider_name: 'onprem'
+
+cluster:
+  name: 'Dummy'
+
+hosts:
+  - reserved_cpu: '100'
+    im_mad: 'kvm'
+    vm_mad: 'kvm'
+    provision:
+      hostname: host-${index}
+    count: 2

@@ -1,0 +1,26 @@
+---
+:hostname: "vcenter.vcenter65-1"
+
+:user: "administrator@vsphere.local"
+
+:pass: "Pantufl4."
+
+:cluster: "Cluster"
+
+:cluster2: "Cluster2"
+
+:datastore: "nfs"
+
+:network_path: "DPortGroup - Distributed Port Group"
+
+:network: "DPortGroup"
+
+:image_path: "wild01/wild01_3.vmdk"
+
+:image: "wild01_3"
+
+:template_path: "corelinux7_x86_64 [ Cluster: Cluster - Template location: / ]"
+
+:template: "corelinux7_x86_64"
+
+:wild_id: "vm-22221"

@@ -1,0 +1,14 @@
+---
+VM_ADMIN_OPERATIONS: "migrate, recover, retry, deploy, resched"
+VM_USE_OPERATIONS: "delete"
+ENABLE_OTHER_PERMISSIONS: "NO"
+
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"

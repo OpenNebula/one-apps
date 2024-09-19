@@ -1,0 +1,10 @@
+--- old
++++ new
+@@ -16,6 +16,6 @@
+ # limitations under the License.                                             #
+ #--------------------------------------------------------------------------- #
+ 
+-echo HOSTNAME=`uname -n`
++echo HOSTNAME="$(hostname -f)"
+ 
+ 

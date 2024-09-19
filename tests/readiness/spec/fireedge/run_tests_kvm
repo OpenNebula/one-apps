@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# This script needs to be run from this very same folder
+
+PARAMETERS=":p:x:"
+USE_PUBLIC_REGISTRY="no"
+PUBLIC_REGISTRY="https://registry.npmjs.org"
+PRIVATE_REGISTRY="http://verdaccio:9876"
+URL_REGISTRY=""
+
+while getopts $PARAMETERS opt; do
+    case $opt in
+        p) USE_PUBLIC_REGISTRY="yes" ;;
+        x) URL_REGISTRY="$OPTARG" ;;
+    esac
+done
+
+echo "Clean NPM cache"
+
+npm cache clean --force
+
+echo "Remove package-lock file"
+
+rm package-lock.json
+
+if [ "$USE_PUBLIC_REGISTRY" = "no" ]; then
+  #internal infra
+  MIRROR=$([ -z $URL_REGISTRY ] && echo $PRIVATE_REGISTRY || echo $URL_REGISTRY)
+
+  echo "Set Cypress download enviroment vars"
+  export CYPRESS_INSTALL_BINARY="${MIRROR}/@opennebula%2fcypress/-/12.17.0.zip"
+
+  echo "Set puppeteer download enviroment vars"
+  export PUPPETEER_DOWNLOAD_HOST=$MIRROR
+  export PUPPETEER_DOWNLOAD_SCHEMA_URL="%s/@opennebula%2fpuppeteer/-/%s.zip"
+
+  echo "Update package.json"
+  # Disabled until new verdaccio package is published
+  # sed -i 's/"cypress":/"@opennebula\/cypress":/g' ./package.json
+  sed -i 's/"puppeteer":/"@opennebula\/puppeteer":/g' ./package.json
+
+  echo "Update requires into test code"
+  # find . \( -path ./node_modules -prune -o -path ./*.config.js -prune \) -o  -type f -name "*.js" -exec sed -i "s/require('cypress')/require('@opennebula\/cypress')/g" {} +
+  find ./cypress -type f -name "*.js" -exec sed -i "s/require('puppeteer')/require('@opennebula\/puppeteer')/g" {} +
+
+else
+  #external
+  MIRROR=$([ -z $URL_REGISTRY ] && echo $PUBLIC_REGISTRY || echo $URL_REGISTRY)
+fi
+
+echo "Install npm dependencies"
+
+npm install --registry $MIRROR
+
+echo "Give services some time to wake up"
+
+sleep 10
+
+echo "Run tests"
+
+npm run cypress:run-kvm

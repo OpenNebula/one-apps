@@ -1,0 +1,10 @@
+{
+  "user": "administrator@vsphere.local",
+  "password": "Pantufl4.",
+  "host": "192.168.150.100",
+  "clusterRef": "domain-c5012",
+  "clusterName": "Cluster2",
+  "datastoreRef": "datastore-2021",
+  "datastoreName": "nfs(IMG)",
+  "wildVM": "wild03 - Cluster2"
+}

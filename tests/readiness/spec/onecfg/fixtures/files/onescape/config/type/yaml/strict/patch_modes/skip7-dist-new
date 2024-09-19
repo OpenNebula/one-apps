@@ -1,0 +1,5 @@
+---
+:NAME:
+  :desc: Name of the Host
+  :size: 20
+  :left: true

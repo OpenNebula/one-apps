@@ -1,0 +1,53 @@
+log = [
+  system      = "file",
+  debug_level = 3
+  # comment
+]
+
+monitoring_interval_host      = 180
+
+
+monitoring_interval_vm        = 180
+
+
+
+monitoring_threads  = 50
+
+scripts_remote_dir=/var/tmp/one
+
+port = 2633
+
+listen_address = "0.0.0.0"
+
+db = [ backend = "sqlite" ]
+
+vnc_ports = [
+    start    = 5900
+]
+
+federation = [
+    mode          = "STANDALONE",
+    zone_id       = 0,
+    server_id     = -1,
+    master_oned   = ""
+]
+
+raft = [
+    limit_purge          = 100000,
+    log_retention        = 250000,
+    broadcast_timeout_ms = 500,
+    log_purge_timeout    = 60,
+    election_timeout_ms  = 5000,
+    xmlrpc_timeout_ms    = 1000
+]
+monitoring_interval_datastore = 300
+monitoring_interval_market    = 600
+
+tm_mad_conf = [
+    name = "dummy", ln_target = "NONE", clone_target = "SYSTEM", shared = "YES",
+    ds_migrate = "YES"
+]
+
+tm_mad_conf = [
+    name = "lvm", ln_target = "NONE", clone_target = "SELF", shared = "YES"
+]

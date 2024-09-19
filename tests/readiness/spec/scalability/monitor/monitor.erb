@@ -1,0 +1,96 @@
+HOSTNAME   = host-<%=@id%>
+VERSION    = "5.4.5"
+ARCH       = x86_64
+MODELNAME  = "Intel(R) Core(TM) i5-6200U CPU @ 2.30GHz"
+HYPERVISOR = kvm
+CPUSPEED   = 2400
+<%# ------------------------------------------------------------------------ -%>
+<%# MEMORY                                                                   -%>
+<%# ------------------------------------------------------------------------ -%>
+<% tmem=7881064 -%>
+<% umem=tmem-rand(7000000) -%>
+<% fmem=tmem-umem -%>
+TOTALMEMORY =<%= tmem %>
+USEDMEMORY  =<%= umem %>
+FREEMEMORY  =<%= fmem %>
+<%# ------------------------------------------------------------------------ -%>
+<%# CPU                                                                      -%>
+<%# ------------------------------------------------------------------------ -%>
+<% tcpu=400 -%>
+<% ucpu=tcpu-rand(350) -%>
+<% fcpu=tcpu-ucpu -%>
+TOTALCPU =<%= tcpu %>
+FREECPU  =<%= fcpu %>
+USEDCPU  =<%= ucpu %>
+<%# ------------------------------------------------------------------------ -%>
+<%# NET                                                                      -%>
+<%# ------------------------------------------------------------------------ -%>
+NETRX =<%= rand(100000000) %>
+NETTX =<%= rand(100000000) %>
+<%# ------------------------------------------------------------------------ -%>
+<%# DATASTORES                                                               -%>
+<%# ------------------------------------------------------------------------ -%>
+<% tdisk=512000 -%>
+<% udisk=tdisk-rand(512000) -%>
+<% fdisk=tdisk-udisk -%>
+DS_LOCATION_TOTAL_MB =<%= tdisk %>
+DS_LOCATION_FREE_MB  =<%= fdisk %>
+DS_LOCATION_USED_MB  =<%= udisk %>
+<% [0,1,2].each { |i| -%>
+DS = [
+    ID = <%= i %>,
+    TOTAL_MB =<%= tdisk %>,
+    FREE_MB  =<%= fdisk %>,
+    USED_MB  =<%= udisk %>
+]
+<% } -%>
+<%# ------------------------------------------------------------------------ -%>
+<%# PCI DEVICES                                                                      -%>
+<%# ------------------------------------------------------------------------ -%>
+PCI = [
+    ADDRESS = "0000:02:00:0",
+    BUS = "02",
+    CLASS = "0300",
+    CLASS_NAME = "VGA compatible controller",
+    DEVICE = "0863",
+    DEVICE_NAME = "C79 [GeForce 9400M]",
+    DOMAIN = "0000",
+    FUNCTION = "0",
+    SHORT_ADDRESS = "02:00.0",
+    SLOT = "00",
+    TYPE = "10de:0863:0300",
+    VENDOR = "10de",
+    VENDOR_NAME = "NVIDIA Corporation",
+    NUMA_NODE="1"
+]
+PCI = [
+    ADDRESS = "0000:00:06:0",
+    BUS = "00",
+    CLASS = "0c03",
+    CLASS_NAME = "USB controller",
+    DEVICE = "0aa7",
+    DEVICE_NAME = "MCP79 OHCI USB 1.1 Controller",
+    DOMAIN = "0000",
+    FUNCTION = "0",
+    SHORT_ADDRESS = "00:06.0",
+    SLOT = "06",
+    TYPE = "10de:0aa7:0c03",
+    VENDOR = "10de",
+    VENDOR_NAME = "NVIDIA Corporation",
+    NUMA_NODE="1"
+]
+<%# ------------------------------------------------------------------------ -%>
+<%# VMS                                                                      -%>
+<%# ------------------------------------------------------------------------ -%>
+VM_POLL = YES
+<% 4.times { |i| -%>
+<%   vm_id = @id.to_i*4 + i -%>
+VM=[
+    ID=<%= vm_id%>,
+    POLL="DISK_SIZE=[ID=0,SIZE=<%=rand(250)%>] DISK_SIZE=[ID=1,SIZE=<%=rand(250)%>] "
+]
+VM=[
+    ID=<%= vm_id%>,
+    DEPLOY_ID=one-<%= vm_id%>,
+    POLL="STATE=a CPU=0.0 MEMORY=182712 NETRX=886 NETTX=738 DISKRDBYTES=30496984 DISKWRBYTES=783360 DISKRDIOPS=1273 DISKWRIOPS=139" ]
+<% } -%>

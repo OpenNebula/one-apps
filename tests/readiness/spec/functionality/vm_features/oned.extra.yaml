@@ -1,0 +1,52 @@
+---
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+
+VM_MAD:
+  [
+    {
+      NAME      : "dummy",
+      EXECUTABLE: "one_vmm_dummy",
+      TYPE      : "xml"
+    },
+    {
+      NAME      : "dummy_kvm",
+      EXECUTABLE: "one_vmm_dummy",
+      DEFAULT   : "vmm_exec/vmm_exec_kvm_tests.conf",
+      TYPE      : "kvm"
+    },
+    {
+        NAME           : "kvm",
+        SUNSTONE_NAME  : "KVM",
+        EXECUTABLE     : "one_vmm_exec",
+        ARGUMENTS      : "-t 15 -r 0 kvm",
+        DEFAULT        : "vmm_exec/vmm_exec_kvm.conf",
+        TYPE           : "kvm",
+        KEEP_SNAPSHOTS : "yes",
+        IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+        resume, delete, reboot, reboot-hard, resched, unresched, disk-attach,
+        disk-detach, nic-attach, nic-detach, snapshot-create, snapshot-delete"
+    }
+  ]
+VN_MAD_CONF:
+  NAME      : "NET_DNS"
+  BRIDGE_TYPE: "linux"
+
+#
+#  Default values for all tests
+#
+MAC_PREFIX: "00:03"
+MONITORING_INTERVAL_DATASTORE: "10"
+MANAGER_TIMER      : "10"
+
+VM_RESTRICTED_ATTR: "CUSTOM_RESTRICTED"
+
+CONTEXT_RESTRICTED_DIRS: "/var/lib/one"
+CONTEXT_SAFE_DIRS: "/var/lib/one/tmp"

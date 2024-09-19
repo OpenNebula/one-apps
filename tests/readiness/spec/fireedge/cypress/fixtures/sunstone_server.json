@@ -1,0 +1,4 @@
+{
+  "pathConfig": "/etc/one/fireedge/sunstone/sunstone-server.conf",
+  "pathTemp": "/var/lib/one/sunstone-server.conf.bk"
+}

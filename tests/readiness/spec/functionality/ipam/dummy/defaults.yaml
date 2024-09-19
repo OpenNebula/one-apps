@@ -1,0 +1,4 @@
+---
+:oned_conf_extra: ipam/dummy/oned.extra.yaml
+
+:nosched: true

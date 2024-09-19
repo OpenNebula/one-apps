@@ -1,0 +1,4 @@
+<% 16.times { |i| -%>
+<%   vm_id = @id.to_i*16 + i -%>
+VM = [ ID=<%= vm_id %>, UUID=one-<%= vm_id%>, STATE="RUNNING" ]
+<% } -%>

@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["es6", "dom"],
+    "types": ["cypress", "node"],
+    "baseUrl": "cypress",
+    "paths": {
+      "@plugins/*": ["plugins/*"],
+      "@support/*": ["support/*"],
+      "@commands/*": ["support/commands/*"],
+      "@common/*": ["support/common/*"],
+      "@models": ["support/models/index.js"],
+      "@utils/*": ["support/utils/*"],
+      "@cases/*": ["support/cases/*"],
+    }
+  },
+  "include": ["node_modules/cypress", "cypress/**/*.js"]
+}

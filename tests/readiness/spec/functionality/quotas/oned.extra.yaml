@@ -1,0 +1,19 @@
+---
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+
+VM_SNAPSHOT_FACTOR: "0.2"
+
+QUOTA_VM_ATTRIBUTE:
+  - VCPU
+  - LICENSE

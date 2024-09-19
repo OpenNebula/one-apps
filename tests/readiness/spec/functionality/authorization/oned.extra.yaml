@@ -1,0 +1,16 @@
+---
+VM_ADMIN_OPERATIONS: "migrate, recover, retry, deploy, resched, undeploy, hold, release, stop, suspend, resume, reboot,
+    poweroff, disk-attach, nic-attach, disk-snapshot, terminate, disk-resize,
+    snapshot, updateconf, rename, resize, update, disk-saveas, sched-action, sg-attach"
+VM_MANAGE_OPERATIONS: ""
+VM_USE_OPERATIONS: "delete"
+
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"

@@ -1,0 +1,5 @@
+:oned_conf_extra: az/oned.extra.yaml
+:monitor_conf_extra: az/monitord.extra.conf
+:oneadmin: oneadmin
+
+:credentials_url: http://services/secrets/az_host.tpl

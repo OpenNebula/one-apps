@@ -1,0 +1,33 @@
+---
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+  SUPPORT_SHAREABLE : "yes"
+
+#
+#  Default values for all tests
+#
+MAC_PREFIX: "00:03"
+MONITORING_INTERVAL: "10"
+MANAGER_TIMER      : "10"
+
+DATASTORE_CAPACITY_CHECK: "NO"
+
+TM_MAD_CONF:
+  NAME         : "dummy"
+  LN_TARGET    : "NONE"
+  CLONE_TARGET : "SYSTEM"
+  SHARED       : "YES"
+  DS_MIGRATE   : "YES"
+  ALLOW_ORPHANS: "YES"
+

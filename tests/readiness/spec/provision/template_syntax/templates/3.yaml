@@ -1,0 +1,20 @@
+---
+name: 'Dummy'
+
+playbook:
+  - default
+
+defaults:
+  provision:
+    provider_name: 'onprem'
+
+cluster:
+  name: 'Dummy'
+
+networks:
+  - name: 'vpc'
+    vn_mad: 'dummy'
+    bridge: 'br0'
+    provision:
+      sub_cidr: '10.0.1.0/24'
+      var: ${cluster.Dummy.id}-AAAA-${datastore.my_system.id}

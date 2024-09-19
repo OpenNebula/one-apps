@@ -1,0 +1,4 @@
+{
+  "pathConfig": "/etc/one/fireedge/sunstone/sunstone-views.yaml",
+  "pathTemp": "/var/lib/one/sunstone-views.yaml.bk"
+}

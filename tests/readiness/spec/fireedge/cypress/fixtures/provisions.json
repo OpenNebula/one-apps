@@ -1,0 +1,15 @@
+{
+  "aws": {
+    "provisionType": "metal",
+    "providerType": "aws",
+    "templateName": "aws-edge-cluster",
+    "overview": {
+      "name": "AWS Cluster",
+      "description": "AWS provision in Frankfurt"
+    },
+    "inputs": {}
+  },
+  "awsDeleteForm": {
+    "cleanup": true
+  }
+}

@@ -1,0 +1,37 @@
+--- old
++++ new
+@@ -191,22 +191,22 @@
+ DEFAULT_PAGE_LENGTH = 10
+ 
+ SUPPORT = {
+-    :zendesk_url => "https://opennebula.zendesk.com/api/v2",
+-    :custom_field_version => 391130,
+-    :custom_field_severity => 391197,
+-    :author_id => 21231023,
+-    :author_name => "OpenNebula Support Team",
+-    :support_subscription => "http://opennebula.systems/support/",
+-    :account => "http://opennebula.systems/buy/",
+-    :docs => "http://docs.opennebula.org/5.0/",
+-    :community => "http://opennebula.org/support/community/",
+-    :project => "OpenNebula"
++    :zendesk_url => "https://vonecloud.zendesk.com/api/v2",
++    :custom_field_version => 25690381,
++    :custom_field_severity => 25708172,
++    :author_id => 714923401,
++    :author_name => "vOneCloud Support Team",
++    :support_subscription => "http://vonecloud.today/#support",
++    :account => "http://vonecloud.today/#support",
++    :docs => "http://docs.vonecloud.com/",
++    :community => "https://support.vonecloud.com/hc/communities/public/topics",
++    :project => "vOneCloud"
+ }
+ 
+ UPGRADE = {
+     :upgrade => "<span style='color: #0098c3'>Upgrade Available</span>&nbsp;<span style='color:#DC7D24'><i class='fa fa-exclamation-circle'></i></span>",
+-    :no_upgrade => "",
+-    :url => "http://opennebula.org/software/"
++    :no_upgrade => "<span style='color:#0098c3'><i class='fa fa-lg fa-fw fa-desktop'></i>&nbsp;Control Panel</span>",
++    :redirect_port => "8000"
+ }
+ 
+ ##############################################################################

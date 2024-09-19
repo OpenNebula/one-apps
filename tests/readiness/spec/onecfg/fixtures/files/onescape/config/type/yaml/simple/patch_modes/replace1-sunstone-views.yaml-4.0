@@ -1,0 +1,22 @@
+---
+logo: MY CUSTOM LOGO!!!
+users: this will be dropped even without replace
+groups:
+    oneadmin:
+        - 'MY custom admin view'
+        - admin
+        - user
+        - 'MY custom user view'
+default:
+    - cloud
+labels_groups:
+    what:
+        ever:
+            here:
+                will:
+                    be:
+                        replaced:
+                            - in
+                            - 3
+                            - 2
+                            - 1

@@ -1,0 +1,12 @@
+# You can add custom logos here, or disable any of the default ones commenting
+# out its line
+- { 'name': "Alpine Linux",    'path': "images/logos/alpine.png"}
+- { 'name': "ALT",             'path': "images/logos/alt.png"}
+- { 'name': "CustomLinux",    'path': "images/logos/customlinux.png"}
+- { 'name': "FreeBSD",         'path': "images/logos/freebsd.png"}
+- { 'name': "HardenedBSD",     'path': "images/logos/hardenedbsd.png"}
+- { 'name': "Knoppix",         'path': "images/logos/knoppix-logo.png"}
+- { 'name': "Oracle",          'path': "images/logos/oel.png"}
+- { 'name': "SUSE",            'path': "images/logos/suse.png"}
+- { 'name': "Windows 8/2012",  'path': "images/logos/windows8.png"}
+- { 'name': "Windows 10/2016", 'path': "images/logos/windows8.png"}

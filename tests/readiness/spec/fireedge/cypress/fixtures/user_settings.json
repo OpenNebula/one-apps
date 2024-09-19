@@ -1,0 +1,12 @@
+{
+  "langSpanish": "es_ES",
+  "langEnglish": "en",
+  "darkScheme": "dark",
+  "lightScheme": "light",
+  "sshPublicKey": "SSHPublicKeyTest",
+  "sshPrivateKey": "SSHPrivateKeyTest",
+  "sshPassphrase": "SSHPassphraseTest",
+  "viewAdmin": "admin",
+  "viewUser": "user",
+  "defaultEndpoint": "http://localhost:2633/RPC2"
+}

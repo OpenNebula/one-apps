@@ -1,0 +1,4 @@
+{
+  "pathConfig": "/etc/one/fireedge-server.conf",
+  "pathTemp": "/var/lib/one/fireedge-server.conf.bk"
+}

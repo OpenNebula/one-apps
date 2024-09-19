@@ -1,0 +1,71 @@
+---
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  [
+    {
+      NAME      : "monitord",
+      EXECUTABLE: "onemonitord",
+      ARGUMENTS : "-c monitord.conf"
+    }
+  ]
+VM_MAD:
+  [
+    {
+      NAME      : "dummy",
+      EXECUTABLE: "one_vmm_dummy",
+      TYPE      : "xml",
+      LIVE_RESIZE : "yes"
+    },
+    {
+      ARGUMENTS: "-p -t 15 -r 0 one -s sh",
+      EXECUTABLE: "one_vmm_sh",
+      IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+            resume, delete, reboot, reboot-hard, resched, unresched, poweroff,
+            poweroff-hard, disk-attach, disk-detach, nic-attach, nic-detach,
+            snap-create, snap-delete",
+      KEEP_SNAPSHOTS: "no",
+      NAME: "one",
+      SUNSTONE_NAME: "OpenNebula",
+      TYPE: "xml"
+    },
+    {
+      ARGUMENTS: "-p -t 15 -r 0 vcenter -s sh",
+      EXECUTABLE: "one_vmm_sh",
+      IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+            resume, delete, reboot, reboot-hard, resched, unresched, poweroff,
+            poweroff-hard, disk-attach, disk-detach, nic-attach, nic-detach,
+            snap-create, snap-delete, migrate, live-migrate",
+      KEEP_SNAPSHOTS: "yes",
+      NAME: "vcenter",
+      SUNSTONE_NAME: "VMWare vCenter",
+      TYPE: "xml"
+    }
+  ]
+#
+#  Default values for all tests
+#
+MAC_PREFIX: "00:03"
+MONITORING_INTERVAL_DATASTORE: "20"
+MONITORING_INTERVAL_HOST: "10"
+MONITORING_INTERVAL_MARKET: "30"
+MONITORING_INTERVAL_VM: "10"
+MANAGER_TIMER      : "10"
+
+DEFAULT_AUTH: "ldap"
+
+VM_ENCRYPTED_ATTR:
+  - "CONTEXT/ONE_PASSWORD"
+  - "INSERT/ONE_PASSWORD"
+  - "ONE_PASSWORD"
+
+VNET_ENCRYPTED_ATTR:
+  - "AR/CONTEXT/ONE_PASSWORD"
+  - "AR/INSERT/ONE_PASSWORD"
+  - "AR/ONE_PASSWORD"
+  - "CONTEXT/ONE_PASSWORD"
+  - "INSERT/ONE_PASSWORD"
+  - "ONE_PASSWORD"

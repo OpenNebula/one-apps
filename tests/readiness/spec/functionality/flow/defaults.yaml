@@ -1,0 +1,8 @@
+---
+
+:nosched: true
+
+# :oned_conf_extra: Path to additional settings for oned.conf for this tests in
+# yaml format. It should include dummy drivers. See oned.extra.yaml for an example
+
+:oned_conf_extra: flow/oned.extra.yaml

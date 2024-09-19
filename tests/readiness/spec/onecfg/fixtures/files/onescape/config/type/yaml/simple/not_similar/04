@@ -1,0 +1,25 @@
+small_logo: images/opennebula-5.0.png
+provision_logo: images/opennebula-5.0.png
+do_count_animation: true
+enabled_tabs:
+    - dashboard-tab
+    - instances-top-tab
+    - vms-tab
+features:
+    showback: true
+    secgroups: true
+tabs:
+    users-tab:
+        actions:
+            User.refresh: true
+            User.create_dialog: true
+    groups-tab:
+        panel_tabs:
+            group_info_tab: true
+            group_users_tab: true
+        table_columns:
+            - 0
+            - 1
+        actions:
+            Group.refresh: true
+            Group.create_dialog: true

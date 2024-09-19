@@ -1,0 +1,22 @@
+--- 
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_im_dummy"
+VM_MAD:
+  NAME      : "dummy"
+  EXECUTABLE: "one_vmm_dummy"
+  TYPE      : "xml"
+#
+#  Default values for all tests
+#
+MAC_PREFIX: "00:03"
+MONITORING_INTERVAL: "10"
+MANAGER_TIMER      : "10"
+
+DEFAULT_AUTH: "ldap"
+

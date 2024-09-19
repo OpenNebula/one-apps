@@ -1,0 +1,10 @@
+{
+    "email": "infra@opennebula.systems",
+    "user": "Jenkins Tests",
+    "pass": "unt3s1t0!",
+    "token": "139772ae:_l_xOwAw",
+    "subject": "Jenkins Test",
+    "description": "Testing...",
+    "severity": "severity_3",
+    "commentSolved": "Solved..."
+}

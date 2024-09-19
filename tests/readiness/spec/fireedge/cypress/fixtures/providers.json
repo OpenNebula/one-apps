@@ -1,0 +1,28 @@
+{
+  "aws": {
+    "provisionType": "metal",
+    "providerType": "aws",
+    "templateName": "aws-frankfurt",
+    "overview": {
+      "name": "AWS Frankfurt",
+      "description": "Elastic cluster on AWS in Frankfurt"
+    },
+    "connection": {
+      "access_key": "access key",
+      "secret_key": "secret access key"
+    }
+  },
+  "awsEdited": {
+    "provisionType": "metal",
+    "providerType": "aws",
+    "templateName": "aws-frankfurt",
+    "overview": {
+      "name": "AWS Frankfurt",
+      "description": "Elastic cluster on AWS in Frankfurt edited!"
+    },
+    "connection": {
+      "access_key": "access key edited",
+      "secret_key": "secret access key edited"
+    }
+  }
+}

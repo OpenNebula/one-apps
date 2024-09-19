@@ -1,0 +1,8 @@
+# This file describes which Sunstone views are available according to the
+# primary group a user belongs to
+groups:
+    oneadmin:
+        - admin
+        - user
+default:
+    - user

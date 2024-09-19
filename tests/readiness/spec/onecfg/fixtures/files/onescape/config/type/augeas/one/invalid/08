@@ -1,0 +1,6 @@
+# Structure error:
+# Multiple identifications for section
+
+TM_MAD_CONF = [
+    NAME="lvm", NAME="lvm", LN_TARGET = "NONE", CLONE_TARGET = "SELF", SHARED = "YES"
+]

@@ -1,0 +1,18 @@
+---
+IM_MAD:
+  NAME      : "monitord"
+  EXECUTABLE: "onemonitord"
+  ARGUMENTS : "-c monitord.conf"
+
+VM_MAD:
+    NAME: "ec2"
+    SUNSTONE_NAME: "Amazon EC2"
+    EXECUTABLE: "one_vmm_sh"
+    ARGUMENTS: "-t 15 -r 0 -w 600 -p ec2"
+    TYPE: "xml"
+    KEEP_SNAPSHOTS: "no"
+    IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+        resume, delete, reboot, reboot-hard, resched, unresched, poweroff,
+        poweroff-hard, disk-attach, disk-detach, nic-attach, nic-detach,
+        snap-create, snap-delete"
+#-------------------------------------------------------------------------------

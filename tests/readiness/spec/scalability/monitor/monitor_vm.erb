@@ -1,0 +1,13 @@
+<% 16.times { |i| -%>
+<%   vm_id = @id.to_i*16 + i -%>
+<% mon_s = "MEMORY=#{rand(256)}
+CPU=#{rand(100)}
+NETRX=#{rand(100000000)}
+NETTX=#{rand(100000000)}
+DISKRDBYTES=#{rand(1000)}
+DISKWRBYTES=#{rand(1000)}
+DISKRDIOPS=#{rand(1000)}
+DISKWRIOPS=#{rand(1000)}" -%>
+<% str64 = Base64.strict_encode64(mon_s) -%>
+VM = [ ID=<%= vm_id %>, UUID=one-<%= vm_id%>, MONITOR="<%= str64 %>" ]
+<% } -%>

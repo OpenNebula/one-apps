@@ -1,0 +1,66 @@
+--- 
+#  This values will be merged with oned.conf
+#  **IMPORTANT**: All values must be strings in double quotes
+#
+#
+#  Drivers are removed from stock configurations this need to be added
+IM_MAD:
+  [
+    {
+      NAME      : "dummy",
+      EXECUTABLE: "one_im_dummy"
+    },
+    {
+      ARGUMENTS: "-c -t 15 -r 0 one",
+      EXECUTABLE: "one_im_sh",
+      NAME: "one",
+      SUNSTONE_NAME: "OpenNebula"
+    },
+    {
+      ARGUMENTS: "-c -t 15 -r 0 vcenter",
+      EXECUTABLE: "one_im_sh",
+      NAME: "vcenter",
+      SUNSTONE_NAME: "VMWare vCenter"
+    }
+  ]
+VM_MAD:
+  [
+    {
+      NAME      : "dummy",
+      EXECUTABLE: "one_vmm_dummy",
+      TYPE      : "xml"
+    },
+    {
+      ARGUMENTS: "-p -t 15 -r 0 one -s sh",
+      EXECUTABLE: "one_vmm_sh",
+      IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+            resume, delete, reboot, reboot-hard, resched, unresched, poweroff,
+            poweroff-hard, disk-attach, disk-detach, nic-attach, nic-detach,
+            snap-create, snap-delete",
+      KEEP_SNAPSHOTS: "no",
+      NAME: "one",
+      SUNSTONE_NAME: "OpenNebula",
+      TYPE: "xml"
+    },
+    {
+      ARGUMENTS: "-p -t 15 -r 0 vcenter -s sh",
+      EXECUTABLE: "one_vmm_sh",
+      IMPORTED_VMS_ACTIONS: "terminate, terminate-hard, hold, release, suspend,
+            resume, delete, reboot, reboot-hard, resched, unresched, poweroff,
+            poweroff-hard, disk-attach, disk-detach, nic-attach, nic-detach,
+            snap-create, snap-delete, migrate, live-migrate",
+      KEEP_SNAPSHOTS: "yes",
+      NAME: "vcenter",
+      SUNSTONE_NAME: "VMWare vCenter",
+      TYPE: "xml"
+    }
+  ]
+#
+#  Default values for all tests
+#
+MAC_PREFIX: "00:03"
+MONITORING_INTERVAL: "10"
+MANAGER_TIMER      : "10"
+
+DEFAULT_AUTH: "ldap"
+

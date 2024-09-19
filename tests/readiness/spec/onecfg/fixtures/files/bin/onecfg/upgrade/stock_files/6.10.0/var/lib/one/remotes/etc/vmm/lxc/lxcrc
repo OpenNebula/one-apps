@@ -1,0 +1,45 @@
+##############################################################################
+# VNC Options
+##############################################################################
+#
+# Options to customize the VNC access to the container:
+#   - :command: to be executed in the VNC terminal.
+#   - :width: of the terminal
+#   - :height: of the terminal
+#   - :timeout: seconds to close the terminal if no input has been received
+:vnc:
+  :command: 'sudo lxc-console'
+  :width: 800
+  :height: 600
+  :timeout: 300
+
+################################################################################
+# OpenNebula Configuration Options
+################################################################################
+#
+# Default path for the datastores. This only need to be change if the
+# corresponding value in oned.conf has been modified.
+:datastore_location: /var/lib/one/datastores
+#
+# Path to the LXC default configuration file. This file will be included in
+# the configuration of every LXC container (lxc.include)
+:default_lxc_config: /usr/share/lxc/config/common.conf
+
+################################################################################
+# Container storage interface mount options
+################################################################################
+#
+# Options to customize the mounting process of the container disks
+#   :bindfs: arguments passed to bindfs -o <opts>
+#   :dev_<fs>: Mount options for disk devices (in the host). Options are set per
+#     fs type (e.g. dev_xfs, dev_ext3...)
+#   :disk: Mount options for data DISK (lxc.mount.entry).
+#   :rootfs: Mount options for root fs (lxc.rootfs.options)
+#   :mountpoint: Default Path to mount data disk in the container. This can be
+#      set per DISK using the TARGET attribute.
+:mountopts:
+    :bindfs: 'suid'
+    :dev_xfs: 'nouuid'
+    :disk: 'rbind,create=dir,optional'
+    :rootfs: ''
+    :mountpoint: 'media/one-disk.$id'

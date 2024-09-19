@@ -1,0 +1,54 @@
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2022, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+<!--
+ Default configuration attributes for the Azure driver
+ (all domains will use these values as defaults)
+ Valid attributes are: LOCATION, INSTANCE_TYPE, IMAGE_PUBLISHER, IMAGE_OFFER,
+ IMAGE_SKU, IMAGE_VERSION, VM_USER, VM_PASSWORD, VIRTUAL_NETWORK_NAME,
+ PUBLIC_IP, VNET_NAME, VNET_ADDR_PREFIX, VNET_DNS, VNET_SUBNAME,
+ VNET_SUB_PREFIX,
+ Use XML syntax to specify defaults, note elements are UPCASE
+ Example:
+ <TEMPLATE>
+   <AZURE>
+     # mandatory attributes
+     <LOCATION>westeurope</LOCATION>
+     <INSTANCE_TYPE>Standard_B1ls</INSTANCE_TYPE>
+     <IMAGE_PUBLISHER>canonical</IMAGE_PUBLISHER>
+     <IMAGE_OFFER>UbuntuServer</IMAGE_OFFER>
+     <IMAGE_SKU>18.04.0-LTS</IMAGE_SKU>
+     <IMAGE_VERSION>latest</IMAGE_VERSION>
+     <VM_USER>one</VM_USER>
+     <VM_PASSWORD>Q2ejfz$Cbzf</VM_PASSWORD>
+
+     # optional attributes
+     <VIRTUAL_NETWORK_NAME></VIRTUAL_NETWORK_NAME>
+     <PUBLIC_IP>YES</PUBLIC_IP>
+     <VNET_NAME>one-vnet</VNET_NAME>
+     <VNET_ADDR_PREFIX>10.0.0.0/16</VNET_ADDR_PREFIX>
+     <VNET_DNS>8.8.8.8</VNET_DNS>
+     <VNET_SUBNAME>default</VNET_SUBNAME>
+     <VNET_SUB_PREFIX>10.0.0.0/24</VNET_SUB_PREFIX>
+   </AZURE>
+ </TEMPLATE>
+-->
+
+<TEMPLATE>
+  <AZURE>
+     <LOCATION>westeurope</LOCATION>
+     <INSTANCE_TYPE>Standard_B1ls</INSTANCE_TYPE>
+  </AZURE>
+</TEMPLATE>

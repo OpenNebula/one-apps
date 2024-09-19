@@ -1,0 +1,265 @@
+---
+#:debug: true
+:rspec_disable_logs_on_error: true
+:template: base
+:default_url: http://services/images/
+:tests:
+  'alpine317':
+    :image_name: alpine317.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'alpine318':
+    :image_name: alpine318.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'alpine319':
+    :image_name: alpine319.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'alpine320':
+    :image_name: alpine320.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'alt10':
+    :image_name: alt10.qcow2
+    :type: linux
+    :microenvs: ['context-kvm']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+    :dev_prefixes: ['vd'] # alt linux fstab and initramfs use UUID based disks. Only works with virtio
+  'alma8':
+    :image_name: alma8.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'alma9':
+    :image_name: alma9.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'amazon2':
+    :image_name: amazon2.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'amazon2023':
+    :image_name: amazon2023.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'rhel8':
+    :image_name: rhel8.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'rhel9':
+    :image_name: rhel9.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'fedora38':
+    :image_name: fedora38.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'fedora39':
+    :image_name: fedora39.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'fedora40':
+    :image_name: fedora40.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'opensuse15':
+    :image_name: opensuse15.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'debian11':
+    :image_name: debian11.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-vcenter']
+    :slow: true
+  'debian12':
+    :image_name: debian12.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-vcenter']
+    :slow: true
+  'devuan4':
+    :image_name: devuan4.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'devuan5':
+    :image_name: devuan5.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'rocky8':
+    :image_name: rocky8.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'rocky9':
+    :image_name: rocky9.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :slow: true
+  'ubuntu2004':
+    :image_name: ubuntu2004.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'ubuntu2204':
+    :image_name: ubuntu2204.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'ubuntu2404':
+    :image_name: ubuntu2404.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd', 'context-lxc', 'context-vcenter']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'ubuntu2004min':
+    :image_name: ubuntu2004min.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd']
+  'ubuntu2204min':
+    :image_name: ubuntu2204min.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd']
+  'ubuntu2404min':
+    :image_name: ubuntu2404min.qcow2
+    :type: linux
+    :microenvs: ['context-kvm', 'context-lxd']
+  'freebsd13':
+    :image_name: freebsd13.qcow2
+    :type: linux
+    :microenvs: ['context-kvm']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'freebsd14':
+    :image_name: freebsd14.qcow2
+    :type: linux
+    :microenvs: ['context-kvm']
+    :enable_netcfg_common: True
+    :enable_netcfg_ip_methods: True
+  'windows2022':
+    :image_name: windows2022.qcow2
+    :type: windows
+    :microenvs: ['context-kvm', 'context-vcenter']
+    :user: oneadmin
+    :pass: 0p3nN3bul4
+    :slow: true
+    :enable_netcfg_ip_methods: True
+    :enable_basic: True
+    :enable_growfs: True
+  'windows10':
+    :image_name: windows10.qcow2
+    :type: windows
+    :microenvs: ['context-kvm', 'context-vcenter']
+    :user: oneadmin
+    :pass: opennebula
+    :slow: true
+    :enable_netcfg_ip_methods: True
+    :enable_basic: True
+    :enable_growfs: True
+  'windows11':
+    :image_name: windows11.qcow2
+    :type: windows
+    :microenvs: ['context-kvm', 'context-vcenter']
+    :slow: true
+    :user: oneadmin
+    :pass: opennebula
+    :enable_netcfg_ip_methods: True
+    :enable_basic: True
+    :enable_growfs: True
+  # Images with Applications
+  'service_Wordpress':
+    :image_name: service_Wordpress.qcow2
+    :type: service_Wordpress
+    :microenvs: ['context-kvm']
+  'service_VRouter':
+    :image_name: service_VRouter.qcow2
+    :type: service_VRouter
+    :microenvs: ['context-kvm', 'context-lxd']
+  'service_Harbor':
+    :image_name: service_Harbor.qcow2
+    :type: service_Harbor
+    :microenvs: ['context-kvm']
+:oneadmin: oneadmin
+:hosts:
+  - '%HOST0%'
+:xpath_pub_nic: "TEMPLATE/NIC[1]"
+
+# network used for NIC (alias) attach tests
+:network_attach: 'private'
+
+# check DNS is configured (not trying to resolve on its own via resolved)
+:resolve_names:
+  - services
+  - www.google.com
+
+# Datastores used to perform import tests.
+# WARNING: a MOREF must be provided
+:datastore_name: "default"               #Replace with datastore's name for kvm and lxd
+:datastore_name_vcenter: ['nfs(IMG)']
+:datastore_name_vcenter_fast: ['nfs(IMG)']
+
+# info for address range associated to default network
+:gateway: "10.0.0.5"  # Replace with gateway for VMs
+:net_mask: "255.0.0.0"
+:dns: "172.20.0.1"
+:ar_size: 20
+:ar_ip4_range: "10.202.0.100"
+
+# vcenter credentials
+:vcenter: 192.168.150.2
+:vuser: 'administrator@vsphere.local'
+:vpass: 'Pantufl4.'
+
+:vcenter_template: "corelinux7_x86_64"
+:template_ref: "vm-3018"
+
+:vcenter_template_windows: "windows_x86_64"
+
+:void_template: "void_template"
+:void_template_ref: "vm-3024"
+
+:cluster: "Cluster"     #Replace with vcenter cluster's name
+
+# vCenter network used to perform import tests (standard port group)
+# WARNING: a MOREF must be provided
+:pg_network: "VM Network"       #Name of default port group
+:pg_network_ref: "network-2022"   #Replace with vcenter port group's MOREF
+
+:xuser: 'root'
+:xpass: 'DridiatLy!'
+
+:datacenter: "Datacenter"

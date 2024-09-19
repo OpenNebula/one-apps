@@ -1,0 +1,20 @@
+:tmpdir: /var/tmp
+
+INVALID
+
+:one_xmlrpc: http://localhost:2633/RPC2
+:one_xmlrpc_timeout: 60
+
+:host: 0.0.0.0
+:port: 9869
+
+:memcache_host: localhost
+:memcache_port: 11211
+:memcache_namespace: opennebula.sunstone
+
+:debug_level: 3
+
+:routes:
+    - oneflow
+    - vcenter
+    - support
