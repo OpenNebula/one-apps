@@ -1,0 +1,28 @@
+#cloud-config
+growpart:
+  mode: auto
+  devices: [/]
+
+users:
+  - name: root
+    lock_passwd: false
+    hashed_passwd: $6$rounds=4096$2RFfXKGPKTcdF.CH$dzLlW9Pg1jbeojxRxEraHwEMAPAbpChBdrMFV1SOa6etSF2CYAe.hC1dRDM1icTOk7M4yhVS1BtwJjah9essD0
+
+disable_root: false
+ssh_pwauth: true
+
+runcmd:
+  - |
+    gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
+    BEGIN { update = "PermitRootLogin yes" }
+    /^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
+    { print }
+    ENDFILE { if (!found) print update }
+    EOF
+  - |
+    gawk -i inplace -f- /etc/ssh/sshd_config.d/*-cloudimg-settings.conf <<'EOF'
+    BEGIN { update = "PasswordAuthentication yes" }
+    /^PasswordAuthentication\s/ { $0 = update }
+    { print }
+    EOF
+  - systemctl reload sshd || systemctl reload ssh

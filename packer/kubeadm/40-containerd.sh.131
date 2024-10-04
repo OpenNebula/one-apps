@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+: "${CNI_PLUGINS_VERSION:=1.5.1}"
+: "${CONTAINERD_VERSION:=1.7.22}"
+: "${RUNC_VERSION:=1.1.14}"
+
+exec 1>&2
+set -eux -o pipefail
+
+install -m u=rwx,go=rx -d /etc/containerd/ /opt/cni/{,bin/}
+
+curl -fsSL "https://github.com/opencontainers/runc/releases/download/v$RUNC_VERSION/runc.amd64" \
+| install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/runc
+
+curl -fsSL "https://github.com/containernetworking/plugins/releases/download/v$CNI_PLUGINS_VERSION/cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz" \
+| tar -xz -f- -C /opt/cni/bin/ --no-same-owner \
+  ./bandwidth \
+  ./bridge \
+  ./dhcp \
+  ./dummy \
+  ./firewall \
+  ./host-device \
+  ./host-local \
+  ./ipvlan \
+  ./loopback \
+  ./macvlan \
+  ./portmap \
+  ./ptp \
+  ./sbr \
+  ./static \
+  ./tap \
+  ./tuning \
+  ./vlan \
+  ./vrf
+
+curl -fsSL "https://github.com/containerd/containerd/releases/download/v$CONTAINERD_VERSION/containerd-static-$CONTAINERD_VERSION-linux-amd64.tar.gz" \
+| tar -xz -f- -C /usr/local/bin/ --strip-components=1 --no-same-owner \
+  bin/containerd \
+  bin/containerd-shim \
+  bin/containerd-shim-runc-v1 \
+  bin/containerd-shim-runc-v2 \
+  bin/containerd-stress \
+  bin/ctr
+
+curl -fsSL "https://raw.githubusercontent.com/containerd/containerd/v$CONTAINERD_VERSION/containerd.service" \
+| install -m u=rw,go=r /dev/fd/0 /etc/systemd/system/containerd.service
+
+systemctl daemon-reload
+
+(containerd config default | gawk -f /dev/fd/3 | install -m u=rw,go=r /dev/fd/0 /etc/containerd/config.toml) 3<<'AWK'
+{ print gensub("^(\\s*SystemdCgroup\\s*)=.*$", "\\1= true", 1) }
+AWK
+
+systemctl enable containerd --now # must be started to pre-pull images in later stages
+
+sync

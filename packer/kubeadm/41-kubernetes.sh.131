@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+: "${CRICTL_VERSION:=1.31.1}"
+: "${HELM_VERSION:=3.16.0}"
+: "${KUBERNETES_RELEASE_VERSION:=0.17.8}"
+: "${KUBERNETES_VERSION:=1.31.1}"
+: "${KUBEVIP_CLOUD_PROVIDER_VERSION:=0.0.10}"
+: "${KUBEVIP_VERSION:=0.8.3}"
+
+exec 1>&2
+set -eux -o pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get install -y conntrack socat # required by kubeadm
+
+install -m u=rw,go=r /dev/fd/0 /etc/modules-load.d/k8s.conf <<'EOF'
+overlay
+br_netfilter
+EOF
+
+install -m u=rw,go=r /dev/fd/0 /etc/sysctl.d/k8s.conf <<'EOF'
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+install -m u=rwx,go=rx -d /etc/systemd/system/kubelet.service.d/
+
+curl -fsSL "https://get.helm.sh/helm-v$HELM_VERSION-linux-amd64.tar.gz" \
+| tar -xz -f- -C /usr/local/bin/ --strip-components=1 --no-same-owner \
+  linux-amd64/helm
+
+curl -fsSL "https://github.com/kubernetes-sigs/cri-tools/releases/download/v$CRICTL_VERSION/crictl-v$CRICTL_VERSION-linux-amd64.tar.gz" \
+| tar -xz -f- -C /usr/local/bin/ --no-same-owner \
+  crictl
+
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubectl" \
+| install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubectl
+
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubeadm" \
+| install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubeadm
+
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubelet" \
+| install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubelet
+
+ln -s /usr/local/bin/kubelet /usr/bin/kubelet # so no modifications are needed in kubelet.service
+
+curl -fsSL "https://raw.githubusercontent.com/kubernetes/release/v$KUBERNETES_RELEASE_VERSION/cmd/krel/templates/latest/kubelet/kubelet.service" \
+| install -m u=rw,go=r /dev/fd/0 /etc/systemd/system/kubelet.service
+
+curl -fsSL "https://raw.githubusercontent.com/kubernetes/release/v$KUBERNETES_RELEASE_VERSION/cmd/krel/templates/latest/kubeadm/10-kubeadm.conf" \
+| install -m u=rw,go=r /dev/fd/0 /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+
+systemctl daemon-reload
+
+kubeadm config images pull "--kubernetes-version=v$KUBERNETES_VERSION"
+
+ctr image pull "ghcr.io/kube-vip/kube-vip:v$KUBEVIP_VERSION"
+ctr image pull "ghcr.io/kube-vip/kube-vip-cloud-provider:v$KUBEVIP_CLOUD_PROVIDER_VERSION"
+
+install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kube-vip <<EOF
+#!/usr/bin/env bash
+exec ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v$KUBEVIP_VERSION vip /kube-vip "$$@"
+EOF
+
+install -m u=rw,go=r /dev/fd/0 /etc/profile.d/kubeconfig.sh <<'EOF'
+export KUBECONFIG=/etc/kubernetes/admin.conf
+EOF
+
+sync
