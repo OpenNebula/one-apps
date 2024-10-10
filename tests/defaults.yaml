@@ -44,7 +44,7 @@
       :type: windows
       :user: oneadmin
       :pass: opennebula
-  :services:
+  :services: # service apps are assumed to be linux based
     'service_Wordpress':
     'service_VRouter':
     'service_Harbor':
