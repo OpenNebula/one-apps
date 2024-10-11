@@ -80,7 +80,7 @@ ONEAPP_MINIO_MULTI="${ONEAPP_MINIO_MULTI:-NO}"
 
 ### Globals ##########################################################
 
-MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20240510014138.0.0_amd64.deb"
+MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20241002175041.0.0_amd64.deb"
 CERTGEN_VERSION="https://github.com/minio/certgen/releases/download/v1.2.1/certgen_1.2.1_linux_amd64.deb"
 
 MINIO_CERTS_DIR=""
