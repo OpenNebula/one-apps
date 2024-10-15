@@ -27,8 +27,10 @@ ONE_SERVICE_PARAMS=(
     'ONEAPP_MINIO_ROOT_PASSWORD'       'configure'  'MinIO root user password for MinIO server'                     'O|password'
     'ONEAPP_MINIO_OPTS'                'configure'  'Additional commandline options for MinIO server'               'O|text'
     'ONEAPP_MINIO_HOSTNAME'            'configure'  'MinIO hostname for TLS certificate'                            'O|text'
+    'ONEAPP_MINIO_TLS_ENABLED'         'configure'  'Enable TLS configuration'                                      'O|boolean'
     'ONEAPP_MINIO_TLS_CERT'            'configure'  'MinIO TLS certificate (.crt)'                                  'O|text64'
     'ONEAPP_MINIO_TLS_KEY'             'configure'  'MinIO TLS key (.key)'                                          'O|text64'
+    'ONEAPP_MINIO_MULTI'               'configure'  'MinIO Multi-Node configuration'                                'O|boolean'
 )
 
 
@@ -73,11 +75,16 @@ ONEAPP_MINIO_ROOT_USER="${ONEAPP_MINIO_ROOT_USER:-myminioadmin}"
 ONEAPP_MINIO_ROOT_PASSWORD="${ONEAPP_MINIO_ROOT_PASSWORD:-minio-secret-key-change-me}"
 ONEAPP_MINIO_OPTS="${ONEAPP_MINIO_OPTS:---console-address :9001}"
 ONEAPP_MINIO_HOSTNAME="${ONEAPP_MINIO_HOSTNAME:-localhost,minio-*.example.net}"
+ONEAPP_MINIO_TLS_ENABLED="${ONEAPP_MINIO_TLS_ENABLED:-YES}"
+ONEAPP_MINIO_MULTI="${ONEAPP_MINIO_MULTI:-NO}"
 
 ### Globals ##########################################################
 
-MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20240510014138.0.0_amd64.deb"
+MINIO_VERSION="https://dl.min.io/server/minio/release/linux-amd64/archive/minio_20241002175041.0.0_amd64.deb"
 CERTGEN_VERSION="https://github.com/minio/certgen/releases/download/v1.2.1/certgen_1.2.1_linux_amd64.deb"
+
+MINIO_CERTS_DIR=""
+MINIO_PROTOCOL="http"
 
 ###############################################################################
 ###############################################################################
@@ -114,7 +121,12 @@ service_install()
 # Start MinIO-volumes
 # End MinIO-volumes
 EOF
-
+    # add MinIO section to hosts
+    msg info "Add MinIO section to hosts"
+    cat >> /etc/hosts <<EOF
+# Start MinIO hosts
+# End MinIO hosts
+EOF
     # service metadata
     create_one_service_metadata
 
@@ -167,33 +179,59 @@ service_configure()
     #  If TLS certificate and key are provided from contextualization, use those. Otherwise, if
     #  defaults are detected, generate new certificate and key using MinIO certgen tool.
     #  Place the certificates in /opt/minio/certs. Ownership must be given to minio-user.
-    local_minio_certs="/opt/minio/certs"
+    local_minio_certs_path="/opt/minio/certs"
 
-    if [[ -f "${local_minio_certs}/public.crt" ]] || [[ -f "${local_minio_certs}/private.key" ]]; then
-        msg info "Certificates already exist. Skipping."
-    else
-        if [[ ! -d "${local_minio_certs}" ]]; then
-            msg info "Create folder for TLS certificates: ${local_minio_certs}"
-            mkdir -p ${local_minio_certs}
-        else
-            msg info "Folder for TLS certificates exists. Skipping."
-        fi
+    if [[ ${ONEAPP_MINIO_TLS_ENABLED} =~ ^(yes|YES)$ ]]; then
+        MINIO_CERTS_DIR="--certs-dir ${local_minio_certs_path}"
+        MINIO_PROTOCOL="https"
 
-        if [[ -z "${ONEAPP_MINIO_TLS_CERT}" ]] || [[ -z "${ONEAPP_MINIO_TLS_KEY}" ]]; then
-            msg info "Autogenerating TLS certificates..."
-            generate_tls_certs
+        if [[ -f "${local_minio_certs_path}/public.crt" ]] || [[ -f "${local_minio_certs_path}/private.key" ]]; then
+            msg info "Certificates already exist. Skipping."
         else
-            msg info "Configuring provided TLS certificates..."
-            echo ${ONEAPP_MINIO_TLS_CERT} | base64 --decode >> /opt/minio/certs/public.crt
-            echo ${ONEAPP_MINIO_TLS_KEY} | base64 --decode >> /opt/minio/certs/private.key
+            msg info "Create folder for TLS certificates: ${local_minio_certs_path}"
+            mkdir -p ${local_minio_certs_path}
+
+            if [[ -z "${ONEAPP_MINIO_TLS_CERT}" ]] || [[ -z "${ONEAPP_MINIO_TLS_KEY}" ]]; then
+                msg info "Autogenerating TLS certificates..."
+                generate_tls_certs
+            else
+                msg info "Configuring provided TLS certificates..."
+                echo ${ONEAPP_MINIO_TLS_CERT} | base64 --decode >> /opt/minio/certs/public.crt
+                echo ${ONEAPP_MINIO_TLS_KEY} | base64 --decode >> /opt/minio/certs/private.key
+            fi
+            msg info "Give ownership of /opt/minio to minio-user"
+            chown -R minio-user:minio-user /opt/minio
         fi
-        msg info "Give ownership of /opt/minio to minio-user"
-        chown -R minio-user:minio-user /opt/minio
     fi
 
-    # Edit MinIO environment variable file
-    if (( local_drives_count > 1 )); then
+
+    # If Multi-Node deployment, edit MinIO volumes
+    if [[ ${ONEAPP_MINIO_MULTI} =~ ^(yes|YES)$ ]]; then
+        local_subdomain=$(awk -F. '{ print $1 }' <<< "$ONEAPP_MINIO_HOSTNAME")
+        local_domain=$(sed -e "s/[^.]*//" <<< "$ONEAPP_MINIO_HOSTNAME")
+        # Dynamically create hosts entries on /etc/hosts, getting IP for each node from onegate
+        # Do this before updating env file, so MinIO can connect to other nodes
+        # Get array of nodes IDs from MinIO role on service
+        local_nodes=($(onegate service show --json | jq -r '.SERVICE.roles[] | select(.name=="MinIO").nodes[].deploy_id'))
+        # For each node, get IP and create entry using MinIO Multi-Node notation
+        i=1
+        for node in "${local_nodes[@]}"
+        do
+            local_ip=$(onegate vm show ${node} --json | jq -r '.VM.TEMPLATE.NIC[].IP')
+            local_hosts+="${local_ip} ${local_subdomain}$((i))${local_domain}\n"
+            i=$((i + 1))
+        done
+        msg info "Adding MinIO hostnames to /etc/hosts"
+        sed -i "/# End MinIO hosts/i ${local_hosts}" /etc/hosts
+
+        local_cardinality=$(onegate service show -j | jq -r '.SERVICE.roles[] | select(.name=="MinIO").cardinality')
+        local_minio_volumes="${MINIO_PROTOCOL}://${local_subdomain}{1...$((local_cardinality))}${local_domain}:9000/mnt/disk-{1...$((local_drives_count))}/minio"
+
+        update_environment_variable_file ${local_minio_volumes}
+    # Single-Node Multi-Drive
+    elif (( local_drives_count > 1 )); then
         update_environment_variable_file "/mnt/disk-{1...$((local_drives_count))}"
+    # Single-Node Single-Drive
     else
         update_environment_variable_file "${folder}"
     fi
@@ -291,7 +329,8 @@ ExecStart=/usr/local/bin/minio server $MINIO_OPTS $MINIO_VOLUMES
 # Type=notify
 
 # Let systemd restart this service always
-Restart=always
+Restart=on-failure
+RestartSec=5s
 
 # Specifies the maximum file descriptor number that can be opened by this process
 LimitNOFILE=65536
@@ -364,12 +403,15 @@ generate_tls_certs()
         msg info "Error generating TLS certificate. Resuming..."
     fi
 
-    msg info "Give ownership of certificates to minio-user"
+    msg info "Change ownership of certificates to minio-user"
     chown minio-user:minio-user private.key public.crt
 
     cd /root
 }
 
+# Updates the /etc/default/minio configuration file
+# Accepted parameters:
+#   - ${1} -> MINIO_VOLUMES
 update_environment_variable_file()
 {
     msg info "Update MinIO root user"
@@ -379,7 +421,7 @@ update_environment_variable_file()
     msg info "Update MinIO volumes"
     sed -i "s|^MINIO_VOLUMES\\s*=.*|MINIO_VOLUMES=\"${1}\"|" /etc/default/minio
     msg info "Update MinIO opts"
-    sed -i "s|^MINIO_OPTS\\s*=.*|MINIO_OPTS=\"${ONEAPP_MINIO_OPTS} --certs-dir /opt/minio/certs\"|" /etc/default/minio
+    sed -i "s|^MINIO_OPTS\\s*=.*|MINIO_OPTS=\"${ONEAPP_MINIO_OPTS} ${MINIO_CERTS_DIR}\"|" /etc/default/minio
 
     msg info "Restart minio service"
     systemctl restart minio
