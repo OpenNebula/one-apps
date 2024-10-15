@@ -121,7 +121,12 @@ service_install()
 # Start MinIO-volumes
 # End MinIO-volumes
 EOF
-    edit_hosts
+    # add MinIO section to hosts
+    msg info "Add MinIO section to hosts"
+    cat >> /etc/hosts <<EOF
+# Start MinIO hosts
+# End MinIO hosts
+EOF
     # service metadata
     create_one_service_metadata
 
@@ -183,12 +188,8 @@ service_configure()
         if [[ -f "${local_minio_certs_path}/public.crt" ]] || [[ -f "${local_minio_certs_path}/private.key" ]]; then
             msg info "Certificates already exist. Skipping."
         else
-            if [[ ! -d "${local_minio_certs_path}" ]]; then
-                msg info "Create folder for TLS certificates: ${local_minio_certs_path}"
-                mkdir -p ${local_minio_certs_path}
-            else
-                msg info "Folder for TLS certificates exists. Skipping."
-            fi
+            msg info "Create folder for TLS certificates: ${local_minio_certs_path}"
+            mkdir -p ${local_minio_certs_path}
 
             if [[ -z "${ONEAPP_MINIO_TLS_CERT}" ]] || [[ -z "${ONEAPP_MINIO_TLS_KEY}" ]]; then
                 msg info "Autogenerating TLS certificates..."
@@ -387,16 +388,6 @@ MINIO_OPTS="--console-address :9001"
 EOF
 }
 
-edit_hosts()
-{
-    # add MinIO section to hosts
-    msg info "Add MinIO section to fstab"
-    cat >> /etc/hosts <<EOF
-# Start MinIO hosts
-# End MinIO hosts
-EOF
-}
-
 generate_tls_certs()
 {
     if [[ -z "${ONEAPP_MINIO_HOSTNAME}" ]]; then
@@ -412,7 +403,7 @@ generate_tls_certs()
         msg info "Error generating TLS certificate. Resuming..."
     fi
 
-    msg info "Give ownership of certificates to minio-user"
+    msg info "Change ownership of certificates to minio-user"
     chown minio-user:minio-user private.key public.crt
 
     cd /root
