@@ -66,71 +66,44 @@ build {
   ##############################################
 
   provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
     inline = [
-      "mkdir -p /etc/one-appliance/service.d",
-      "chmod 0750 /etc/one-appliance",
-      "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/"
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=   -d /etc/one-appliance/{,service.d/,lib/}",
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=rx -d /opt/one-appliance/{,bin/}",
     ]
   }
 
-  # Script Required by a further step
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-90.sh"
-    destination = "/etc/one-appliance/net-90"
+    sources = [
+      "appliances/scripts/net-90-service-appliance",
+      "appliances/scripts/net-99-report-ready",
+    ]
+    destination = "/etc/one-appliance/"
   }
 
-  # Script Required by a further step
+  # Bash libraries at appliances/lib for easier custom implementation in bash logic
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-99.sh"
-    destination = "/etc/one-appliance/net-99"
+    sources = [
+      "appliances/lib/common.sh",
+      "appliances/lib/functions.sh",
+    ]
+    destination = "/etc/one-appliance/lib/"
   }
 
   # Contains the appliance service management tool
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#appliance-life-cycle
   provisioner "file" {
-    source      = "appliances/legacy/service"
+    source      = "appliances/service.sh"
     destination = "/etc/one-appliance/service"
   }
-
-  # Bash library for easier custom implementation in bash logic
+  # Pull your own custom logic here. Must be called appliance.sh if using bash tools
   provisioner "file" {
-    source      = "appliances/legacy/lib/common.sh"
-    destination = "/etc/one-appliance/service.d/common.sh"
+    sources     = ["appliances/example/appliance.sh"]
+    destination = "/etc/one-appliance/service.d/"
   }
 
-  # Bash library for easier custom implementation in bash logic
-  provisioner "file" {
-    source      = "appliances/legacy/lib/functions.sh"
-    destination = "/etc/one-appliance/service.d/functions.sh"
-  }
-
-  # required by common.sh
-  provisioner "file" {
-    source      = "appliances/legacy/lib/context-helper.py"
-    destination = "/opt/one-appliance/bin/context-helper"
-  }
-
-  # The newer ruby logic libraries can be used instead of bash.
-  # Note bash handlers are located at ./appliances/legacy and ./appliances/legacy/lib
-
-  // provisioner "file" {
-  //   sources = [
-  //     "appliances/service",
-  //     "appliances/scripts/net-90",
-  //     "appliances/scripts/net-99",
-  //   ]
-  //   destination = "/etc/one-appliance/"
-  // }
-  // provisioner "file" {
-  //   sources     = ["appliances/lib/helpers.rb"]
-  //   destination = "/etc/one-appliance/lib/"
-  // }
-
-  # Pull your own custom logic here
-  provisioner "file" {
-    source      = "appliances/example/example.sh" # location of the file in the git repo. Flexible
-    destination = "/etc/one-appliance/service.d/appliance.sh" # path in the Guest OS. Strict, always the same
+  provisioner "shell" {
+    scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
 
   #######################################################################
@@ -138,17 +111,8 @@ build {
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#installation #
   #######################################################################
   provisioner "shell" {
-    inline = [
-      "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
-      "chmod 0755 /opt/one-appliance/bin/*",
-      "chmod 0740 /etc/one-appliance/service",
-      "chmod 0640 /etc/one-appliance/service.d/*",
-      "/etc/one-appliance/service install"
-    ]
-  }
-
-  provisioner "shell" {
-    scripts = ["${var.input_dir}/82-configure-context.sh"]
+    inline_shebang = "/bin/bash -e"
+    inline         = ["/etc/one-appliance/service install && sync"]
   }
 
   # Remove machine ID from the VM and get it ready for continuous cloud use
