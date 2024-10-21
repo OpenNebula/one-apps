@@ -1,12 +1,6 @@
-require 'rspec'
-require_relative 'lib/init' # Load CLI libraries. These issue opennebula commands to mimic admin behavior
-require_relative 'lib/image'
+require_relative 'lib/app_handler' # Loads the library to handle VM creation and destruction
 
-# Establish some configuration
-VM_TEMPLATE = 'base'
-APP_IMAGE_PATH = '/opt/one-apps/export/service_example.qcow2'
-APP_IMAGE_NAME = 'service_example'
-
+# Define on this named variable (needs to have this name exactly) the CONTEXT parameters that your app will require
 APP_CONTEXT_PARAMS = {
     :DB_NAME => 'dbname',
     :DB_USER => 'username',
@@ -14,24 +8,24 @@ APP_CONTEXT_PARAMS = {
     :DB_ROOT_PASSWORD => 'arpass'
 }
 
+describe 'Useless test' do
+    it 'does nothing' do
+        expect(true).to be(true)
+    end
+
+    it 'does nothing still' do
+        expect(false).to be(false)
+    end
+end
+
+# You can put any title you want, this will be where you group your tests
 describe 'Appliance Certification' do
-    before(:all) do
-        @info = {} # Used to pass info across tests
+    # This is a library that takes care of creating and destroying the VM for you
+    # The VM is instantiated with your APP_CONTEXT_PARAMS passed
+    # "onetemplate instantiate base --context SSH_PUBLIC_KEY=\\\"\\$USER[SSH_PUBLIC_KEY]\\\",NETWORK=\"YES\",ONEAPP_DB_NAME=\"dbname\",ONEAPP_DB_USER=\"username\",ONEAPP_DB_PASSWORD=\"upass\",ONEAPP_DB_ROOT_PASSWORD=\"arpass\" --disk service_example"
+    include_context('vm_handler')
 
-        if !CLIImage.list('-l NAME').include?(APP_IMAGE_NAME)
-            CLIImage.create(APP_IMAGE_NAME, 1, "--path #{APP_IMAGE_PATH}")
-        end
-
-        options = "--context #{app_context(APP_CONTEXT_PARAMS)} --disk #{APP_IMAGE_NAME}"
-
-        # Create a new VM by issuing onetemplate instantiate VM_TEMPLATE
-        @info[:vm] = VM.instantiate(VM_TEMPLATE, true, options)
-    end
-
-    after(:all) do
-        @info[:vm].terminate_hard
-    end
-
+    # if the mysql command exists in $PATH, we can assume it is installed
     it 'mysql is installed' do
         cmd = 'which mysql'
 
@@ -40,6 +34,7 @@ describe 'Appliance Certification' do
         expect(execution.exitstatus).to eq(0)
     end
 
+    # Use the systemd cli to verify that mysql is up and runnig. will fail if it takes more than 30 seconds to run
     it 'mysql service is running' do
         cmd = 'systemctl is-active mysql'
         start_time = Time.now
@@ -57,17 +52,22 @@ describe 'Appliance Certification' do
         end
     end
 
+    # Check if the service framework from one-apps reports that the app is ready
     it 'check oneapps motd' do
         cmd = 'cat /etc/motd'
 
         execution = @info[:vm].ssh(cmd)
 
+        # you can use pp to help with logging.
+        # This doesn't verify anything, but helps with inspections
+        # In this case, we display the motd you get when connecting to the app instance via ssh
         pp execution.stdout
 
         expect(execution.exitstatus).to eq(0)
         expect(execution.stdout).to include('All set and ready to serve')
     end
 
+    # use mysql CLI to verify root password
     it 'can connect as root with defined password' do
         pass = APP_CONTEXT_PARAMS[:DB_ROOT_PASSWORD]
         cmd = "mysql -u root -p#{pass} -e ''"
@@ -76,6 +76,7 @@ describe 'Appliance Certification' do
         expect(execution.success?).to be(true)
     end
 
+    # use mysql CLI to verify that the database has been created
     it 'database exists' do
         pass = APP_CONTEXT_PARAMS[:DB_ROOT_PASSWORD]
         db = APP_CONTEXT_PARAMS[:DB_NAME]
@@ -86,6 +87,7 @@ describe 'Appliance Certification' do
         expect(execution.success?).to be(true)
     end
 
+    # use mysql CLI to verify that the user credentials
     it 'can connect as user with defined password' do
         user = APP_CONTEXT_PARAMS[:DB_USER]
         pass = APP_CONTEXT_PARAMS[:DB_PASSWORD]
@@ -97,13 +99,24 @@ describe 'Appliance Certification' do
     end
 end
 
-# generate context section for app testing based on app input
-def app_context(app_context_params)
-    params = [%(SSH_PUBLIC_KEY=\\"\\$USER[SSH_PUBLIC_KEY]\\"), 'NETWORK="YES"']
+# Example run
+# rspec -f d tutorial_tests.rb
+# Appliance Certification
+# "onetemplate instantiate base --context SSH_PUBLIC_KEY=\\\"\\$USER[SSH_PUBLIC_KEY]\\\",NETWORK=\"YES\",ONEAPP_DB_NAME=\"dbname\",ONEAPP_DB_USER=\"username\",ONEAPP_DB_PASSWORD=\"upass\",ONEAPP_DB_ROOT_PASSWORD=\"arpass\" --disk service_example"
+#   mysql is installed
+#   mysql service is running
+# "\n" +
+# "    ___   _ __    ___\n" +
+# "   / _ \\ | '_ \\  / _ \\   OpenNebula Service Appliance\n" +
+# "  | (_) || | | ||  __/\n" +
+# "   \\___/ |_| |_| \\___|\n" +
+# "\n" +
+# " All set and ready to serve 8)\n" +
+# "\n"
+#   check oneapps motd
+#   can connect as root with defined password
+#   database exists
+#   can connect as user with defined password
 
-    app_context_params.each do |key, value|
-        params << "ONEAPP_#{key}=\"#{value}\""
-    end
-
-    return params.join(',')
-end
+# Finished in 1 minute 25.9 seconds (files took 0.22136 seconds to load)
+# 6 examples, 0 failures
