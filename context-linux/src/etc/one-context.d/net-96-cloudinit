@@ -36,5 +36,5 @@ if [[ -n "$userdata" ]]; then
         fi
     fi
     
-    # TODO: Ruby parser & export userdata var
+    USER_DATA=$userdata ./one_cloudinit.rb
 fi
