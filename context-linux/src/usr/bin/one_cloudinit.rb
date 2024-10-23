@@ -18,10 +18,10 @@
 
 require 'psych'
 require 'logger'
-require 'singleton'
 
 ##
-# 
+# The CloudInit module implements cloud-init features for OpenNebula 
+# contextualization.
 ##
 module CloudInit
 
@@ -33,7 +33,11 @@ module CloudInit
       "[#{date_format} - #{severity}]: #{msg}\n"
   })
 
-  def self.load_cloud_config_from_user_data()
+  def self.printException(exception, prefix="Exception")
+    CloudInit::Logger.error("#{prefix}: #{exception.message}\n#{exception.backtrace.join("\n")}")
+  end
+
+  def self.load_cloud_config_from_user_data
     user_data = ENV['USER_DATA']
 
     if user_data.nil?
@@ -44,7 +48,7 @@ module CloudInit
   end
 
   ##
-  # The CloudInit module contains the functionality for parsing and executing
+  # The CloudConfig module contains the functionality for parsing and executing
   # cloud-config YAML files.
   ##
   class CloudConfig
@@ -57,13 +61,13 @@ module CloudInit
 
     def self.from_yaml(yaml_string)
       begin
-        parsed_cloud_config = Psych.safe_load(yaml_string)
-      rescue Psych::SyntaxError => err
-        raise "YAML parsing failed: #{err.message}"
+        parsed_cloud_config = Psych.safe_load(yaml_string, symbolize_names: true)
+      rescue Psych::SyntaxError => e
+        raise "YAML parsing failed: #{e.backtrace}"
       end
 
-      write_files = CloudConfigList.new(data_map: parsed_cloud_config['write_files'], mapping_method: WriteFile.method(:from_map))
-      runcmd = CloudConfigList.new(data_map: parsed_cloud_config['runcmd'], mapping_method: RunCmd.method(:from_map))
+      write_files = CloudConfigList.new(parsed_cloud_config[:write_files], WriteFile.method(:from_map))
+      runcmd = CloudConfigList.new(parsed_cloud_config[:runcmd], RunCmd.method(:from_map))
 
       return new(write_files: write_files, runcmd: runcmd)
     end
@@ -72,7 +76,7 @@ module CloudInit
       instance_variables.each do |var|
         cloudconfig_directive = instance_variable_get(var)
         if !cloudconfig_directive.respond_to?(:exec)
-          #TODO: Not implemented exception?
+          #TODO: Raise a not implemented exception or just ignore?
           return
         end
         cloudconfig_directive.exec
@@ -82,7 +86,7 @@ module CloudInit
     class CloudConfig::CloudConfigList
         attr_accessor :cloud_config_list
 
-        def initialize(data_map:, mapping_method:)
+        def initialize(data_map, mapping_method)
           @cloud_config_list = data_map.map do |element|
             #TODO: validate
             mapping_method.call(element)
@@ -105,13 +109,19 @@ module CloudInit
     end
 
     class CloudConfig::WriteFile
-      attr_accessor :path, :owner, :permissions, :content
+      attr_accessor :path, :content, :source, :owner, :permissions, :encoding, :append, :defer 
   
-      def initialize(path:, owner:, permissions:, content:)
+      def initialize(path:, content:"", source:[], owner:'root:root', 
+          permissions:'0o644', encoding:'text/plain', append:false, 
+          defer:false)
         @path = path
+        @content = content
+        @source = source
         @owner = owner
         @permissions = permissions
-        @content = content
+        @encoding = encoding
+        @append = append
+        @defer = defer
       end
   
       def validate
@@ -125,19 +135,14 @@ module CloudInit
 
       def self.from_map(data_map)
         #TODO: Validate
-        WriteFile.new(
-              path: data_map['path'],
-              owner: data_map['owner'],
-              permissions: data_map['permissions'],
-              content: data_map['content']
-            )
+        WriteFile.new(**data_map)
       end
     end
 
     class CloudConfig::RunCmd
       attr_accessor :cmd
   
-      def initialize(cmd)
+      def initialize(cmd:)
         @cmd = cmd
       end
   
@@ -152,7 +157,7 @@ module CloudInit
 
       def self.from_map(data_map)
         #TODO: Validate
-        RunCmd.new(data_map)
+        RunCmd.new(cmd: data_map)
       end
       
     end
@@ -164,7 +169,7 @@ end
 begin
 cloud_config = CloudInit.load_cloud_config_from_user_data()
 rescue Exception => e
-  CloudInit::Logger.fatal("could not parse USER_DATA: #{e.message}")
+  CloudInit::printException(e, "could not parse USER_DATA")
   exit 1
 end
 
@@ -175,6 +180,6 @@ end
 begin
   cloud_config.exec()
 rescue Exception => e
-  CloudInit::Logger.fatal("error executing cloud-config: #{e.message}")
+  CloudInit::printException(e, "error executing cloud-config")
   exit 1
 end
