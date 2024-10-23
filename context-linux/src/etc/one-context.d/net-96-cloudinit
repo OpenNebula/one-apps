@@ -16,25 +16,18 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-if [[ -n "$USER_DATA" ]]; then
-    userdata="$USER_DATA"
-elif [[ -n "$USERDATA" ]]; then
-    userdata="$USERDATA"
-fi
+set -eo pipefail
 
-if [[ -n "$userdata" ]]; then
-    if [[ -n "$USERDATA_ENCODING" ]]; then
-        encoding="$USERDATA_ENCODING"
-    elif [[ -n "$USER_DATA_ENCODING" ]]; then
-        encoding="$USER_DATA_ENCODING"
-    fi
+USER_DATA="${USER_DATA:-${USERDATA}}"
+USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
 
-    if [[ "$encoding" == "base64" ]]; then
-        userdata=$(echo "$userdata" | base64 --decode 2>/dev/null)
-        if [[ $? -ne 0 ]]; then
-            echo "Warning: Failed base64 decoding of userdata"
+if [ -n "${USER_DATA}" ]; then
+    if [ "${USER_DATA_ENCODING}" = "base64" ]; then
+        if ! USER_DATA="$(base64 -d <<< "${USER_DATA}" 2>/dev/null)"; then
+            echo "Error: Failed base64 decoding of userdata" >&2
+            exit 1
         fi
     fi
-    
-    USER_DATA=$userdata ./one_cloudinit.rb
+
+    ./one_cloudinit.rb
 fi
