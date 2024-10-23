@@ -18,6 +18,7 @@
 
 require 'psych'
 require 'logger'
+require 'open3'
 
 ##
 # The CloudInit module implements cloud-init features for OpenNebula
@@ -34,8 +35,8 @@ module CloudInit
         }
     )
 
-    def self.printException(exception, prefix = 'Exception')
-        CloudInit::Logger.error("#{prefix}: #{exception.message}\n#{exception.backtrace.join("\n")}")
+    def self.print_exception(exception, prefix = 'Exception')
+        Logger.error("#{prefix}: #{exception.message}\n#{exception.backtrace.join("\n")}")
     end
 
     def self.load_cloud_config_from_user_data
@@ -56,7 +57,7 @@ module CloudInit
 
         attr_accessor :write_files, :runcmd
 
-        def initialize(write_files: [], runcmd: [])
+        def initialize(write_files = [], runcmd = [])
             @write_files = write_files
             @runcmd = runcmd
         end
@@ -65,48 +66,53 @@ module CloudInit
             begin
                 parsed_cloud_config = Psych.safe_load(yaml_string, :symbolize_names => true)
             rescue Psych::SyntaxError => e
-                raise "YAML parsing failed: #{e.backtrace}"
+                raise "YAML parsing failed: #{e.message}"
             end
 
-            write_files = CloudConfigList.new(parsed_cloud_config[:write_files],
-                                              WriteFile.method(:from_map))
-            runcmd = CloudConfigList.new(parsed_cloud_config[:runcmd], RunCmd.method(:from_map))
+            write_files = CloudConfigList.new(
+                parsed_cloud_config[:write_files], WriteFile.method(:from_map)
+            ) if parsed_cloud_config.key?(:write_files)
 
-            return new(:write_files => write_files, :runcmd => runcmd)
+            runcmd = RunCmd.new(parsed_cloud_config[:runcmd]) if parsed_cloud_config.key?(:runcmd)
+
+            return new(write_files, runcmd)
         end
 
         def exec
+            # TODO: Define directives execution order
             instance_variables.each do |var|
                 cloudconfig_directive = instance_variable_get(var)
                 if !cloudconfig_directive.respond_to?(:exec)
                     # TODO: Raise a not implemented exception or just ignore?
-                    return
+                    next
                 end
 
                 cloudconfig_directive.exec
             end
         end
 
-        class CloudConfig::CloudConfigList
+        ##
+        # CloudConfigList class ,manages generic cloud-config directives lists
+        ##
+        class CloudConfigList
 
             attr_accessor :cloud_config_list
 
-            def initialize(data_map, mapping_method)
-                @cloud_config_list = data_map.map do |element|
-                    # TODO: validate
+            def initialize(data_array, mapping_method)
+                unless data_array.is_a?(Array)
+                    raise 'CloudConfigList should be initialized with an Array'
+                end
+
+                @cloud_config_list = data_array.map do |element|
                     mapping_method.call(element)
                 end
-            end
-
-            def validate
-                # TODO
             end
 
             def exec
                 @cloud_config_list.each do |element|
                     if !element.respond_to?(:exec)
-                        # TODO: Not implemented exception?
-                        return
+                        # TODO: Raise a not implemented exception or just ignore?
+                        next
                     end
 
                     element.exec
@@ -115,7 +121,10 @@ module CloudInit
 
         end
 
-        class CloudConfig::WriteFile
+        ##
+        # WriteFile class implements the write_file cloud-config directive.
+        ##
+        class WriteFile
 
             attr_accessor :path, :content, :source, :owner, :permissions, :encoding, :append, :defer
 
@@ -132,42 +141,40 @@ module CloudInit
                 @defer = defer
             end
 
-            def validate
-                # TODO
-            end
-
             def exec
                 # TODO
-                Logger.info("[writeFile] writing file #{@owner}-#{@permissions}@#{@path}:")
+                Logger.info("[writeFile] writing file [#{@permissions} #{@owner} #{@path}]")
             end
 
             def self.from_map(data_map)
-                # TODO: Validate
+                unless data_map.is_a?(Hash)
+                    raise 'WriteFile.from_map must be called with a Hash as an argument'
+                end
+
                 WriteFile.new(**data_map)
             end
 
         end
 
-        class CloudConfig::RunCmd
+        ##
+        # RunCmd class implements the runcmd cloud-config directive.
+        ##
+        class RunCmd
 
-            attr_accessor :cmd
+            attr_accessor :cmd_list
 
-            def initialize(cmd:)
-                @cmd = cmd
-            end
+            def initialize(cmd_list)
+                unless cmd_list.is_a?(Array)
+                    raise 'RunCmd must be instantiated with a command list as an argument'
+                end
 
-            def validate
-                # TODO
+                @cmd_list = cmd_list
             end
 
             def exec
-                # TODO
-                Logger.info("[runCmd] executing #{@cmd}")
-            end
-
-            def self.from_map(data_map)
-                # TODO: Validate
-                RunCmd.new(:cmd => data_map)
+                @cmd_list.each do |cmd|
+                    Logger.info("[runCmd] executing '#{cmd}'")
+                end
             end
 
         end
@@ -179,8 +186,8 @@ end
 # script start
 begin
     cloud_config = CloudInit.load_cloud_config_from_user_data
-rescue Exception => e
-    CloudInit.printException(e, 'could not parse USER_DATA')
+rescue StandardError => e
+    CloudInit.print_exception(e, 'could not parse USER_DATA')
     exit 1
 end
 
@@ -190,7 +197,7 @@ end
 
 begin
     cloud_config.exec
-rescue Exception => e
-    CloudInit.printException(e, 'error executing cloud-config')
+rescue StandardError => e
+    CloudInit.print_exception(e, 'error executing cloud-config')
     exit 1
 end
