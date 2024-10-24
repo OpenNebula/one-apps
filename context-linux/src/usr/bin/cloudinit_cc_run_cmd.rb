@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ruby
 
 # -------------------------------------------------------------------------- #
 # Copyright 2002-2024, OpenNebula Project, OpenNebula Systems                #
@@ -16,18 +16,30 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-set -eo pipefail
+module CloudInit
 
-export USER_DATA="${USER_DATA:-${USERDATA}}"
-USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
+    ##
+    # RunCmd class implements the runcmd cloud-config directive.
+    ##
+    class RunCmd
 
-if [ -n "${USER_DATA}" ]; then
-    if [ "${USER_DATA_ENCODING}" = "base64" ]; then
-        if ! USER_DATA="$(base64 -d <<< "${USER_DATA}" 2>/dev/null)"; then
-            echo "Error: Failed base64 decoding of userdata" >&2
-            exit 1
-        fi
-    fi
+        attr_accessor :cmd_list
 
-    one_cloudinit.rb
-fi
+        def initialize(cmd_list)
+            unless cmd_list.is_a?(Array)
+                raise 'RunCmd must be instantiated with a command list as an argument'
+            end
+
+            @cmd_list = cmd_list
+        end
+
+        def exec
+            @cmd_list.each do |cmd|
+                # TODO: implement logic
+                puts "[runCmd] executing '#{cmd}'"
+            end
+        end
+
+    end
+
+end

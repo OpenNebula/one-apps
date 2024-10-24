@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ruby
 
 # -------------------------------------------------------------------------- #
 # Copyright 2002-2024, OpenNebula Project, OpenNebula Systems                #
@@ -16,18 +16,41 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
-set -eo pipefail
+module CloudInit
 
-export USER_DATA="${USER_DATA:-${USERDATA}}"
-USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
+    ##
+    # WriteFile class implements the write_file cloud-config directive.
+    ##
+    class WriteFile
 
-if [ -n "${USER_DATA}" ]; then
-    if [ "${USER_DATA_ENCODING}" = "base64" ]; then
-        if ! USER_DATA="$(base64 -d <<< "${USER_DATA}" 2>/dev/null)"; then
-            echo "Error: Failed base64 decoding of userdata" >&2
-            exit 1
-        fi
-    fi
+        attr_accessor :path, :content, :source, :owner, :permissions, :encoding, :append, :defer
 
-    one_cloudinit.rb
-fi
+        def initialize(path:, content: '', source: [], owner: 'root:root',
+                       permissions: '0o644', encoding: 'text/plain', append: false,
+                       defer: false)
+            @path = path
+            @content = content
+            @source = source
+            @owner = owner
+            @permissions = permissions
+            @encoding = encoding
+            @append = append
+            @defer = defer
+        end
+
+        def exec
+            # TODO: implement logic
+            puts '[writeFile] writing file'
+        end
+
+        def self.from_map(data_map)
+            unless data_map.is_a?(Hash)
+                raise 'WriteFile.from_map must be called with a Hash as an argument'
+            end
+
+            WriteFile.new(**data_map)
+        end
+
+    end
+
+end

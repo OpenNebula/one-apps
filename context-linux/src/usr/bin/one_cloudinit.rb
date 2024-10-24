@@ -19,6 +19,8 @@
 require 'psych'
 require 'logger'
 require 'open3'
+require_relative 'cloudinit_cc_run_cmd'
+require_relative 'cloudinit_cc_write_files'
 
 ##
 # The CloudInit module implements cloud-init features for OpenNebula
@@ -116,64 +118,6 @@ module CloudInit
                     end
 
                     element.exec
-                end
-            end
-
-        end
-
-        ##
-        # WriteFile class implements the write_file cloud-config directive.
-        ##
-        class WriteFile
-
-            attr_accessor :path, :content, :source, :owner, :permissions, :encoding, :append, :defer
-
-            def initialize(path:, content: '', source: [], owner: 'root:root',
-                           permissions: '0o644', encoding: 'text/plain', append: false,
-                           defer: false)
-                @path = path
-                @content = content
-                @source = source
-                @owner = owner
-                @permissions = permissions
-                @encoding = encoding
-                @append = append
-                @defer = defer
-            end
-
-            def exec
-                # TODO
-                Logger.info("[writeFile] writing file [#{@permissions} #{@owner} #{@path}]")
-            end
-
-            def self.from_map(data_map)
-                unless data_map.is_a?(Hash)
-                    raise 'WriteFile.from_map must be called with a Hash as an argument'
-                end
-
-                WriteFile.new(**data_map)
-            end
-
-        end
-
-        ##
-        # RunCmd class implements the runcmd cloud-config directive.
-        ##
-        class RunCmd
-
-            attr_accessor :cmd_list
-
-            def initialize(cmd_list)
-                unless cmd_list.is_a?(Array)
-                    raise 'RunCmd must be instantiated with a command list as an argument'
-                end
-
-                @cmd_list = cmd_list
-            end
-
-            def exec
-                @cmd_list.each do |cmd|
-                    Logger.info("[runCmd] executing '#{cmd}'")
                 end
             end
 
