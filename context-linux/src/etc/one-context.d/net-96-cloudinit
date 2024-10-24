@@ -29,5 +29,5 @@ if [ -n "${USER_DATA}" ]; then
         fi
     fi
 
-    ./one_cloudinit.rb
+    one_cloudinit.rb
 fi
