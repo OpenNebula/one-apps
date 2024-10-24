@@ -18,7 +18,6 @@
 
 require 'psych'
 require 'logger'
-require 'open3'
 require_relative 'cloudinit_cc_run_cmd'
 require_relative 'cloudinit_cc_write_files'
 

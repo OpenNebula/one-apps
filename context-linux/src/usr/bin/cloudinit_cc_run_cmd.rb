@@ -16,12 +16,16 @@
 # limitations under the License.                                             #
 #--------------------------------------------------------------------------- #
 
+require 'fileutils'
+
 module CloudInit
 
     ##
     # RunCmd class implements the runcmd cloud-config directive.
     ##
     class RunCmd
+
+        TMP_DIR_PATH = '/var/lib/one-context/tmp/runcmd'
 
         attr_accessor :cmd_list
 
@@ -34,10 +38,45 @@ module CloudInit
         end
 
         def exec
-            @cmd_list.each do |cmd|
-                # TODO: implement logic
-                puts "[runCmd] executing '#{cmd}'"
+            if @cmd_list.empty?
+                CloudInit::Logger.debug('[runCmd] empty cmdlist, ignoring...')
+                return
             end
+            CloudInit::Logger.debug("[runCmd] processing commands'")
+
+            FileUtils.mkdir_p(TMP_DIR_PATH)
+            begin
+                file_content = create_shell_file_content
+            rescue StandardError => e
+                raise "could not generate runcmd script file content: #{e.message}"
+            end
+
+            temp_file_path = File.join(TMP_DIR_PATH, 'runcmd_script')
+            File.open(temp_file_path, 'w', 0o700) do |file|
+                file.write(file_content)
+            end
+
+            CloudInit::Logger.debug("[runCmd] runcmd script successfully created in '#{temp_file_path}'")
+        end
+
+        def create_shell_file_content
+            content = "#!/bin/sh\n"
+            @cmd_list.each do |cmd|
+                if cmd.is_a?(Array)
+                    escaped = []
+                    cmd.each do |token|
+                        # escape single quotes inside single quoted shell command
+                        modified_string = token.gsub("'") {|x| "'\\#{x}'" }
+                        escaped << "\'#{modified_string}\'"
+                    end
+                    content << "#{escaped.join(' ')}\n"
+                elsif cmd.is_a?(String)
+                    content << "#{cmd}\n"
+                else
+                    raise 'incompatible command specification, must be array or string'
+                end
+            end
+            return content
         end
 
     end
