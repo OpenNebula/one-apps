@@ -25,8 +25,6 @@ module CloudInit
     ##
     class RunCmd
 
-        TMP_DIR_PATH = '/var/lib/one-context/tmp/runcmd'
-
         attr_accessor :cmd_list
 
         def initialize(cmd_list)
