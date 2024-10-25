@@ -44,19 +44,22 @@ module CloudInit
             end
             CloudInit::Logger.debug("[runCmd] processing commands'")
 
-            FileUtils.mkdir_p(TMP_DIR_PATH)
+            runcmd_script_path = ENV['CLOUDINIT_RUNCMD_TMP_SCRIPT']
+            if !runcmd_script_path
+              raise "mandatory CLOUDINIT_RUNCMD_TMP_SCRIPT env var not found!"
+            end
+
             begin
                 file_content = create_shell_file_content
             rescue StandardError => e
                 raise "could not generate runcmd script file content: #{e.message}"
             end
 
-            temp_file_path = File.join(TMP_DIR_PATH, 'runcmd_script')
-            File.open(temp_file_path, 'w', 0o700) do |file|
+            File.open(runcmd_script_path, 'w', 0o700) do |file|
                 file.write(file_content)
             end
 
-            CloudInit::Logger.debug("[runCmd] runcmd script successfully created in '#{temp_file_path}'")
+            CloudInit::Logger.debug("[runCmd] runcmd script successfully created in '#{runcmd_script_path}'")
         end
 
         def create_shell_file_content
