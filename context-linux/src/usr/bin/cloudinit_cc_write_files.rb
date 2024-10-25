@@ -17,8 +17,17 @@
 #--------------------------------------------------------------------------- #
 
 require 'etc'
+require 'base64'
+require 'zlib'
+require 'fileutils'
 
 module CloudInit
+
+    DEFAULT_PERMS = '0644'
+    DEFAULT_OWNER = 'root:root'
+    TEXT_PLAIN_ENC = 'text/plain'
+    DEFAULT_DEFER = false
+    DEFAULT_APPEND = false
 
     ##
     # WriteFile class implements the write_file cloud-config directive.
@@ -27,9 +36,9 @@ module CloudInit
 
         attr_accessor :path, :content, :source, :owner, :permissions, :encoding, :append, :defer
 
-        def initialize(path:, content: '', source: [], owner: 'root:root',
-                       permissions: '0644', encoding: 'text/plain', append: false,
-                       defer: false)
+        def initialize(path:, content: '', source: [], owner: DEFAULT_OWNER,
+                       permissions: DEFAULT_PERMS, encoding: TEXT_PLAIN_ENC,
+                       append: DEFAULT_APPEND, defer: DEFAULT_DEFER)
             @path = path
             @content = content
             @source = source
@@ -41,22 +50,23 @@ module CloudInit
         end
 
         def exec
+            # TODO: Defer execution
+            return if @defer
+
             begin
                 CloudInit::Logger.info(
                     "[writeFile] writing file [#{@permissions} #{@owner} #{@path}]"
                 )
 
-                unless valid_octal?
-                    CloudInit::Logger.error(
-                        "[writeFile] Invalid permission [#{@permissions} #{@owner} #{@path}]"
-                    )
-                    raise ArgumentError
-                end
-
                 uid, gid = uid_and_guid_by_owner
-                File.open(@path, 'w') do |file|
+                omode = @append ? 'ab' : 'wb'
+                @content = read_url_or_decode
+                @path = File.absolute_path(@path)
+
+                FileUtils.mkdir_p(File.dirname(@path))
+                File.open(@path, omode) do |file|
                     file.write(@content)
-                    file.chmod(@permissions.to_i(8))
+                    file.chmod(decode_perms)
                     file.chown(uid, gid)
                 end
             rescue Errno::EACCES
@@ -82,8 +92,51 @@ module CloudInit
             WriteFile.new(**data_map)
         end
 
-        def valid_octal?
-            @permissions.match?(/\A0[0-7]{1,3}\z/)
+        def read_url_or_decode(ssl_details: nil)
+            url = @source.is_a?(Hash) ? @source['uri'] : nil
+            use_url = !url.nil?
+
+            return '' if @content.nil? && !use_url
+
+            result = nil
+            if use_url
+                begin
+                    result = UrlHelper.read_file_or_url(
+                        url,
+                        :headers => @source['headers'],
+                        :ssl_details => ssl_details
+                    ).contents
+                rescue StandardError => e
+                    CloudInit::Logger.error(
+                        "Failed to retrieve contents from source '#{url}'; \n
+                         falling back to content: #{e.message}"
+                    )
+                    use_url = false
+                end
+            end
+
+            if @content && !use_url
+                extractions = canonicalize_extraction
+                result = extract_contents(extractions)
+            end
+
+            result
+        end
+
+        def decode_perms
+            begin
+                case @permissions
+                when Integer, Float
+                    @permissions.to_i
+                else
+                    @permissions.to_s.to_i(8)
+                end
+            rescue ArgumentError, TypeError
+                CloudInit::Logger.warn(
+                    'Undecodable permissions, returning default'
+                )
+                DEFAULT_PERMS.to_i(8)
+            end
         end
 
         def uid_and_guid_by_owner
@@ -96,6 +149,42 @@ module CloudInit
                     "[writeFile] Owner does not exist [#{@permissions} #{@owner} #{@path}]"
                 )
             end
+        end
+
+        def canonicalize_extraction
+            encoding_type = @encoding.downcase.strip
+
+            case encoding_type
+            when 'gz', 'gzip'
+                ['application/x-gzip']
+            when 'gz+base64', 'gzip+base64', 'gz+b64', 'gzip+b64'
+                ['application/base64', 'application/x-gzip']
+            when 'b64', 'base64'
+                ['application/base64']
+            when TEXT_PLAIN_ENC
+                [TEXT_PLAIN_ENC]
+            else
+                CloudInit::Logger.warn(
+                    "Unknown encoding type #{encoding_type}, assuming #{TEXT_PLAIN_ENC}"
+                )
+                [TEXT_PLAIN_ENC]
+            end
+        end
+
+        def extract_contents(extraction_types)
+            result = @content
+
+            extraction_types.each do |t|
+                case t
+                when 'application/x-gzip'
+                    result = Zlib::Inflate.inflate(result)
+                when 'application/base64'
+                    result = Base64.decode64(result)
+                when TEXT_PLAIN_ENC
+                    # No transformation needed
+                end
+            end
+            result
         end
 
     end
