@@ -20,6 +20,8 @@ require 'etc'
 require 'base64'
 require 'zlib'
 require 'fileutils'
+require 'stringio'
+require 'open-uri'
 
 module CloudInit
 
@@ -50,22 +52,15 @@ module CloudInit
         end
 
         def exec
-            # TODO: Defer execution
-            return if @defer
-
             begin
                 CloudInit::Logger.info(
                     "[writeFile] writing file [#{@permissions} #{@owner} #{@path}]"
                 )
 
                 uid, gid = uid_and_guid_by_owner
-                omode = @append ? 'ab' : 'wb'
-                @content = read_url_or_decode
-                @path = File.absolute_path(@path)
-
                 FileUtils.mkdir_p(File.dirname(@path))
-                File.open(@path, omode) do |file|
-                    file.write(@content)
+                File.open(File.absolute_path(@path), @append ? 'ab' : 'wb') do |file|
+                    file.write(read_url_or_decode)
                     file.chmod(decode_perms)
                     file.chown(uid, gid)
                 end
@@ -92,8 +87,8 @@ module CloudInit
             WriteFile.new(**data_map)
         end
 
-        def read_url_or_decode(ssl_details: nil)
-            url = @source.is_a?(Hash) ? @source['uri'] : nil
+        def read_url_or_decode
+            url = @source.is_a?(Hash) ? @source[:uri] : nil
             use_url = !url.nil?
 
             return '' if @content.nil? && !use_url
@@ -101,11 +96,8 @@ module CloudInit
             result = nil
             if use_url
                 begin
-                    result = UrlHelper.read_file_or_url(
-                        url,
-                        :headers => @source['headers'],
-                        :ssl_details => ssl_details
-                    ).contents
+                    headers = @source[:headers]&.transform_keys(&:to_s) || {}
+                    result = URI.parse(url).open(headers).read
                 rescue StandardError => e
                     CloudInit::Logger.error(
                         "Failed to retrieve contents from source '#{url}'; \n
@@ -124,14 +116,9 @@ module CloudInit
         end
 
         def decode_perms
-            begin
-                case @permissions
-                when Integer, Float
-                    @permissions.to_i
-                else
-                    @permissions.to_s.to_i(8)
-                end
-            rescue ArgumentError, TypeError
+            if @permissions.is_a?(String) && @permissions.match?(/\A0[0-7]{1,3}\z/)
+                @permissions.to_i(8)
+            else
                 CloudInit::Logger.warn(
                     'Undecodable permissions, returning default'
                 )
@@ -148,6 +135,8 @@ module CloudInit
                 CloudInit::Logger.error(
                     "[writeFile] Owner does not exist [#{@permissions} #{@owner} #{@path}]"
                 )
+                user, group = DEFAULT_OWNER.split(':')
+                return Etc.getpwnam(user).uid, Etc.getgrnam(group).gid
             end
         end
 
@@ -173,11 +162,10 @@ module CloudInit
 
         def extract_contents(extraction_types)
             result = @content
-
             extraction_types.each do |t|
                 case t
                 when 'application/x-gzip'
-                    result = Zlib::Inflate.inflate(result)
+                    result = Zlib::GzipReader.new(StringIO.new(result)).read
                 when 'application/base64'
                     result = Base64.decode64(result)
                 when TEXT_PLAIN_ENC

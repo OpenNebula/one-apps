@@ -56,11 +56,12 @@ module CloudInit
     ##
     class CloudConfig
 
-        attr_accessor :write_files, :runcmd
+        attr_accessor :write_files, :runcmd, :deferred_write_files
 
-        def initialize(write_files = [], runcmd = [])
+        def initialize(write_files = [], runcmd = [], deferred_write_files = [])
             @write_files = write_files
             @runcmd = runcmd
+            @deferred_write_files = deferred_write_files
         end
 
         def self.from_yaml(yaml_string)
@@ -71,12 +72,22 @@ module CloudInit
             end
 
             write_files = CloudConfigList.new(
-                parsed_cloud_config[:write_files], WriteFile.method(:from_map)
+                parsed_cloud_config[:write_files].select do |file|
+                    file[:defer] == false || !file.key?(:defer)
+                end,
+                WriteFile.method(:from_map)
             ) if parsed_cloud_config.key?(:write_files)
 
             runcmd = RunCmd.new(parsed_cloud_config[:runcmd]) if parsed_cloud_config.key?(:runcmd)
 
-            return new(write_files, runcmd)
+            deferred_write_files = CloudConfigList.new(
+                parsed_cloud_config[:write_files].select do |file|
+                    file[:defer] == true
+                end,
+                WriteFile.method(:from_map)
+            ) if parsed_cloud_config.key?(:write_files)
+
+            return new(write_files, runcmd, deferred_write_files)
         end
 
         def exec
