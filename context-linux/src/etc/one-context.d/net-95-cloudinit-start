@@ -59,4 +59,13 @@ if [ -n "${USER_DATA}" ]; then
     . "${CLOUDINIT_ENV_FILE}"
 
     one_cloudinit.rb
+
+    exit_code=$?
+    if [ "${exit_code}" -ne 0 ]; then
+        echo "one_cloudinit execution failed. Exit code: ${exit_code}"
+        exit 1
+    fi
+    echo "one_cloudinit execution finished"
+else
+    echo "No USER_DATA env variable found. Skipping execution..."
 fi

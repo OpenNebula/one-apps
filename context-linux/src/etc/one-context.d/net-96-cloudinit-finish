@@ -53,9 +53,9 @@ if [ -e "${CLOUDINIT_RUNCMD_TMP_SCRIPT}" ]; then
         echo "runcmd script execution failed. Exit code: ${exit_code}"
         exit 1
     fi
-    echo "Execution finished"
+    echo "runcmd script execution finished"
     
 else
-    echo "No runcmd script found in: ${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
+    echo "No runcmd script found in: ${CLOUDINIT_RUNCMD_TMP_SCRIPT}. Skipping execution..."
 fi
 
