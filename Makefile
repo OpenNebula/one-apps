@@ -64,7 +64,7 @@ context-iso: ${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso
 ${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso: \
 	$(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES)) \
 	$(patsubst %, context-windows/out/%, $(WINDOWS_CONTEXT_PACKAGES))
-	mkisofs -J -R -input-charset utf8 -m '*.iso' -V one-context-$(VERSION) -o ${DIR_EXPORT}/one-context-$(VERSION)-$(RELEASE).iso  context-linux/out/one-context?${VERSION}* context-windows/out/one-context-${VERSION}*.msi
+	mkisofs -J -R -input-charset utf8 -m '*.iso' -V one-context-$(VERSION) -o ${DIR_EXPORT}/one-context.iso  context-linux/out/one-context?${VERSION}* context-windows/out/one-context-${VERSION}*.msi
 
 clean:
 	-rm -rf ${DIR_EXPORT}/*
