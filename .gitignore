@@ -15,3 +15,4 @@ context-linux/*.rpm
 context-linux/*.deb
 context-linux/.vagrant*/
 context-linux/*~bak
+.vscode
