@@ -18,54 +18,56 @@
 
 set -eo pipefail
 
+export USER_DATA="${USER_DATA:-${USERDATA}}"
+if [ -z "$USER_DATA" ]; then
+    echo "No USER_DATA env variable found. Skipping execution..."
+    exit 0
+fi
+
 CLOUDINIT_BASE_DIR="/var/lib/one-context/cloudinit"
 CLOUDINIT_ENV_FILE="${CLOUDINIT_BASE_DIR}/cloudinit_env.sh"
 CLOUDINIT_LOCK_FILE="${CLOUDINIT_BASE_DIR}/cloudinit-boot-finished"
 CLOUDINIT_RUNCMD_TMP_DIR="${CLOUDINIT_BASE_DIR}/tmp"
 CLOUDINIT_RUNCMD_TMP_SCRIPT="${CLOUDINIT_RUNCMD_TMP_DIR}/runcmd_script.sh"
 
-bootstrap_cloudinit_env() 
+bootstrap_cloudinit_env()
 {
-    mkdir -p "${CLOUDINIT_BASE_DIR}"
-    chmod 0700 "${CLOUDINIT_BASE_DIR}"
-    echo "export CLOUDINIT_LOCK_FILE=${CLOUDINIT_LOCK_FILE}" >> "${CLOUDINIT_ENV_FILE}"
-    echo "export CLOUDINIT_BASE_DIR=${CLOUDINIT_BASE_DIR}" >> "${CLOUDINIT_ENV_FILE}"
-    echo "export CLOUDINIT_RUNCMD_TMP_DIR="${CLOUDINIT_RUNCMD_TMP_DIR} >> "${CLOUDINIT_ENV_FILE}"
-    echo "export CLOUDINIT_RUNCMD_TMP_SCRIPT="${CLOUDINIT_RUNCMD_TMP_SCRIPT} >> "${CLOUDINIT_ENV_FILE}"
+    install -m "u=rwx,go=" -d "${CLOUDINIT_BASE_DIR}"
+    {
+        echo "export CLOUDINIT_LOCK_FILE=${CLOUDINIT_LOCK_FILE}"
+        echo "export CLOUDINIT_BASE_DIR=${CLOUDINIT_BASE_DIR}"
+        echo "export CLOUDINIT_RUNCMD_TMP_DIR=${CLOUDINIT_RUNCMD_TMP_DIR}"
+        echo "export CLOUDINIT_RUNCMD_TMP_SCRIPT=${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
+    } >> "${CLOUDINIT_ENV_FILE}"
+
 }
 
 if [ -e "${CLOUDINIT_LOCK_FILE}" ]; then
     echo "Lock file exists in ${CLOUDINIT_LOCK_FILE}. Skipping execution..."
     exit 0
-fi 
+fi
 bootstrap_cloudinit_env
 
 # creates tmp dir for cloudinit runcmd script
-mkdir -p "${CLOUDINIT_RUNCMD_TMP_DIR}"
-chmod 0700 "${CLOUDINIT_RUNCMD_TMP_DIR}"
+install "u=rwx,go=" -d "${CLOUDINIT_RUNCMD_TMP_DIR}"
 
-export USER_DATA="${USER_DATA:-${USERDATA}}"
 USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
 
-if [ -n "${USER_DATA}" ]; then
-    if [ "${USER_DATA_ENCODING}" = "base64" ]; then
-        if ! USER_DATA="$(base64 -d <<< "${USER_DATA}" 2>/dev/null)"; then
-            echo "Error: Failed base64 decoding of userdata" >&2
-            exit 1
-        fi
-    fi
-
-    # shellcheck source=/dev/null
-    . "${CLOUDINIT_ENV_FILE}"
-
-    one_cloudinit.rb
-
-    exit_code=$?
-    if [ "${exit_code}" -ne 0 ]; then
-        echo "one_cloudinit execution failed. Exit code: ${exit_code}"
+if [ "${USER_DATA_ENCODING}" = "base64" ]; then
+    if ! USER_DATA="$(echo "${USER_DATA}" | base64 -d 2>/dev/null)"; then
+        echo "Error: Failed base64 decoding of userdata" >&2
         exit 1
     fi
-    echo "one_cloudinit execution finished"
-else
-    echo "No USER_DATA env variable found. Skipping execution..."
 fi
+
+# shellcheck source=/dev/null
+. "${CLOUDINIT_ENV_FILE}"
+
+one_cloudinit.rb
+EXIT_CODE=$?
+
+if [ "${EXIT_CODE}" -ne 0 ]; then
+    echo "one_cloudinit execution failed. Exit code: ${EXIT_CODE}"
+    exit 1
+fi
+echo "one_cloudinit execution finished"

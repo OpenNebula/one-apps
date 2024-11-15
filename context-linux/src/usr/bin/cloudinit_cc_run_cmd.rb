@@ -44,7 +44,7 @@ module CloudInit
 
             runcmd_script_path = ENV['CLOUDINIT_RUNCMD_TMP_SCRIPT']
             if !runcmd_script_path
-              raise "mandatory CLOUDINIT_RUNCMD_TMP_SCRIPT env var not found!"
+                raise 'mandatory CLOUDINIT_RUNCMD_TMP_SCRIPT env var not found!'
             end
 
             begin
@@ -57,7 +57,9 @@ module CloudInit
                 file.write(file_content)
             end
 
-            CloudInit::Logger.debug("[runCmd] runcmd script successfully created in '#{runcmd_script_path}'")
+            CloudInit::Logger.debug(
+                "[runCmd] runcmd script successfully created in '#{runcmd_script_path}'"
+            )
         end
 
         def create_shell_file_content
@@ -66,7 +68,8 @@ module CloudInit
                 if cmd.is_a?(Array)
                     escaped = []
                     cmd.each do |token|
-                        # escape single quotes inside single quoted shell command
+                        # Ensure that each element of the command in the
+                        # array is properly shell-protected with single quotes
                         modified_string = token.gsub("'") {|x| "'\\#{x}'" }
                         escaped << "\'#{modified_string}\'"
                     end

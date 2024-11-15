@@ -18,6 +18,13 @@
 
 set -eo pipefail
 
+# avoid executing this script when no $USER_DATA or $USERDATA is granted (avoids locking multi-stage builds)
+export USER_DATA="${USER_DATA:-${USERDATA}}"
+if [ -z "$USER_DATA" ]; then
+    echo "No USER_DATA env variable found. Skipping execution..."
+    exit 0
+fi
+
 CLOUDINIT_BASE_DIR="/var/lib/one-context/cloudinit"
 CLOUDINIT_ENV_FILE="${CLOUDINIT_BASE_DIR}/cloudinit_env.sh"
 
@@ -35,26 +42,26 @@ lock_and_cleanup()
 if [ -e "${CLOUDINIT_LOCK_FILE}" ]; then
     echo "Lock file exists in ${CLOUDINIT_LOCK_FILE}. Skipping execution..."
     exit 0
-fi 
+fi
 
 trap lock_and_cleanup EXIT
 
 # Execute cloudinit scripts
 if [ -e "${CLOUDINIT_RUNCMD_TMP_SCRIPT}" ]; then
-    
+
     chmod u+x "${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
 
     echo "Executing ${CLOUDINIT_LOCK_FILE}..."
-    set +e 
-    bash -ex "${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
-    exit_code=$?
+    set +e
+    $SHELL -ex "${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
+    EXIT_CODE=$?
     set -e
-    if [ "${exit_code}" -ne 0 ]; then
-        echo "runcmd script execution failed. Exit code: ${exit_code}"
+    if [ "${EXIT_CODE}" -ne 0 ]; then
+        echo "runcmd script execution failed. Exit code: ${EXIT_CODE}"
         exit 1
     fi
     echo "runcmd script execution finished"
-    
+
 else
     echo "No runcmd script found in: ${CLOUDINIT_RUNCMD_TMP_SCRIPT}. Skipping execution..."
 fi

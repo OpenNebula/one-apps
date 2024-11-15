@@ -41,9 +41,7 @@ module CloudInit
     end
 
     def self.load_cloud_config_from_user_data
-        user_data = ENV['USER_DATA']
-
-        if user_data.nil?
+        if (user_data = ENV['USER_DATA']).nil?
             Logger.info('No USER_DATA found.')
             return
         end
@@ -72,18 +70,14 @@ module CloudInit
             end
 
             write_files = CloudConfigList.new(
-                parsed_cloud_config[:write_files].select do |file|
-                    file[:defer] == false || !file.key?(:defer)
-                end,
+                parsed_cloud_config[:write_files].reject {|file| file[:defer] },
                 WriteFile.method(:from_map)
             ) if parsed_cloud_config.key?(:write_files)
 
             runcmd = RunCmd.new(parsed_cloud_config[:runcmd]) if parsed_cloud_config.key?(:runcmd)
 
             deferred_write_files = CloudConfigList.new(
-                parsed_cloud_config[:write_files].select do |file|
-                    file[:defer] == true
-                end,
+                parsed_cloud_config[:write_files].select {|file| file[:defer] },
                 WriteFile.method(:from_map)
             ) if parsed_cloud_config.key?(:write_files)
 
@@ -111,9 +105,8 @@ module CloudInit
             attr_accessor :cloud_config_list
 
             def initialize(data_array, mapping_method)
-                unless data_array.is_a?(Array)
-                    raise 'CloudConfigList should be initialized with an Array'
-                end
+                raise 'CloudConfigList should be initialized with an Array' \
+                    unless data_array.is_a?(Array)
 
                 @cloud_config_list = data_array.map do |element|
                     mapping_method.call(element)
