@@ -49,7 +49,7 @@ fi
 bootstrap_cloudinit_env
 
 # creates tmp dir for cloudinit runcmd script
-install "u=rwx,go=" -d "${CLOUDINIT_RUNCMD_TMP_DIR}"
+install -m "u=rwx,go=" -d "${CLOUDINIT_RUNCMD_TMP_DIR}"
 
 USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
 
