@@ -8,22 +8,14 @@ APP_CONTEXT_PARAMS = {
     :DB_ROOT_PASSWORD => 'arpass'
 }
 
-describe 'Useless test' do
-    it 'does nothing' do
-        expect(true).to be(true)
-    end
-
-    it 'does nothing still' do
-        expect(false).to be(false)
-    end
-end
-
 # You can put any title you want, this will be where you group your tests
 describe 'Appliance Certification' do
     # This is a library that takes care of creating and destroying the VM for you
     # The VM is instantiated with your APP_CONTEXT_PARAMS passed
     # "onetemplate instantiate base --context SSH_PUBLIC_KEY=\\\"\\$USER[SSH_PUBLIC_KEY]\\\",NETWORK=\"YES\",ONEAPP_DB_NAME=\"dbname\",ONEAPP_DB_USER=\"username\",ONEAPP_DB_PASSWORD=\"upass\",ONEAPP_DB_ROOT_PASSWORD=\"arpass\" --disk service_example"
     include_context('vm_handler')
+
+    include_context('general_context')
 
     # if the mysql command exists in $PATH, we can assume it is installed
     it 'mysql is installed' do

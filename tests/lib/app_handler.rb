@@ -1,7 +1,11 @@
 require 'rspec'
 require 'yaml'
+
 require_relative 'init' # Load CLI libraries. These issue opennebula commands to mimic admin behavior
 require_relative 'image'
+require_relative 'context/requirements'
+require_relative 'context/common'
+require_relative 'context/linux'
 
 config = YAML.load_file(File.join(Dir.pwd, 'defaults.yaml'))
 
@@ -12,6 +16,8 @@ IMAGE_DATASTORE = config[:one][:datastore] || 'default'
 
 APP_IMAGE_NAME = config[:app][:name]
 APP_IMAGE_PATH = "#{config[:one][:template]}/#{APP_IMAGE_NAME}.#{DISK_FORMAT}"
+
+ENV['ONE_XMLRPC_TIMEOUT'] = config[:one][:template] || '90'
 
 RSpec.shared_context 'vm_handler' do
     before(:all) do
@@ -29,6 +35,13 @@ RSpec.shared_context 'vm_handler' do
 
     after(:all) do
         @info[:vm].terminate_hard
+    end
+end
+
+RSpec.shared_context 'general_context' do
+    if config[:app][:context]
+        include_examples 'requirements'
+        include_examples 'linux', config[:app][:linux], config[:app][:hypervisor]
     end
 end
 

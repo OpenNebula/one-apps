@@ -1,0 +1,713 @@
+#!/usr/bin/env ruby
+
+DIR = __dir__
+
+################################################################################
+# Load OpenNebula
+################################################################################
+
+ONE_LOCATION=ENV['ONE_LOCATION']
+
+if !ONE_LOCATION
+    RUBY_LIB_LOCATION = '/usr/lib/one/ruby'
+    GEMS_LOCATION     = '/usr/share/one/gems'
+    VAR_LOCATION      = '/var/lib/one'
+    LIB_LOCATION      = '/usr/lib/one'
+    ETC_LOCATION      = '/etc/one'
+else
+    RUBY_LIB_LOCATION = ONE_LOCATION + '/lib/ruby'
+    GEMS_LOCATION     = ONE_LOCATION + 'share/gems'
+    VAR_LOCATION      = ONE_LOCATION + '/var'
+    LIB_LOCATION      = ONE_LOCATION + '/lib'
+    ETC_LOCATION      = ONE_LOCATION + '/etc'
+end
+
+if File.directory?(GEMS_LOCATION)
+    Gem.use_paths(GEMS_LOCATION)
+end
+
+$LOAD_PATH << RUBY_LIB_LOCATION
+
+require 'yaml'
+require 'tempfile'
+require 'erb'
+require 'pp'
+
+begin
+    require 'colored'
+    COLORED=true
+rescue Exception => e
+    COLORED=false
+end
+require 'opennebula'
+include OpenNebula
+
+if ENV['ONE_DISABLE_SSL_VERIFY'] || ENV['ONE_CERT_DIR']
+    CLIENT = Client.new(nil, nil, :sync => true)
+else
+    CLIENT = Client.new
+end
+
+################################################################################
+# Read Configuration
+################################################################################
+
+yaml_location = ARGV[0] || File.join(DIR, 'bootstrap', 'default.d')
+
+if File.directory?(yaml_location)
+    conf = []
+    conf_item = nil
+    Dir[File.join(yaml_location, '*.yaml')].sort.each do |f|
+        begin
+            conf_item = YAML.load_file(f)
+        rescue StandardError
+            STDERR.puts "'#{f}' is not a valid yaml file."
+            exit 1
+        end
+        if conf_item.instance_of? Array
+            conf += conf_item
+        elsif conf_item.instance_of? Hash
+            conf << conf_item
+        else
+            STDERR.puts "'#{f}' contains an unknown type."
+            exit 1
+        end
+    end
+else
+    begin
+        conf = YAML.load_file(yaml_location)
+    rescue StandardError
+        STDERR.puts "'#{yaml_location}' is not a valid yaml file."
+        exit 1
+    end
+end
+
+################################################################################
+# Helper
+################################################################################
+
+def error(e)
+    m = if e.instance_of?(String)
+            e
+        else
+            e.message
+        end
+
+    if COLORED
+        STDERR.puts m.red
+    else
+        STDERR.puts m
+    end
+
+    exit 1
+end
+
+def log(e, level = nil)
+    if COLORED
+        m = case level
+            when :ok
+                e.green
+            when :warn
+                e.cyan
+            when :info
+                e.blue
+            when :error
+                e.red
+            else
+                e
+            end
+    else
+        m = e
+    end
+
+    puts m
+end
+
+###############################################################################
+# The TemplateParser Class parses a VM template file and builds a hash with
+# the info. It does not check syntax.
+###############################################################################
+
+class TemplateParser
+
+    ##########################################################################
+    # Patterns to parse the template File
+    ##########################################################################
+
+    NAME_REG     =/[\w\d_-]+/
+    VARIABLE_REG =/\s*(#{NAME_REG})\s*=\s*/
+
+    SIMPLE_VARIABLE_REG =/#{VARIABLE_REG}([^\[]+?)(#.*)?/
+    SINGLE_VARIABLE_REG =/^#{SIMPLE_VARIABLE_REG}$/
+    ARRAY_VARIABLE_REG  =/^#{VARIABLE_REG}\[(.*?)\]/m
+
+    ##########################################################################
+    ##########################################################################
+
+    def initialize(template_string)
+        @conf=parse_conf(template_string)
+    end
+
+    def add_configuration_value(key, value)
+        add_value(@conf, key, value)
+    end
+
+    def [](key)
+        @conf[key.to_s.upcase]
+    end
+
+    def hash
+        @conf
+    end
+
+    def self.template_like_str(attributes, indent = true)
+        if indent
+            ind_enter="\n"
+            ind_tab='  '
+        else
+            ind_enter=''
+            ind_tab=' '
+        end
+
+        attributes.collect do |key, value|
+            next unless value
+
+            str_line=''
+            if value.class==Array
+
+                value.each do |value2|
+                    str_line << key.to_s.upcase << '=[' << ind_enter
+                    if value2 && value2.class==Hash
+                        str_line << value2.collect do |key3, value3|
+                            str = ind_tab + key3.to_s.upcase + '='
+                            str += "\"#{value3}\"" if value3
+                            str
+                        end.compact.join(",\n")
+                    end
+                    str_line << "\n]\n"
+                end
+
+            elsif value.class==Hash
+                str_line << key.to_s.upcase << '=[' << ind_enter
+
+                str_line << value.collect do |key3, value3|
+                    str = ind_tab + key3.to_s.upcase + '='
+                    str += "\"#{value3}\"" if value3
+                    str
+                end.compact.join(",\n")
+
+                str_line << "\n]\n"
+
+            else
+                str_line<<key.to_s.upcase << '=' << "\"#{value}\""
+            end
+            str_line
+        end.compact.join("\n")
+    end
+
+    ##########################################################################
+    ##########################################################################
+
+    private
+
+    def san_key(key)
+        key.strip.downcase.to_sym
+    end
+
+    def san_value(value)
+        value.strip.gsub('"', '') if value
+    end
+
+    def add_value(conf, key, value)
+        if conf[key]
+            if !conf[key].is_a?(Array)
+                conf[key] = [conf[key]]
+            end
+            conf[key] << value
+        else
+            conf[key] = value
+        end
+    end
+
+    #
+    # Parses the configuration file and
+    # creates the configuration hash
+    #
+    def parse_conf(template_string)
+        conf={}
+
+        template_string.scan(SINGLE_VARIABLE_REG) do |m|
+            key=san_key(m[0])
+            value=san_value(m[1])
+
+            add_value(conf, key, value)
+        end
+
+        template_string.scan(ARRAY_VARIABLE_REG) do |m|
+            master_key=san_key(m[0])
+
+            pieces=m[1].split(',')
+
+            vars={}
+            pieces.each do |p|
+                key, value=p.split('=')
+                vars[san_key(key)]=san_value(value)
+            end
+
+            add_value(conf, master_key, vars)
+        end
+
+        conf
+    end
+
+end
+
+################################################################################
+# Boostrap Classes
+################################################################################
+
+class BS
+
+    attr_accessor :resource
+
+    RETRIES = 600
+    INTERVAL = 1
+
+    def self.factory(hash)
+        resources = {
+            'host'      => BSHost,
+            'image'     => BSImage,
+            'template'  => BSTemplate,
+            'hook'      => BSHook,
+            'net'       => BSNet,
+            'datastore' => BSDatastore,
+            'user'      => BSUser,
+            'cluster'   => BSCluster,
+            'marketapp' => BSMarketApp,
+            'market'    => BSMarket
+        }
+        return resources[hash['type']].new(hash)
+    end
+
+    def initialize(hash)
+        @hash = hash
+    end
+
+    def to_s
+        hash = "@type:#{@hash['type']}"
+
+        if (name = @hash['name'] || @hash['template']['name'])
+            hash << "/@name:#{name}"
+        end
+
+        if (the_id = @hash['id'])
+            hash << "/@id:#{the_id}"
+        end
+
+        return hash
+    end
+
+    def do!
+        log("* #{self}", :info)
+
+        case action = @hash['action'].to_sym
+        when :create
+            if id.nil?
+                create
+                wait
+
+                log('> Create', :ok)
+            else
+                log('> Skipping: resource exists', :warn)
+            end
+        when :update
+            if !id.nil?
+                update
+                wait
+
+                log('> Update', :ok)
+            else
+                create
+                wait
+
+                log('> Create', :ok)
+            end
+        else
+            error("Unknown action: '#{action}'.")
+        end
+    end
+
+    def update
+        resource_class = self.class.class_variable_get(:@@resource_class)
+
+        append = @hash['append'] || true
+
+        @resource = resource_class.new_with_id(id, CLIENT)
+
+        bstmpl   = @hash['template']
+        template = TemplateParser.template_like_str(bstmpl) unless bstmpl.nil?
+
+        rc = @resource.update(template, append)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+    def id
+        if (id = @hash['id'])
+            return id
+        end
+
+        name = @hash['name'] || @hash['template']['name'] rescue nil
+        if name.nil?
+            error("Fields 'NAME' or 'ID' are required")
+            return
+        end
+
+        pool_class = self.class.class_variable_get(:@@pool_class)
+
+        pool = pool_class.new(CLIENT)
+        rc = pool.info
+        error(rc) if OpenNebula.is_error?(rc)
+
+        pool.each do |e|
+            return e['ID'] if e['NAME'] == name
+        end
+
+        return
+    end
+
+    def find_by_name(name)
+        pool_class = self.class.class_variable_get(:@@pool_class)
+
+        pool = pool_class.new(CLIENT)
+        rc = pool.info
+        error(rc) if OpenNebula.is_error?(rc)
+
+        pool.each do |e|
+            return Integer(e['ID']) if e['NAME'] == name
+        end
+
+        return
+    end
+
+    def wait
+        return true
+    end
+
+    def wait_states(states)
+        RETRIES.times do
+            rc = @resource.info
+            error(rc) if OpenNebula.is_error?(rc)
+
+            if [states].flatten.include?(@resource.state_str)
+                return true
+            end
+
+            sleep INTERVAL
+        end
+
+        return false
+    end
+
+    def resource_wait
+        RETRIES.times do
+            rc = @resource.info
+            error(rc) if OpenNebula.is_error?(rc)
+
+            return true if yield @resource
+
+            sleep INTERVAL
+        end
+
+        return false
+    end
+
+    def set_resource
+        resource_class = self.class.class_variable_get(:@@resource_class)
+        @resource = resource_class.new(resource_class.build_xml(id), CLIENT)
+    end
+
+end
+
+class BSHost < BS
+
+    @@resource_class = Host
+    @@pool_class     = HostPool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        args = [@hash['name'],
+                @hash['im'],
+                @hash['vmm']]
+
+        if (cluster_id = @hash['cluster_id'])
+            args << cluster_id
+        end
+
+        rc = @resource.allocate(*args)
+
+        return error(rc) if OpenNebula.is_error?(rc)
+
+        @resource.disable if @hash['disable']
+    end
+
+    def wait
+        return true if @hash['nowait']
+
+        wait_states(['MONITORING_MONITORED', 'MONITORED'])
+    end
+
+end
+
+class BSImage < BS
+
+    @@resource_class = Image
+    @@pool_class     = ImagePool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        rc = @resource.allocate(template, @hash['ds_id'])
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+    def wait
+        RETRIES.times do |t|
+            rc = @resource.info
+            error(rc) if OpenNebula.is_error?(rc)
+
+            STDERR.puts "#{t}:#{@resource.state_str}"
+
+            if @resource.state_str == 'READY' || @resource.state_str == 'USED'
+                return true
+            end
+
+            sleep INTERVAL
+        end
+
+        return false
+    end
+
+end
+
+class BSNet < BS
+
+    @@resource_class = VirtualNetwork
+    @@pool_class     = VirtualNetworkPool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        args = [template]
+
+        if (cluster_id = @hash['cluster_id'] rescue nil)
+            args << cluster_id
+        end
+
+        rc = @resource.allocate(*args)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+    def wait
+        return false unless wait_states(['READY'])
+    end
+
+end
+
+class BSDatastore < BS
+
+    @@resource_class = Datastore
+    @@pool_class     = DatastorePool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        args = [template]
+
+        if (cluster_id = @hash['cluster_id'] rescue nil)
+            args << cluster_id
+        end
+
+        rc = @resource.allocate(*args)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+    def wait
+        return false unless wait_states(['READY'])
+
+        return if @hash['nowait']
+
+        resource_wait {|res| res['TOTAL_MB'].to_s != '0' }
+    end
+
+end
+
+class BSTemplate < BS
+
+    @@resource_class = Template
+    @@pool_class     = TemplatePool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        rc = @resource.allocate(template)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+end
+
+class BSHook < BS
+
+    @@resource_class = Hook
+    @@pool_class     = HookPool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        rc = @resource.allocate(template)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+end
+
+class BSUser < BS
+
+    @@resource_class = User
+    @@pool_class     = UserPool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        args = [@hash['name'], @hash['password']]
+
+        if (driver = @hash['driver'])
+            args << driver
+        else
+            args << ''
+        end
+
+        args << @hash['gids'] if @hash['gids']
+
+        rc = @resource.allocate(*args)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+end
+
+class BSCluster < BS
+
+    @@resource_class = Cluster
+    @@pool_class = ClusterPool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+        hosts = @hash['hosts']
+        vnets = @hash['vnets']
+        dss   = @hash['datastores']
+
+        rc = @resource.allocate(@hash['name'])
+        return error(rc) if OpenNebula.is_error?(rc)
+
+        hosts.each do |h|
+            bsh   = BSHost.new({ 'name' => h })
+            bshid = bsh.id
+
+            @resource.addhost(bshid.to_i) unless bshid.nil?
+        end
+
+        vnets.each do |n|
+            bsn   = BSNet.new({ 'name' => n })
+            bsnid = bsn.id
+
+            @resource.addvnet(bsnid.to_i) unless bsnid.nil?
+        end
+
+        dss.each do |d|
+            bsd   = BSDatastore.new({ 'name' => d })
+            bsdid = bsd.id
+
+            @resource.adddatastore(bsdid.to_i) unless bsdid.nil?
+        end
+
+        update
+    end
+
+end
+
+class BSMarketApp < BS
+
+    @@resource_class = MarketPlaceApp
+    @@pool_class     = MarketPlaceAppPool
+
+    def create
+        id = @hash['id']
+
+        id = find_by_name(@hash['appname']) if id.nil?
+
+        @resource = @@resource_class.new(@@resource_class.build_xml(id), CLIENT)
+
+        rc = @resource.info
+        error(rc) if OpenNebula.is_error?(rc)
+
+        @resource.extend(OpenNebula::MarketPlaceAppExt)
+        rc = @resource.export(
+            :dsid => @hash['ds_id'],
+            :name => @hash['name'],
+            :notemplate => @hash['notemplate']
+        )
+
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+    def id
+        t = BSTemplate.new({ 'name' => @hash['name'] })
+        i = BSImage.new({ 'name' => @hash['name'] })
+
+        return t if t.id
+        return i if i.id
+
+        nil
+    end
+
+    def wait
+        i = BSImage.new({ 'name' => @hash['name'] })
+        i.set_resource
+        i.wait
+    end
+
+end
+
+class BSMarket < BS
+
+    @@resource_class = MarketPlace
+    @@pool_class     = MarketPlacePool
+
+    def create
+        @resource = @@resource_class.new(@@resource_class.build_xml, CLIENT)
+
+        template = TemplateParser.template_like_str(@hash['template'])
+
+        rc = @resource.allocate(template)
+        error(rc) if OpenNebula.is_error?(rc)
+    end
+
+end
+
+################################################################################
+# Create Resources
+################################################################################
+
+conf.each do |hash|
+    r = BS.factory(hash)
+    r.do!
+end if conf && !conf.empty?
