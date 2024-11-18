@@ -28,9 +28,8 @@ module CloudInit
         attr_accessor :cmd_list
 
         def initialize(cmd_list)
-            unless cmd_list.is_a?(Array)
-                raise 'RunCmd must be instantiated with a command list as an argument'
-            end
+            raise 'RunCmd must be instantiated with a command list as an argument' \
+                unless cmd_list.is_a?(Array)
 
             @cmd_list = cmd_list
         end

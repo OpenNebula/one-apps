@@ -98,7 +98,7 @@ module CloudInit
         end
 
         ##
-        # CloudConfigList class ,manages generic cloud-config directives lists
+        # CloudConfigList class manages generic cloud-config directives lists
         ##
         class CloudConfigList
 
