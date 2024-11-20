@@ -101,10 +101,7 @@ func setup4(args ...string) (handler.Handler4, error) {
 // exampleHandler4 behaves like exampleHandler6, but for DHCPv4 packets. It
 // implements the `handler.Handler4` interface.
 func ipMACHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
-	log.Debugf("received DHCPv4 packet: %s", req.Summary())
-	// return the unmodified response, and false. This means that the next
-	// plugin in the chain will be called, and the unmodified response packet
-	// will be used as its input.
+	log.Debugf("received DHCPv4 request: %s", req.Summary())
 
 	// Get the IP address from the MAC address
 	ip, err := getIPFromMAC(req)
@@ -119,7 +116,10 @@ func ipMACHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
 
 	log.Debugf("sending DHCPv4 response: %s", resp.Summary())
 
-	return resp, true
+	// return the unmodified response, and false. This means that the next
+	// plugin in the chain will be called, and the unmodified response packet
+	// will be used as its input.
+	return resp, false
 }
 
 func getIPFromMAC(req *dhcpv4.DHCPv4) (net.IP, error) {
