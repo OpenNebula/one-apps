@@ -1,0 +1,11 @@
+# Ignore the dhcpcore-onelease binary
+dhcpcore-onelease
+
+# Ignore client binary
+client/dhcpcore_client
+
+# Ignore the leases.txt file
+leases.txt
+
+# Ignore the default config file
+config.yml
