@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2024, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+set -eo pipefail
+
+export USER_DATA="${USER_DATA:-${USERDATA}}"
+if [ -z "$USER_DATA" ]; then
+    echo "No USER_DATA env variable found. Skipping execution..."
+    exit 0
+fi
+
+CLOUDINIT_BASE_DIR="/var/lib/one-context/cloudinit"
+CLOUDINIT_ENV_FILE="${CLOUDINIT_BASE_DIR}/cloudinit_env.sh"
+CLOUDINIT_LOCK_FILE="${CLOUDINIT_BASE_DIR}/cloudinit-boot-finished"
+CLOUDINIT_RUNCMD_TMP_DIR="${CLOUDINIT_BASE_DIR}/tmp"
+CLOUDINIT_RUNCMD_TMP_SCRIPT="${CLOUDINIT_RUNCMD_TMP_DIR}/runcmd_script.sh"
+
+bootstrap_cloudinit_env()
+{
+    install -m "u=rwx,go=" -d "${CLOUDINIT_BASE_DIR}"
+    {
+        echo "export CLOUDINIT_LOCK_FILE=${CLOUDINIT_LOCK_FILE}"
+        echo "export CLOUDINIT_BASE_DIR=${CLOUDINIT_BASE_DIR}"
+        echo "export CLOUDINIT_RUNCMD_TMP_DIR=${CLOUDINIT_RUNCMD_TMP_DIR}"
+        echo "export CLOUDINIT_RUNCMD_TMP_SCRIPT=${CLOUDINIT_RUNCMD_TMP_SCRIPT}"
+    } >> "${CLOUDINIT_ENV_FILE}"
+
+}
+
+if [ -e "${CLOUDINIT_LOCK_FILE}" ]; then
+    echo "Lock file exists in ${CLOUDINIT_LOCK_FILE}. Skipping execution..."
+    exit 0
+fi
+bootstrap_cloudinit_env
+
+# creates tmp dir for cloudinit runcmd script
+install -m "u=rwx,go=" -d "${CLOUDINIT_RUNCMD_TMP_DIR}"
+
+USER_DATA_ENCODING="${USER_DATA_ENCODING:-${USERDATA_ENCODING}}"
+
+if [ "${USER_DATA_ENCODING}" = "base64" ]; then
+    if ! USER_DATA="$(echo "${USER_DATA}" | base64 -d 2>/dev/null)"; then
+        echo "Error: Failed base64 decoding of userdata" >&2
+        exit 1
+    fi
+fi
+
+# shellcheck source=/dev/null
+. "${CLOUDINIT_ENV_FILE}"
+
+one_cloudinit.rb
+EXIT_CODE=$?
+
+if [ "${EXIT_CODE}" -ne 0 ]; then
+    echo "one_cloudinit execution failed. Exit code: ${EXIT_CODE}"
+    exit 1
+fi
+echo "one_cloudinit execution finished"
