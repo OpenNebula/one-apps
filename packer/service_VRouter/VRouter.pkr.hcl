@@ -18,7 +18,7 @@ source "qemu" "VRouter" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = "export/alpine318.qcow2"
+  iso_url      = "export/alpine319.qcow2"
   iso_checksum = "none"
 
   headless = var.headless
@@ -91,7 +91,13 @@ build {
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
-
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline = [
+      "cd /etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease",
+      "CGO_ENABLED=1 GCC=musl-gcc go build",
+    ]
+  }
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
