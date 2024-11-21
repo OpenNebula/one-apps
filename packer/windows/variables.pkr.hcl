@@ -78,7 +78,7 @@ variable "windows" {
     }
     "10EducationN" = {
       iso = "windows10ConsumerEditions"
-      edition_name = "Windows 10 Education"
+      edition_name = "Windows 10 Education N"
     }
     "10Enterprise" = {
       iso = "windows10BusinessEditions"
