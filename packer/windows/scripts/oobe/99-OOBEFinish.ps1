@@ -17,6 +17,24 @@ while ($OOBEFinished -eq $false) {
         Start-Sleep -Seconds 1
     }
 }
+# Export security policy
+$SecurityDBPath = "$env:systemdrive\windows\security\local.sdb"
+$LogFile = "$env:systemdrive\security.log"
+$SecurityCfg = "$env:systemdrive\security.cfg"
+$SecurityCfgModified = "$env:systemdrive\security_no_pw_complexity.cfg"
+secedit /export /cfg $SecurityCfg
+# Disable pasword complexity
+(Get-Content $SecurityCfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0") | Set-Content $SecurityCfgModified
+# Apply new security policy
+secedit /configure /db $SecurityDBPath /cfg $SecurityCfgModified /areas SECURITYPOLICY
+# Remove Administrator password
+cmd.exe /c 'net user Administrator ""'
+# Force password change on next logon
+cmd.exe /c 'net user Administrator /logonpasswordchg:yes'
+# Restore security policy
+secedit /configure /db $SecurityDBPath /cfg $SecurityCfg /areas SECURITYPOLICY
+# Remove temporary files
+Remove-Item -Force $SecurityCfg, $SecurityCfgModified
 # logoff user 5 seconds after OOBE finishes
 Start-Sleep 5
 Disable-LocalUser -Name Administrator
