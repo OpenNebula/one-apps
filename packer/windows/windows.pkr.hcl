@@ -25,6 +25,10 @@ source "qemu" "windows" {
     )
     "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", { language = var.language })
   }
+
+  cd_files = ["${path.root}/cd_files/PSWindowsUpdate"]
+  cd_label = "PSWindowsUpdate"
+
   headless = var.headless
 
   boot_command = ["<enter><wait3><enter><wait3><enter><wait3><enter><wait3><enter>"]
