@@ -28,7 +28,17 @@
                 <LogonCount>1</LogonCount>
                 <Username>Administrator</Username>
                 <Enabled>true</Enabled>
+                <Password>
+                    <Value>VABlAHMAdAAxADIAMwBQAGEAcwBzAHcAbwByAGQA</Value>
+                    <PlainText>false</PlainText>
+                </Password>
             </AutoLogon>
+            <UserAccounts>
+                <AdministratorPassword>
+                    <Value>VABlAHMAdAAxADIAMwBBAGQAbQBpAG4AaQBzAHQAcgBhAHQAbwByAFAAYQBzAHMAdwBvAHIAZAA=</Value>
+                    <PlainText>false</PlainText>
+                </AdministratorPassword>
+            </UserAccounts>
         </component>
     </settings>
     <settings pass="specialize">
