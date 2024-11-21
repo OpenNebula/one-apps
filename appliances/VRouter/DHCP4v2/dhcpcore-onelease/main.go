@@ -1,19 +1,17 @@
-// Copyright 2018-present the CoreDHCP Authors. All rights reserved
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
-
-// This is a generated file, edits should be made in the corresponding source file
-// And this file regenerated using `coredhcp-generator --from core-plugins.txt`
 package main
 
 import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"sync"
 
-	"github.com/coredhcp/coredhcp/config"
+	oneleaseconfig "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/pkg/config"
 	"github.com/coredhcp/coredhcp/logger"
 	"github.com/coredhcp/coredhcp/server"
+
+	dhcpcoreconfig "github.com/coredhcp/coredhcp/config"
 
 	pl_onelease "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onelease"
 	"github.com/coredhcp/coredhcp/plugins"
@@ -81,6 +79,8 @@ var desiredPlugins = []*plugins.Plugin{
 	&pl_staticroute.Plugin,
 }
 
+var log = logger.GetLogger("main")
+
 func main() {
 	flag.Parse()
 
@@ -91,7 +91,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	log := logger.GetLogger("main")
 	fn, ok := logLevels[*flagLogLevel]
 	if !ok {
 		log.Fatalf("Invalid log level '%s'. Valid log levels are %v", *flagLogLevel, getLogLevels())
@@ -106,10 +105,6 @@ func main() {
 		log.Infof("Disabling logging to stdout/stderr")
 		logger.WithNoStdOutErr(log)
 	}
-	config, err := config.Load(*flagConfig)
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
-	}
 	// register plugins
 	for _, plugin := range desiredPlugins {
 		if err := plugins.RegisterPlugin(plugin); err != nil {
@@ -117,12 +112,83 @@ func main() {
 		}
 	}
 
-	// start server
-	srv, err := server.Start(config)
+	// create a configuration file per interface
+	tempDir, configFilesMap, err := createInterfaceConfigFiles(*flagConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
-	if err := srv.Wait(); err != nil {
-		log.Error(err)
+	defer cleanup(tempDir)
+
+	// channel to listen for termination signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	// channel to collect errors
+	errChan := make(chan error, len(configFilesMap))
+
+	// references to each interface listener server, for closing them later
+	serverMap := make(map[string]*server.Servers)
+
+	// start a server per interface declared in the config
+	var wg sync.WaitGroup
+	for iface, configFile := range configFilesMap {
+		wg.Add(1)
+		go func(iface string, configFile string) {
+			defer wg.Done()
+			cfg, err := dhcpcoreconfig.Load(configFile)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to load configuration for interface %s: %v", iface, err)
+				return
+			}
+			log.Infof("Starting listener for interface %s...", iface)
+			//no problem with concurrency because each goroutine access its own index
+			serverMap[iface], err = server.Start(cfg)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to start listener for interface %s: %v", iface, err)
+				return
+			}
+			if err := serverMap[iface].Wait(); err != nil {
+				errChan <- fmt.Errorf("listener for interface %s failed: %v", iface, err)
+				return
+			}
+		}(iface, configFile)
 	}
+
+	select {
+	case <-stop:
+		log.Info("Received SIGINT, shutting down...")
+	case err = <-errChan:
+		log.Errorf("Received error: %v, shutting down all listeners...", err)
+	}
+
+	for iface, srv := range serverMap {
+		log.Infof("Shutting down listener for interface %s...", iface)
+		if srv != nil {
+			srv.Close()
+		}
+	}
+
+	wg.Wait()
+	close(errChan)
+	close(stop)
+
+	log.Infof("All listeners shut down, exiting")
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+func createInterfaceConfigFiles(path string) (string, map[string]string, error) {
+	log.Infof("Loading configuration from %s", path)
+
+	ifaceConfigs, err := oneleaseconfig.LoadConfig(path)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return oneleaseconfig.CreateTempConfigFiles(ifaceConfigs)
+}
+
+func cleanup(tempDir string) {
+	oneleaseconfig.CleanupTempConfigFiles(tempDir)
 }
