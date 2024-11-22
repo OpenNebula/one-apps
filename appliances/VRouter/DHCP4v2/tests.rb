@@ -54,17 +54,17 @@ RSpec.describe self do
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '20.30.40.55'
         ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '1.2.3.4' # ignored (not in the subnet)
 
-        load './main.rb'; include Service::DHCP4
+        load './main.rb'; include Service::DHCP4v2
 
-        allow(Service::DHCP4).to receive(:ip_link_show).and_return(
+        allow(Service::DHCP4v2).to receive(:ip_link_show).and_return(
             { 'mtu' => 1111 },
             { 'mtu' => 2222 },
             { 'mtu' => 3333 }
         )
 
-        clear_vars Service::DHCP4
+        clear_vars Service::DHCP4v2
 
-        expect(Service::DHCP4.parse_env).to eq ({
+        expect(Service::DHCP4v2.parse_env).to eq ({
             'eth1' => [ { address: '20.30.40.50',
                           dns:     '1.1.1.1',
                           gateway: '1.2.3.4',
@@ -90,153 +90,58 @@ RSpec.describe self do
                           vips:    %w[] } ]
         })
 
-        output = <<~'KEA_DHCP4_CONF'
-            {
-              "Dhcp4": {
-                "interfaces-config": {
-                  "interfaces": [
-                    "eth1",
-                    "eth2",
-                    "eth3"
-                  ]
-                },
-                "authoritative": true,
-                "option-data": [
+        output = <<~'ONELEASE_CONF'
+            ---
+            eth1:
+              server4:
+                listen:
+                - "%eth1"
+                plugins:
+                - lease_time: 3600s
+                - server_id: 20.30.40.50
+                - dns: 1.1.1.1
+                - mtu: 1111
+                - router: 1.2.3.4
+                - netmask: 255.255.0.0
+                - range: leases-eth1.txt 20.30.0.2 20.30.255.254 3600s
+                - onelease:
+            eth2:
+              server4:
+                listen:
+                - "%eth2"
+                plugins:
+                - lease_time: 3600s
+                - server_id: 30.40.50.60
+                - dns: 8.8.8.8
+                - mtu: 2222
+                - router: 30.40.50.1
+                - netmask: 255.0.0.0
+                - range: leases-eth2.txt 30.40.50.64 30.40.50.68 3600s
+                - onelease:
+            eth3:
+              server4:
+                listen:
+                - "%eth3"
+                plugins:
+                - lease_time: 3600s
+                - server_id: 40.50.60.70
+                - dns: 8.8.4.4
+                - mtu: 3333
+                - router: 40.50.60.1
+                - netmask: 255.255.255.0
+                - range: leases-eth3.txt 40.50.60.2 40.50.60.254 3600s
+                - onelease:
+        ONELEASE_CONF
 
-                ],
-                "subnet4": [
-                  {
-                    "subnet": "20.30.0.0/16",
-                    "pools": [
-                      {
-                        "pool": "20.30.0.2-20.30.255.254"
-                      }
-                    ],
-                    "option-data": [
-                      {
-                        "name": "routers",
-                        "data": "1.2.3.4"
-                      },
-                      {
-                        "name": "domain-name-servers",
-                        "data": "1.1.1.1"
-                      },
-                      {
-                        "name": "interface-mtu",
-                        "data": "3333"
-                      }
-                    ],
-                    "reservations": [
-                      {
-                        "flex-id": "'DO-NOT-LEASE-20.30.40.50'",
-                        "ip-address": "20.30.40.50"
-                      },
-                      {
-                        "flex-id": "'DO-NOT-LEASE-20.30.40.55'",
-                        "ip-address": "20.30.40.55"
-                      }
-                    ],
-                    "reservation-mode": "all"
-                  },
-                  {
-                    "subnet": "30.0.0.0/8",
-                    "pools": [
-                      {
-                        "pool": "30.40.50.64-30.40.50.68"
-                      }
-                    ],
-                    "option-data": [
-                      {
-                        "name": "routers",
-                        "data": "30.40.50.1"
-                      },
-                      {
-                        "name": "domain-name-servers",
-                        "data": "8.8.8.8"
-                      },
-                      {
-                        "name": "interface-mtu",
-                        "data": "3333"
-                      }
-                    ],
-                    "reservations": [
-                      {
-                        "flex-id": "'DO-NOT-LEASE-30.40.50.60'",
-                        "ip-address": "30.40.50.60"
-                      }
-                    ],
-                    "reservation-mode": "all"
-                  },
-                  {
-                    "subnet": "40.50.60.0/24",
-                    "pools": [
-                      {
-                        "pool": "40.50.60.2-40.50.60.254"
-                      }
-                    ],
-                    "option-data": [
-                      {
-                        "name": "routers",
-                        "data": "40.50.60.1"
-                      },
-                      {
-                        "name": "domain-name-servers",
-                        "data": "8.8.4.4"
-                      },
-                      {
-                        "name": "interface-mtu",
-                        "data": "3333"
-                      }
-                    ],
-                    "reservations": [
-                      {
-                        "flex-id": "'DO-NOT-LEASE-40.50.60.70'",
-                        "ip-address": "40.50.60.70"
-                      }
-                    ],
-                    "reservation-mode": "all"
-                  }
-                ],
-                "lease-database": {
-                  "type": "memfile",
-                  "persist": true,
-                  "lfc-interval": 7200
-                },
-                "sanity-checks": {
-                  "lease-checks": "fix-del"
-                },
-                "valid-lifetime": 3600,
-                "calculate-tee-times": true,
-                "loggers": [
-                  {
-                    "name": "kea-dhcp4",
-                    "output_options": [
-                      {
-                        "output": "/var/log/kea/kea-dhcp4.log"
-                      }
-                    ],
-                    "severity": "INFO",
-                    "debuglevel": 0
-                  }
-                ],
-                "hooks-libraries": [
-                  {
-                    "library": "/usr/lib/kea/hooks/libkea-onelease-dhcp4.so",
-                    "parameters": {
-                      "enabled": true,
-                      "byte-prefix": "02:00",
-                      "logger-name": "onelease-dhcp4",
-                      "debug": false,
-                      "debug-logfile": "/var/log/kea/onelease-dhcp4-debug.log"
-                    }
-                  }
-                ]
-              }
-            }
-        KEA_DHCP4_CONF
+        allow(Service::DHCP4v2).to receive(:ip_link_show).and_return(
+            { 'mtu' => 1111 },
+            { 'mtu' => 2222 },
+            { 'mtu' => 3333 }
+        )
+
         Dir.mktmpdir do |dir|
-            Service::DHCP4.configure basedir: dir, owner: nil, group: nil
-            result = File.read "#{dir}/kea-dhcp4.conf"
+            Service::DHCP4v2.configure basedir: dir
+            result = File.read "#{dir}/onelease-config.yml"
             expect(result.strip).to eq output.strip
         end
     end
@@ -263,16 +168,16 @@ RSpec.describe self do
         ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '20.30.40.55'
         ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '20.30.40.110'
 
-        load './main.rb'; include Service::DHCP4
+        load './main.rb'; include Service::DHCP4v2
 
-        allow(Service::DHCP4).to receive(:ip_link_show).and_return(
+        allow(Service::DHCP4v2).to receive(:ip_link_show).and_return(
             { 'mtu' => 1111 },
             { 'mtu' => 2222 }
         )
 
-        clear_vars Service::DHCP4
+        clear_vars Service::DHCP4v2
 
-        expect(Service::DHCP4.parse_env).to eq ({
+        expect(Service::DHCP4v2.parse_env).to eq ({
             'eth0' => [ { address: '10.20.30.40',
                           dns:     '10.20.30.45',
                           gateway: '10.20.30.45',
