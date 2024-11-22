@@ -109,21 +109,29 @@ module Service
         def install(initdir: '/etc/init.d')
             msg :info, 'DHCP4v2::install'
 
-            file "#{initdir}/one-dhcp4v2", <<~SERVICE, mode: 'u=rwx,g=rx,o='
-            #!/sbin/openrc-run
+            file "#{initdir}/one-dhcp4v2", <<~SERVICE, :mode => 'u=rwx,g=rx,o='
+                #!/sbin/openrc-run
+                source /run/one-context/one_env
 
-            source /run/one-context/one_env
+                BASE_DIR="/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease"
+                CONFIG_FILE="$BASE_DIR/config.yml"
+                SERVICE_EXEC="$BASE_DIR/dhcpcore-onelease"
+                PIDFILE="/run/$RC_SVCNAME.pid"
+                LOG_DIR="/var/log/one-appliance"
+                LOG_FILE="$LOG_DIR/$RC_SVCNAME.log"
 
-            command="/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease/dhcpcore-onelease"
-            #TODO: command_args
+                command="$SERVICE_EXEC"
+                command_args="-c $CONFIG_FILE"
+                command_background="yes"
+                pidfile="$PIDFILE"
 
-            output_log="/var/log/one-appliance/one-dhcp4v2.log"
-            error_log="/var/log/one-appliance/one-dhcp4v2.log"
+                output_log="$LOG_FILE"
+                error_log="$LOG_FILE"
 
-            depend() {
-                after net firewall keepalived
-            }
-        SERVICE
+                depend() {
+                    after net firewall keepalived
+                }
+            SERVICE
             toggle [:update]
         end
 

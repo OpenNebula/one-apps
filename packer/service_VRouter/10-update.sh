@@ -9,6 +9,6 @@ service haveged stop ||:
 
 apk update
 
-apk add bash curl ethtool gawk grep iproute2 jq ruby sed tcpdump go
+apk add bash curl ethtool gawk grep iproute2 jq ruby sed tcpdump go iptables
 
 sync
