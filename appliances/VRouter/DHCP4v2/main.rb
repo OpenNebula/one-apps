@@ -23,6 +23,9 @@ module Service
 
         ONEAPP_VNF_DHCP4_INTERFACES = env :ONEAPP_VNF_DHCP4_INTERFACES, '' # nil -> none, empty -> all
 
+        SERVICE_DIR = '/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease'
+        CONFIG_FILE_NAME = 'onelease-config.yml'
+
         def parse_env
             @interfaces ||= parse_interfaces ONEAPP_VNF_DHCP4_INTERFACES
             @mgmt       ||= detect_mgmt_nics
@@ -103,7 +106,7 @@ module Service
                 }
             end
 
-            file "#{basedir}/onelease-config.yml", config.to_yaml, mode: 'u=rw,g=r,o=', overwrite: true
+            file "#{basedir}/#{CONFIG_FILE_NAME}", config.to_yaml, mode: 'u=rw,g=r,o=', overwrite: true
         end
 
         def install(initdir: '/etc/init.d')
@@ -113,8 +116,8 @@ module Service
                 #!/sbin/openrc-run
                 source /run/one-context/one_env
 
-                BASE_DIR="/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease"
-                CONFIG_FILE="$BASE_DIR/onelease-config.yml"
+                BASE_DIR="#{SERVICE_DIR}"
+                CONFIG_FILE="$BASE_DIR/#{CONFIG_FILE_NAME}"
                 SERVICE_EXEC="$BASE_DIR/dhcpcore-onelease"
                 PIDFILE="/run/$RC_SVCNAME.pid"
                 LOG_DIR="/var/log/one-appliance"
@@ -146,7 +149,7 @@ module Service
 
             dhcp4_vars = parse_env
 
-            generate_config(basedir, dhcp4_vars)
+            generate_config(SERVICE_DIR, dhcp4_vars)
 
         end
 
