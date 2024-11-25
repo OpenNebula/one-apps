@@ -114,7 +114,7 @@ module Service
                 source /run/one-context/one_env
 
                 BASE_DIR="/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease"
-                CONFIG_FILE="$BASE_DIR/config.yml"
+                CONFIG_FILE="$BASE_DIR/onelease-config.yml"
                 SERVICE_EXEC="$BASE_DIR/dhcpcore-onelease"
                 PIDFILE="/run/$RC_SVCNAME.pid"
                 LOG_DIR="/var/log/one-appliance"
