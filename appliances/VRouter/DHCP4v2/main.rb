@@ -143,7 +143,7 @@ module Service
             toggle [:update]
         end
 
-        def configure(basedir: '/etc/dhcpcore-onelease')
+        def configure(basedir: SERVICE_DIR)
             msg :info, 'DHCP4v2::configure'
 
             unless ONEAPP_VNF_DHCP4_ENABLED
@@ -154,7 +154,7 @@ module Service
 
             dhcp4_vars = parse_env
 
-            generate_config(SERVICE_DIR, dhcp4_vars)
+            generate_config(basedir, dhcp4_vars)
 
         end
 
