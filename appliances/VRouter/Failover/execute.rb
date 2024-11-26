@@ -27,7 +27,7 @@ module Failover
         'one-dns'     => { _ENABLED: 'ONEAPP_VNF_DNS_ENABLED',
                            fallback: 'NO' },
 
-        'one-dhcp4'   => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED',
+        'one-dhcp4v2'   => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED',
                            fallback: 'NO' },
 
         'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED',
