@@ -120,7 +120,7 @@ module Service
                 CONFIG_FILE="$BASE_DIR/#{CONFIG_FILE_NAME}"
                 SERVICE_EXEC="$BASE_DIR/dhcpcore-onelease"
                 PIDFILE="/run/$RC_SVCNAME.pid"
-                LOG_DIR="/var/log/one-appliance"
+                LOG_DIR="#{SERVICE_LOGDIR}"
                 LOG_FILE="$LOG_DIR/$RC_SVCNAME.log"
 
                 command="$SERVICE_EXEC"

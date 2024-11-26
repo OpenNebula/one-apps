@@ -87,6 +87,11 @@ build {
     sources     = ["appliances/VRouter"]
     destination = "/etc/one-appliance/service.d/"
   }
+  # Exclude DHCP4 legacy version
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline = ["rm -rf /etc/one-appliance/service.d/VRouter/DHCP4"]
+  }
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
