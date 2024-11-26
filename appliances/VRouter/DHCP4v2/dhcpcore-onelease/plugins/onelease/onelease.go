@@ -1,16 +1,17 @@
 package onelease
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 
 	"github.com/coredhcp/coredhcp/handler"
 	"github.com/coredhcp/coredhcp/logger"
 	"github.com/coredhcp/coredhcp/plugins"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 )
-
-var log = logger.GetLogger("plugins/onelease")
 
 // Plugin wraps the information necessary to register a plugin.
 // In the main package, you need to export a `plugins.Plugin` object called
@@ -58,6 +59,12 @@ var Plugin = plugins.Plugin{
 	Setup4: setup4,
 }
 
+var (
+	log           = logger.GetLogger("plugins/onelease")
+	macPrefix     = [2]byte{0x02, 0x00}
+	excludedIpSet = make(map[string]struct{})
+)
+
 // setup6 is the setup function to initialize the handler for DHCPv6
 // traffic. This function implements the `plugin.SetupFunc6` interface.
 // This function returns a `handler.Handler6` function, and an error if any.
@@ -74,6 +81,32 @@ var Plugin = plugins.Plugin{
 // implements the `plugin.SetupFunc4` interface.
 func setup4(args ...string) (handler.Handler4, error) {
 	log.Printf("loaded plugin for DHCPv4.")
+	if len(args) > 1 {
+		log.Errorf("Expected one MAC prefix, but received %d", len(args))
+		return nil, errors.New("one_lease failed to initialize (at most one MAC prefix expected)")
+	}
+
+	if len(args) == 0 {
+		log.Printf("No MAC prefix provided. Using default: %02x:%02x", macPrefix[0], macPrefix[1])
+		return ipMACHandler4, nil
+	}
+
+	bytes := strings.Split(args[0], ":")
+	if len(bytes) != 2 {
+		log.Error("Invalid MAC prefix provided")
+		return nil, errors.New("one_lease failed to initialize (invalid MAC prefix format)")
+	}
+
+	tempMacPrefix := make([]byte, 2)
+	for index, macByte := range bytes {
+		value, err := strconv.ParseUint(macByte, 16, 8)
+		if err != nil {
+			log.Errorf("Invalid hexadecimal value '%s': %v", macByte, err)
+			return nil, errors.New("one_lease failed to initialize (invalid hexadecimal value)")
+		}
+		tempMacPrefix[index] = byte(value)
+	}
+	copy(macPrefix[:], tempMacPrefix)
 	return ipMACHandler4, nil
 }
 
@@ -130,12 +163,19 @@ func getIPFromMAC(req *dhcpv4.DHCPv4) (net.IP, error) {
 		return nil, fmt.Errorf("invalid MAC address: %v", mac)
 	}
 
-	// verify that the two first bytes equal to "02:00"
-	if mac[0] != 0x02 || mac[1] != 0x00 {
+	// verify that the two first bytes equal to macPrefix
+	if mac[0] != macPrefix[0] || mac[1] != macPrefix[1] {
 		return nil, fmt.Errorf("MAC address %s is not from OpenNebula", mac)
 	}
 
 	// retrieve the IP address from the MAC address
 	// the IP address is the last 4 bytes of the MAC address
-	return net.IPv4(mac[2], mac[3], mac[4], mac[5]), nil
+	ip := net.IPv4(mac[2], mac[3], mac[4], mac[5])
+
+	if _, exists := excludedIpSet[ip.String()]; exists {
+		// TODO: IP excluded
+		return nil, nil
+	} else {
+		return ip, nil
+	}
 }
