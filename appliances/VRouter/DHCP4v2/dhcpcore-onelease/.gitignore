@@ -3,9 +3,10 @@ dhcpcore-onelease
 
 # Ignore client binary
 client/dhcpcore_client
+client/client
 
-# Ignore the leases.txt file
-leases.txt
+# Ignore the leases file
+*.sqlite3
 
-# Ignore the default config file
-config.yml
+# Ignore config files
+onelease-config.yml

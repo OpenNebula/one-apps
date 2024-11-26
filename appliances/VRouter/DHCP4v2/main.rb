@@ -97,8 +97,7 @@ module Service
                             acc << {'mtu' => nic_data[:mtu]} unless nic_data[:mtu].nil?
                             acc << {'router' => nic_data[:gateway]} unless nic_data[:gateway].nil?
                             acc << {'netmask' => IPAddr.new('255.255.255.255').mask(nic_data[:subnet].split(%[/])[1]).to_s}
-                            # TODO: Exclude the server addr and VIPs from the range (we can do that in the onelease plugin)
-                            acc << {'range' => "leases-#{nic}.txt #{nic_data[:range].gsub('-', ' ')} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s"}
+                            acc << {'range' => generate_range_config(nic, nic_data)}
                             acc << {'onelease' => nil}
                             acc
                         end
@@ -107,6 +106,12 @@ module Service
             end
 
             file "#{basedir}/#{CONFIG_FILE_NAME}", config.to_yaml, mode: 'u=rw,g=r,o=', overwrite: true
+        end
+
+        def generate_range_config(nic, nic_data)
+            lease_range = nic_data[:range].gsub('-', ' ')
+            excluded_ips_str = ([nic_data[:address]] + nic_data[:vips]).join(',')
+            return "leases-#{nic}.sqlite3 #{lease_range} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s #{excluded_ips_str}"
         end
 
         def install(initdir: '/etc/init.d')

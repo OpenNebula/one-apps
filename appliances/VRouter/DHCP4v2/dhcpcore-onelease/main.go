@@ -8,12 +8,15 @@ import (
 	"sync"
 
 	oneleaseconfig "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/pkg/config"
+
 	"github.com/coredhcp/coredhcp/logger"
 	"github.com/coredhcp/coredhcp/server"
 
 	dhcpcoreconfig "github.com/coredhcp/coredhcp/config"
 
 	pl_onelease "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onelease"
+	pl_onerange "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onerange"
+
 	"github.com/coredhcp/coredhcp/plugins"
 	pl_autoconfigure "github.com/coredhcp/coredhcp/plugins/autoconfigure"
 	pl_dns "github.com/coredhcp/coredhcp/plugins/dns"
@@ -24,7 +27,6 @@ import (
 	pl_nbp "github.com/coredhcp/coredhcp/plugins/nbp"
 	pl_netmask "github.com/coredhcp/coredhcp/plugins/netmask"
 	pl_prefix "github.com/coredhcp/coredhcp/plugins/prefix"
-	pl_range "github.com/coredhcp/coredhcp/plugins/range"
 	pl_router "github.com/coredhcp/coredhcp/plugins/router"
 	pl_searchdomains "github.com/coredhcp/coredhcp/plugins/searchdomains"
 	pl_serverid "github.com/coredhcp/coredhcp/plugins/serverid"
@@ -70,8 +72,9 @@ var desiredPlugins = []*plugins.Plugin{
 	&pl_nbp.Plugin,
 	&pl_netmask.Plugin,
 	&pl_onelease.Plugin,
+	&pl_onerange.Plugin,
 	&pl_prefix.Plugin,
-	&pl_range.Plugin,
+	//&pl_range.Plugin,
 	&pl_router.Plugin,
 	&pl_searchdomains.Plugin,
 	&pl_serverid.Plugin,
