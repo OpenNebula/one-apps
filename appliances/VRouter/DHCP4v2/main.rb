@@ -97,8 +97,7 @@ module Service
                             acc << {'mtu' => nic_data[:mtu]} unless nic_data[:mtu].nil?
                             acc << {'router' => nic_data[:gateway]} unless nic_data[:gateway].nil?
                             acc << {'netmask' => IPAddr.new('255.255.255.255').mask(nic_data[:subnet].split(%[/])[1]).to_s}
-                            acc << {'range' => generate_range_config(nic, nic_data)}
-                            acc << {'onelease' => nil}
+                            acc << {'onelease' => generate_onelease_config(nic, nic_data)}
                             acc
                         end
                     },
@@ -108,14 +107,14 @@ module Service
             file "#{basedir}/#{CONFIG_FILE_NAME}", config.to_yaml, mode: 'u=rw,g=r,o=', overwrite: true
         end
 
-        def generate_range_config(nic, nic_data)
+        def generate_onelease_config(nic, nic_data)
             lease_range = nic_data[:range]&.gsub('-', ' ')
             excluded_ips_str = ([nic_data[:address]] + nic_data[:vips]).join(',')
-            range_config = "leases-#{nic}.sqlite3 #{lease_range} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s"
-            range_config += " --excluded-ips #{excluded_ips_str}" unless excluded_ips_str.empty?
-            range_config += " --mac2ip" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
-            range_config += " --mac2ip-prefix #{ONEAPP_VNF_DHCP4_MAC2IP_MACPREFIX}" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
-            return range_config
+            onelease_config = "leases-#{nic}.sqlite3 #{lease_range} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s"
+            onelease_config += " --excluded-ips #{excluded_ips_str}" unless excluded_ips_str.empty?
+            onelease_config += " --mac2ip" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
+            onelease_config += " --mac2ip-prefix #{ONEAPP_VNF_DHCP4_MAC2IP_MACPREFIX}" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
+            return onelease_config
         end
 
         def install(initdir: '/etc/init.d')

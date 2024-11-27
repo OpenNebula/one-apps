@@ -103,9 +103,8 @@ RSpec.describe self do
                 - mtu: 1111
                 - router: 1.2.3.4
                 - netmask: 255.255.0.0
-                - range: leases-eth1.sqlite3 20.30.0.2 20.30.255.254 3600s --excluded-ips 20.30.40.50,20.30.40.55
+                - onelease: leases-eth1.sqlite3 20.30.0.2 20.30.255.254 3600s --excluded-ips 20.30.40.50,20.30.40.55
                     --mac2ip --mac2ip-prefix 02:00
-                - onelease:
             eth2:
               server4:
                 listen:
@@ -117,9 +116,8 @@ RSpec.describe self do
                 - mtu: 2222
                 - router: 30.40.50.1
                 - netmask: 255.0.0.0
-                - range: leases-eth2.sqlite3 30.40.50.64 30.40.50.68 3600s --excluded-ips 30.40.50.60
+                - onelease: leases-eth2.sqlite3 30.40.50.64 30.40.50.68 3600s --excluded-ips 30.40.50.60
                     --mac2ip --mac2ip-prefix 02:00
-                - onelease:
             eth3:
               server4:
                 listen:
@@ -131,9 +129,8 @@ RSpec.describe self do
                 - mtu: 3333
                 - router: 40.50.60.1
                 - netmask: 255.255.255.0
-                - range: leases-eth3.sqlite3 40.50.60.2 40.50.60.254 3600s --excluded-ips 40.50.60.70
+                - onelease: leases-eth3.sqlite3 40.50.60.2 40.50.60.254 3600s --excluded-ips 40.50.60.70
                     --mac2ip --mac2ip-prefix 02:00
-                - onelease:
         ONELEASE_CONF
 
         allow(Service::DHCP4v2).to receive(:ip_link_show).and_return(
