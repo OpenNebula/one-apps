@@ -6,7 +6,7 @@
 // Adapted by OpenNebula Systems for the VRouter appliance
 // Copyright 2024-present OpenNebula Systems
 
-package onerange
+package onelease
 
 import (
 	"database/sql"
@@ -29,11 +29,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var log = logger.GetLogger("plugins/onerange")
+var log = logger.GetLogger("plugins/onelease")
 
 // Plugin wraps plugin registration information
 var Plugin = plugins.Plugin{
-	Name:   "onerange",
+	Name:   "onelease",
 	Setup4: setupRange,
 }
 
@@ -201,7 +201,7 @@ func setupRange(args ...string) (handler.Handler4, error) {
 	var excludedIPs string
 	var macPrefix string
 
-	pluginFlags := pflag.NewFlagSet("onerange", pflag.ExitOnError)
+	pluginFlags := pflag.NewFlagSet("onelease", pflag.ExitOnError)
 
 	pluginFlags.StringVar(&excludedIPs, "excluded-ips", "", "Comma-separated list of excluded IP addresses")
 	pluginFlags.BoolVar(&p.enableMAC2IP, "mac2ip", false, "Enables MAC to IP address mapping")

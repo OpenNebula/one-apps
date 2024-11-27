@@ -6,7 +6,7 @@
 // Adapted by OpenNebula Systems for the VRouter appliance
 // Copyright 2024-present OpenNebula Systems
 
-package onerange
+package onelease
 
 import (
 	"database/sql"

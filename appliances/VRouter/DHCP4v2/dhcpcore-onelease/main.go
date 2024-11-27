@@ -15,7 +15,6 @@ import (
 	dhcpcoreconfig "github.com/coredhcp/coredhcp/config"
 
 	pl_onelease "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onelease"
-	pl_onerange "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onerange"
 
 	"github.com/coredhcp/coredhcp/plugins"
 	pl_autoconfigure "github.com/coredhcp/coredhcp/plugins/autoconfigure"
@@ -72,7 +71,6 @@ var desiredPlugins = []*plugins.Plugin{
 	&pl_nbp.Plugin,
 	&pl_netmask.Plugin,
 	&pl_onelease.Plugin,
-	&pl_onerange.Plugin,
 	&pl_prefix.Plugin,
 	//&pl_range.Plugin,
 	&pl_router.Plugin,
