@@ -133,7 +133,7 @@
                     <Description>Run scripts</Description>
                     <Order>1</Order>
                     <WillReboot>OnRequest</WillReboot>
-                    <Path>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Hidden -File A:\Run-Scripts.ps1 A:\scripts\audit</Path>
+                    <Path>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Maximized -File A:\Run-Scripts.ps1 A:\scripts\audit</Path>
                 </RunSynchronousCommand>
             </RunSynchronous>
         </component>
@@ -144,7 +144,7 @@
                 <RunSynchronousCommand wcm:action="add">
                     <Description>Run scripts</Description>
                     <Order>2</Order>
-                    <Path>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Hidden -File A:\Run-Scripts.ps1 A:\scripts\specialize</Path>
+                    <Path>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Maximized -File A:\Run-Scripts.ps1 A:\scripts\specialize</Path>
                     <WillReboot>OnRequest</WillReboot>
                 </RunSynchronousCommand>
                 <RunSynchronousCommand wcm:action="add">

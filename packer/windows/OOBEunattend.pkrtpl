@@ -21,7 +21,7 @@
                     <Order>1</Order>
                     <RequiresUserInput>false</RequiresUserInput>
                     <Description>Run scripts</Description>
-                    <CommandLine>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Hidden -File C:\Run-Scripts.ps1 C:\scripts</CommandLine>
+                    <CommandLine>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Maximized -File C:\Run-Scripts.ps1 C:\scripts</CommandLine>
                 </SynchronousCommand>
             </FirstLogonCommands>
             <AutoLogon>
