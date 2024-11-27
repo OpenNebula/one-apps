@@ -200,5 +200,22 @@ variable "windows" {
       iso = "server2022"
       edition_name = "Windows Server 2022 SERVERDATACENTERCORE"
     }
+    # Windows Server 2025
+    "2025Standard" = {
+      iso = "server2025"
+      edition_name = "Windows Server 2025 SERVERSTANDARD"
+    }
+    "2025StandardCore" = {
+      iso = "server2025"
+      edition_name = "Windows Server 2025 SERVERSTANDARDCORE"
+    }
+    "2025Datacenter" = {
+      iso = "server2025"
+      edition_name = "Windows Server 2025 SERVERDATACENTER"
+    }
+    "2025DatacenterCore" = {
+      iso = "server2025"
+      edition_name = "Windows Server 2025 SERVERDATACENTERCORE"
+    }
   }
 }

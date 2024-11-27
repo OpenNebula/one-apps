@@ -35,4 +35,8 @@ isoFiles = {
     iso_url      = "packer/windows/iso/en-us_windows_server_2022_updated_july_2023_x64_dvd_541692c3.iso"
     iso_checksum = "sha256:E215493D331EBD57EA294B2DC96F9F0D025BC97B801ADD56EF46D8868D810053"
   }
+  server2025 = {
+    iso_url      = "packer/windows/iso/en-us_windows_server_2025_x64_dvd_b7ec10f3.iso"
+    iso_checksum = "sha256:854109e1f215a29fc3541188297a6ca97c8a8f0f8c4dd6236b78dfdf845bf75e"
+  }
 }
