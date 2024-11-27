@@ -9,6 +9,6 @@ This is a simple dhcpv4 client for use as a debugging tool with coredhcp
 The client allows to specify a mac address as argument in order to include it in its requests, e.g.
 
 ```
-go build -o dhcpcore_client
-sudo ./dhcpcore_client "02:00:aa:bb:cc:dd"
+go build -o coredhcp_client
+sudo ./coredhcp_client "02:00:aa:bb:cc:dd"
 ```

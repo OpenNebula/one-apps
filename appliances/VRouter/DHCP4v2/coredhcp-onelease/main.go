@@ -7,14 +7,14 @@ import (
 	"os/signal"
 	"sync"
 
-	oneleaseconfig "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/pkg/config"
+	oneleaseconfig "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/coredhcp-onelease/pkg/config"
 
 	"github.com/coredhcp/coredhcp/logger"
 	"github.com/coredhcp/coredhcp/server"
 
-	dhcpcoreconfig "github.com/coredhcp/coredhcp/config"
+	coredhcpconfig "github.com/coredhcp/coredhcp/config"
 
-	pl_onelease "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease/plugins/onelease"
+	pl_onelease "github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/coredhcp-onelease/plugins/onelease"
 
 	"github.com/coredhcp/coredhcp/plugins"
 	pl_autoconfigure "github.com/coredhcp/coredhcp/plugins/autoconfigure"
@@ -136,7 +136,7 @@ func main() {
 		wg.Add(1)
 		go func(iface string, configFile string) {
 			defer wg.Done()
-			cfg, err := dhcpcoreconfig.Load(configFile)
+			cfg, err := coredhcpconfig.Load(configFile)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to load configuration for interface %s: %v", iface, err)
 				return

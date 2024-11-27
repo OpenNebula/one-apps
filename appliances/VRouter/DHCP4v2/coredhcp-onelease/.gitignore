@@ -1,8 +1,8 @@
-# Ignore the dhcpcore-onelease binary
-dhcpcore-onelease
+# Ignore the coredhcp-onelease binary
+coredhcp-onelease
 
 # Ignore client binary
-client/dhcpcore_client
+client/coredhcp_client
 client/client
 
 # Ignore the leases file

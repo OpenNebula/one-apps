@@ -85,10 +85,10 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 				ipToAllocate = net.IPNet{IP: ipFromMAC}
 				log.Infof("MAC %s matches the prefix %x, trying to allocate IP %s...", macAddress.String(), p.MACPrefix, ipToAllocate.IP.String())
 			} else {
-				log.Infof("MAC %s does not match the prefix %x, providing conventional lease", macAddress.String(), p.MACPrefix)
+				log.Infof("MAC %s does not match the prefix %x, providing conventional lease...", macAddress.String(), p.MACPrefix)
 			}
 		}
-		// The allocator will try to allocate the given IP address, but if it exits, it will return a different one (an available one)
+		// The allocator will try to allocate the given IP address, but if it is already allocated, it will return a different one (an available one)
 		ip, err := p.allocator.Allocate(ipToAllocate)
 		if err != nil {
 			log.Errorf("Could not allocate IP for MAC %s: %v", req.ClientHWAddr.String(), err)
@@ -97,9 +97,8 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 
 		// if the MAC address is mapped to an IP address, check if the allocated IP address matches the requested one, if not, revert the allocation and return
 		if p.enableMAC2IP && macPrefixMatches && !ip.IP.Equal(ipToAllocate.IP) {
-			log.Warnf("Allocated IP %s for MAC %s does not match the requested IP %s", ip.IP.String(), req.ClientHWAddr.String(), ipToAllocate.IP.String())
-			//revert the allocation of the undesired IP
 			p.allocator.Free(ip)
+			log.Errorf("MAC2IP: Could not allocate IP %s for MAC %s: IP already allocated", req.ClientHWAddr.String(), err)
 			return resp, true
 		}
 

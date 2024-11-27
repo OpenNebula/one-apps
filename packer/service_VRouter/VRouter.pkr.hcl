@@ -99,7 +99,7 @@ build {
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline = [
-      "cd /etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease",
+      "cd /etc/one-appliance/service.d/VRouter/DHCP4v2/coredhcp-onelease",
       "CGO_ENABLED=1 GCC=musl-gcc go build",
     ]
   }

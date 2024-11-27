@@ -1,4 +1,4 @@
-module github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/dhcpcore-onelease
+module github.com/OpenNebula/one-apps/appliances/VRouterd/DHCP4v2/coredhcp-onelease
 
 go 1.20
 

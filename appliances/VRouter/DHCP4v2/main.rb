@@ -23,7 +23,7 @@ module Service
 
         ONEAPP_VNF_DHCP4_INTERFACES = env :ONEAPP_VNF_DHCP4_INTERFACES, '' # nil -> none, empty -> all
 
-        SERVICE_DIR = '/etc/one-appliance/service.d/VRouter/DHCP4v2/dhcpcore-onelease'
+        SERVICE_DIR = '/etc/one-appliance/service.d/VRouter/DHCP4v2/coredhcp-onelease'
         CONFIG_FILE_NAME = 'onelease-config.yml'
 
         def parse_env
@@ -127,7 +127,7 @@ module Service
 
                 BASE_DIR="#{SERVICE_DIR}"
                 CONFIG_FILE="$BASE_DIR/#{CONFIG_FILE_NAME}"
-                SERVICE_EXEC="$BASE_DIR/dhcpcore-onelease"
+                SERVICE_EXEC="$BASE_DIR/coredhcp-onelease"
                 PIDFILE="/run/$RC_SVCNAME.pid"
                 LOG_DIR="#{SERVICE_LOGDIR}"
                 LOG_FILE="$LOG_DIR/$RC_SVCNAME.log"
