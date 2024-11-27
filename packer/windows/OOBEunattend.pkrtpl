@@ -53,5 +53,4 @@
             </RunSynchronous>
         </component>
     </settings>
-    <cpi:offlineImage cpi:source="catalog://c:/users/lukas/downloads/bakalárka - iso/install_windows 10 education.clg" xmlns:cpi="urn:schemas-microsoft-com:cpi" />
 </unattend>
