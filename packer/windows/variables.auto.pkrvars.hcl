@@ -8,12 +8,12 @@ isoFiles = {
     iso_checksum = "sha256:05FE9DE04C2626BD00FBE69AD19129B2DBB75A93A2FE030EBFB2256D937CEAB8"
   }
   windows11ConsumerEditions = {
-    iso_url      = "packer/windows/iso/en-us_windows_11_consumer_editions_version_23h2_updated_april_2024_x64_dvd_d986680b.iso"
-    iso_checksum = "sha256:A6C21313210182E0315054789A2B658B77394D5544B69B5341075492F89F51E5"
+    iso_url      = "packer/windows/iso/en-us_windows_11_consumer_editions_version_24h2_x64_dvd_1d5fcad3.iso"
+    iso_checksum = "sha256:B56B911BF18A2CEAEB3904D87E7C770BDF92D3099599D61AC2497B91BF190B11"
   }
   windows11BusinessEditions = {
-    iso_url      = "packer/windows/iso/en-us_windows_11_business_editions_version_23h2_updated_april_2024_x64_dvd_349cd577.iso"
-    iso_checksum = "sha256:3D4D388D6FFA371956304FA7401347B4535FD10E3137978A8F7750B790A43521"
+    iso_url      = "packer/windows/iso/win11pro_ent_edu_24H2_en_64b.iso"
+    iso_checksum = "sha256:D0DCA325314322518AE967D58C3061BCAE57EE9743A8A1CF374AAD8637E5E8AC"
   }
   server2016 = {
     iso_url      = "packer/windows/iso/en_windows_server_2016_x64_dvd_9327751.iso"
