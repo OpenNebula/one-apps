@@ -77,8 +77,6 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 			ipFromMAC, ok, err := p.checkMACPrefix(macAddress)
 			if err != nil {
 				log.Errorf("MAC2IP lease failed for mac %v: %v", macAddress.String(), err)
-				// return nack to the client
-				resp.Options.Update(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
 				return resp, true
 			}
 			if ok {
@@ -94,9 +92,6 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 		ip, err := p.allocator.Allocate(ipToAllocate)
 		if err != nil {
 			log.Errorf("Could not allocate IP for MAC %s: %v", req.ClientHWAddr.String(), err)
-			resp.Options.Update(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
-			// return nack to the client
-			resp.Options.Update(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
 			return resp, true
 		}
 
@@ -105,8 +100,6 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 			log.Warnf("Allocated IP %s for MAC %s does not match the requested IP %s", ip.IP.String(), req.ClientHWAddr.String(), ipToAllocate.IP.String())
 			//revert the allocation of the undesired IP
 			p.allocator.Free(ip)
-			// return nack to the client
-			resp.Options.Update(dhcpv4.OptMessageType(dhcpv4.MessageTypeNak))
 			return resp, true
 		}
 
@@ -208,11 +201,13 @@ func setupRange(args ...string) (handler.Handler4, error) {
 	var excludedIPs string
 	var macPrefix string
 
-	pflag.StringVar(&excludedIPs, "excluded-ips", "", "Comma-separated list of excluded IP addresses")
-	pflag.BoolVar(&p.enableMAC2IP, "mac2ip", false, "Enables MAC to IP address mapping")
-	pflag.StringVar(&macPrefix, "mac-prefix", "02:00", "2-byte MAC prefix for MAC to IP address mapping. Defaults to [02:00]")
+	pluginFlags := pflag.NewFlagSet("onerange", pflag.ExitOnError)
 
-	pflag.CommandLine.Parse(optionalArgs)
+	pluginFlags.StringVar(&excludedIPs, "excluded-ips", "", "Comma-separated list of excluded IP addresses")
+	pluginFlags.BoolVar(&p.enableMAC2IP, "mac2ip", false, "Enables MAC to IP address mapping")
+	pluginFlags.StringVar(&macPrefix, "mac2ip-prefix", "02:00", "2-byte MAC prefix for MAC to IP address mapping")
+
+	pluginFlags.Parse(optionalArgs)
 
 	if p.enableMAC2IP && macPrefix != "" {
 		p.MACPrefix, err = parseMACPrefix(macPrefix)

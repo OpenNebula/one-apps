@@ -109,9 +109,13 @@ module Service
         end
 
         def generate_range_config(nic, nic_data)
-            lease_range = nic_data[:range].gsub('-', ' ')
+            lease_range = nic_data[:range]&.gsub('-', ' ')
             excluded_ips_str = ([nic_data[:address]] + nic_data[:vips]).join(',')
-            return "leases-#{nic}.sqlite3 #{lease_range} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s #{excluded_ips_str}"
+            range_config = "leases-#{nic}.sqlite3 #{lease_range} #{ONEAPP_VNF_DHCP4_LEASE_TIME}s"
+            range_config += " --excluded-ips #{excluded_ips_str}" unless excluded_ips_str.empty?
+            range_config += " --mac2ip" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
+            range_config += " --mac2ip-prefix #{ONEAPP_VNF_DHCP4_MAC2IP_MACPREFIX}" if ONEAPP_VNF_DHCP4_MAC2IP_ENABLED
+            return range_config
         end
 
         def install(initdir: '/etc/init.d')

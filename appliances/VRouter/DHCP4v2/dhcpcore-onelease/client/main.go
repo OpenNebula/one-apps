@@ -44,7 +44,6 @@ func main() {
 	}
 
 	conv, err := c.Exchange("lo",
-		dhcpv4.WithClientIP(net.ParseIP("127.0.0.1")),
 		dhcpv4.WithHwAddr(mac))
 	for _, p := range conv {
 		log.Print(p.Summary())
