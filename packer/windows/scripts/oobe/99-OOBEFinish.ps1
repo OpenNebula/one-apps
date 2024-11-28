@@ -38,6 +38,10 @@ cmd.exe /c 'net user Administrator /logonpasswordchg:yes'
 secedit /configure /db $SecurityDBPath /cfg $SecurityCfg /areas SECURITYPOLICY
 # Remove temporary files
 Remove-Item -Force $SecurityCfg, $SecurityCfgModified
+# Reenable and start OpenNebula contextualization service
+Write-Host "Enabling and starting contextualization service"
+Set-Service -Name "onecontext" -StartupType Automatic
+Start-Service -Name "onecontext"
 # logoff user 5 seconds after OOBE finishes
 Start-Sleep 5
 Disable-LocalUser -Name Administrator
