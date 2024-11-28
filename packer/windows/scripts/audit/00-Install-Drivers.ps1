@@ -3,7 +3,7 @@ Write-host "Installing VirtIO drivers"
 $DriveLetter = Get-WmiObject Win32_CDRomDrive | Where-Object VolumeName -like virtio-win-* | Select-Object -ExpandProperty Drive
 Write-Host "CD-ROM drive letter: $DriveLetter"
 # Get the installer executable path
-$InstallerExecutablePath = "$DriveLetter\virtio-win-guest-tools.exe"
+$InstallerExecutablePath = Join-Path -Path $DriveLetter -ChildPath "virtio-win-guest-tools.exe"
 Write-Host "Installer executable path: $InstallerExecutablePath"
 # Run the installer
 Write-Host "Running installer"
