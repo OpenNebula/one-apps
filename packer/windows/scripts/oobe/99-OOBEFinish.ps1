@@ -1,5 +1,8 @@
 # Delete unattend files and scripts
-Remove-Item -Recurse -Force $env:systemdrive\scripts, $env:systemdrive\Unattend.xml, $env:windir\Panther\Unattend.xml, $env:systemdrive\Run-Scripts.ps1
+Remove-Item -Recurse -Force (Join-Path -Path $env:systemdrive -ChildPath "scripts")
+Remove-Item -Recurse -Force (Join-Path -Path $env:systemdrive -ChildPath "Unattend.xml")
+Remove-Item -Recurse -Force (Join-Path -Path $env:windir -ChildPath "Panther\Unattend.xml")
+Remove-Item -Recurse -Force (Join-Path -Path $env:systemdrive -ChildPath "Run-Scripts.ps1")
 # Wait for OOBE to finish provisioning apps (finished when user desktop shows up)
 $RegistryKeyPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE\Stats"
 $RegistryKeyName = "OOBEUserSignedIn"
@@ -18,10 +21,10 @@ while ($OOBEFinished -eq $false) {
     }
 }
 # Export security policy
-$SecurityDBPath = "$env:systemdrive\windows\security\local.sdb"
-$LogFile = "$env:systemdrive\security.log"
-$SecurityCfg = "$env:systemdrive\security.cfg"
-$SecurityCfgModified = "$env:systemdrive\security_no_pw_complexity.cfg"
+$SecurityDBPath = Join-Path -Path $env:systemdrive -ChildPath "windows\security\local.sdb"
+$LogFile = Join-Path -Path $env:systemdrive -ChildPath "security.log"
+$SecurityCfg = Join-Path -Path $env:systemdrive -ChildPath "security.cfg"
+$SecurityCfgModified = Join-Path -Path $env:systemdrive -ChildPath "security_no_pw_complexity.cfg"
 secedit /export /cfg $SecurityCfg
 # Disable pasword complexity
 (Get-Content $SecurityCfg).replace("PasswordComplexity = 1", "PasswordComplexity = 0") | Set-Content $SecurityCfgModified
