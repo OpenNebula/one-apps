@@ -82,6 +82,10 @@ module HAProxy
                 timeout client 120s
                 timeout server 120s
         CONFIG
+
+        # Ensure HAProxy starts without any effective config, otherwise it'd be possible
+        # for it to fail when for example re-contexting removed a VIP.
+        file "#{basedir}/servers.cfg", '', mode: 'u=rw,g=r,o=', overwrite: true
     end
 
     def toggle(operations)
