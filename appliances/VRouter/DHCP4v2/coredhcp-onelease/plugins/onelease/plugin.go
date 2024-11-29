@@ -222,7 +222,10 @@ func setupRange(args ...string) (handler.Handler4, error) {
 		}
 		//check if excluded IPs are in the range and pre-allocate them
 		for _, excluded := range p.ExcludedIPs {
-			p.checkIPInRange(excluded)
+			if !p.checkIPInRange(excluded) {
+				log.Warnf("excluded IP %v is not in the range, not preallocation needed.", excluded)
+				continue
+			}
 			if _, err := p.allocator.Allocate(net.IPNet{IP: excluded}); err != nil {
 				return nil, fmt.Errorf("could not pre-allocate excluded IP %v: %w", excluded, err)
 			}
