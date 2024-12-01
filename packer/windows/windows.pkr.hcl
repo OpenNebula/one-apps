@@ -3,8 +3,8 @@ source "qemu" "windows" {
   communicator = "none"
   machine_type = "q35"
   efi_boot     = true
-  cores        = 8
-  memory       = 6192
+  cores        = 2
+  memory       = 4096
   accelerator  = "kvm"
 
   iso_url      = lookup(lookup(var.isoFiles, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_url", "")
