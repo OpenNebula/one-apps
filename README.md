@@ -43,5 +43,6 @@ Copyright 2002-2023, OpenNebula Project, OpenNebula Systems
 
 ## Acknowledgments
 
-* The Linux contextualization package has benefited immensely from incredible contributions by numerous developers. We extend our thanks to: [Th0masL](https://github.com/Th0masL), [baby-gnu](https://github.com/baby-gnu), [Moin](https://github.com/5u623l20), [Remy Zandwijk](https://github.com/rpmzandwijk), [Sergio Milanese](https://github.com/openmilanese), Alexandre Derumier, Andrei Kvapil, Deyan Chepishev, and Daniel Dehennin.
-* The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula)
+The Linux contextualization package has benefited immensely from incredible contributions by numerous developers. We extend our thanks to: [Th0masL](https://github.com/Th0masL), [baby-gnu](https://github.com/baby-gnu), [Moin](https://github.com/5u623l20), [Remy Zandwijk](https://github.com/rpmzandwijk), [Sergio Milanese](https://github.com/openmilanese), Alexandre Derumier, Andrei Kvapil, Deyan Chepishev, and Daniel Dehennin.
+
+The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula).
