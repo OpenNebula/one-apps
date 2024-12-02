@@ -77,7 +77,7 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 			ipFromMAC, ok, err := p.checkMACPrefix(macAddress)
 			if err != nil {
 				log.Errorf("MAC2IP lease failed for mac %v: %v", macAddress.String(), err)
-				return resp, true
+				return nil, true
 			}
 			if ok {
 				macPrefixMatches = true
@@ -92,14 +92,14 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 		ip, err := p.allocator.Allocate(ipToAllocate)
 		if err != nil {
 			log.Errorf("Could not allocate IP for MAC %s: %v", req.ClientHWAddr.String(), err)
-			return resp, true
+			return nil, true
 		}
 
 		// if the MAC address is mapped to an IP address, check if the allocated IP address matches the requested one, if not, revert the allocation and return
 		if p.enableMAC2IP && macPrefixMatches && !ip.IP.Equal(ipToAllocate.IP) {
 			p.allocator.Free(ip)
 			log.Errorf("MAC2IP: Could not allocate IP %s for MAC \"%s\": IP already allocated", ipToAllocate.IP.String(), req.ClientHWAddr.String())
-			return resp, true
+			return nil, true
 		}
 
 		rec := Record{
