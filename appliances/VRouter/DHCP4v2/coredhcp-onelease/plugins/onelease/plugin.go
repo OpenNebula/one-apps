@@ -83,7 +83,7 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 				macPrefixMatches = true
 				//propose the least 4 bytes of the mac address for allocating an IP address
 				ipToAllocate = net.IPNet{IP: ipFromMAC}
-				log.Infof("MAC %s matches the prefix %x, trying to allocate IP %s...", macAddress.String(), p.MACPrefix, ipToAllocate.IP.String())
+				log.Infof("MAC %s matches the prefix %02x:%02x, trying to allocate IP %s...", macAddress.String(), p.MACPrefix[0], p.MACPrefix[1], ipToAllocate.IP.String())
 			} else {
 				log.Infof("MAC %s does not match the prefix %x, providing conventional lease...", macAddress.String(), p.MACPrefix)
 			}
@@ -98,7 +98,7 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 		// if the MAC address is mapped to an IP address, check if the allocated IP address matches the requested one, if not, revert the allocation and return
 		if p.enableMAC2IP && macPrefixMatches && !ip.IP.Equal(ipToAllocate.IP) {
 			p.allocator.Free(ip)
-			log.Errorf("MAC2IP: Could not allocate IP %s for MAC %s: IP already allocated", req.ClientHWAddr.String(), err)
+			log.Errorf("MAC2IP: Could not allocate IP %s for MAC \"%s\": IP already allocated", ipToAllocate.IP.String(), req.ClientHWAddr.String())
 			return resp, true
 		}
 
@@ -127,7 +127,7 @@ func (p *PluginState) Handler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) 
 	}
 	resp.YourIPAddr = record.IP
 	resp.Options.Update(dhcpv4.OptIPAddressLeaseTime(p.LeaseTime.Round(time.Second)))
-	log.Printf("found IP address %s for MAC %s", record.IP, req.ClientHWAddr.String())
+	log.Printf("Found IP address %s for MAC %s", record.IP, req.ClientHWAddr.String())
 	return resp, true
 }
 

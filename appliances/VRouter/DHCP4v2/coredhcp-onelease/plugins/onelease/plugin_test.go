@@ -364,7 +364,7 @@ func TestSetupRange(t *testing.T) {
 			expectHandlerError: false,
 		},
 		{
-			name: "Try to out of range IP (192.168.1.255) with MAC2IP",
+			name: "Try to get out of range IP (192.168.1.255) with MAC2IP",
 			args: []string{
 				"test_leases.db", // filename
 				"192.168.1.1",    // start IP
@@ -393,6 +393,20 @@ func TestSetupRange(t *testing.T) {
 			expectHandlerError: false,
 		},
 		{
+			name: "Try to get IP with all IPs leased and no MAC2IP",
+			args: []string{
+				"test_leases.db",                            // filename
+				"192.168.1.1",                               // start IP
+				"192.168.1.7",                               // end IP
+				"60s",                                       // lease time
+				"--excluded-ips", "192.168.1.3,192.168.1.4", // excluded IPs
+			},
+			expectedLeaseTime:  60 * time.Second,
+			reqMACAddr:         net.HardwareAddr{0x53, 0x21, 0xc0, 0xa8, 0x01, 0x64},
+			expectSetUpError:   false,
+			expectHandlerError: true,
+		},
+		{
 			name: "Invalid Number of Arguments",
 			args: []string{
 				"test_leases.db", // filename
@@ -418,6 +432,17 @@ func TestSetupRange(t *testing.T) {
 				"test_leases.db", // filename
 				"invalid",        // invalid start IP
 				"192.168.1.7",    // end IP
+				"1h",             // lease time
+			},
+			expectSetUpError:   true,
+			expectHandlerError: false,
+		},
+		{
+			name: "Not compatible IP range with previously defined",
+			args: []string{
+				"test_leases.db", // filename
+				"0.0.0.0",        // invalid start IP
+				"0.0.0.1",        // end IP
 				"1h",             // lease time
 			},
 			expectSetUpError:   true,
