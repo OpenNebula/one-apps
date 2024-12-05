@@ -1334,7 +1334,7 @@ function authorizeSSHKeyStandard {
     $sshFolderPath = "$userProfilePath\.ssh"
     if ( !(Test-Path $sshFolderPath)) {
         logmsg "- Creating .ssh folder"
-        New-Item -Force -ItemType Directory -Path $sshFolderPath
+        New-Item -Force -ItemType Directory -Path $sshFolderPath | Out-Null
         if ($?) {
             logsuccess
         }
