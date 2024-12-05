@@ -967,14 +967,14 @@ function Enable-SSH {
 function Enable-Ping {
     Write-LogMessage "* Enabling Ping"
     #Create firewall manager object
-    New-Object -com hnetcfg.fwmgr
+    $fwMgr = New-Object -ComObject HNetCfg.FwMgr
 
     # Get current profile
-    $pro = $fwmgcalPolicy.CurrentProfile
+    $profile = $fwMgr.LocalPolicy.CurrentProfile
 
-    Write-LogMessage "- Enable Allow Inbound Echo Requests"
-    $ret = $pro.IcmpSettings.AllowInboundEchoRequest = $true
-    if ($ret) {
+    logmsg "- Enable Allow Inbound Echo Requests"
+    $ret = $profile.IcmpSettings.AllowInboundEchoRequest = $true
+    If ($ret) {
         Write-LogMessage "  ... Success"
     }
     else {
@@ -1474,20 +1474,24 @@ function Grant-SSHKey {
 
     Write-LogMessage "* Authorizing SSH_PUBLIC_KEY: ${AuthorizedKeys}"
 
-    if ($EnableSSHService -ieq "no") {
-        Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
-        return
-    }
+    if (${authorizedKeys} -ne $null -and ${authorizedKeys} -ne "") {
+        if ($EnableSSHService -ieq "no") {
+            Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
+            return
+        }
 
-    Enable-SSH
-    if ($WinAdmin -ieq "no") {
-        Disable-SharedAdminSSHKeySet
-        Grant-SSHKeyStandard $AuthorizedKeys $Username
+        Enable-SSH
+        if ($WinAdmin -ieq "no") {
+            Disable-SharedAdminSSHKeySet
+            Grant-SSHKeyStandard $AuthorizedKeys $Username
+        }
+        else {
+            Grant-SSHKeyAdmin $AuthorizedKeys
+        }
     }
     else {
-        Grant-SSHKeyAdmin $AuthorizedKeys
+        logmsg "- No SSH_PUBLIC_KEY provided, skipping"
     }
-
 }
 
 ################################################################################
