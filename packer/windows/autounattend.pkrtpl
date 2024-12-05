@@ -5,7 +5,6 @@
             <UserData>
                 <ProductKey>
                     <WillShowUI>Never</WillShowUI>
-                    <Key />
                 </ProductKey>
                 <AcceptEula>true</AcceptEula>
             </UserData>
