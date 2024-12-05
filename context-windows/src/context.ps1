@@ -1297,13 +1297,13 @@ function authorizeSSHKeyAdmin {
 }
 
 function disableSharedAdminSSHKeys {
-    logmsg "- Disabling use of default shared admins_authorized_keys for Administrators group"
     $cfgtoRemoveRegex = ('Match Group administrators\r?\n' + 
                         ' {7}AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys(?:\r?\n)')
     $sshdConfigPath = "$env:PROGRAMDATA\ssh\sshd_config"
     $currentConfig = Get-Content $sshdConfigPath -Raw
     if ($currentConfig -match $cfgtoRemoveRegex) {
         $updatedConfig = $currentConfig -replace $cfgtoRemoveRegex
+        logmsg "- Disabling use of default shared admins_authorized_keys for Administrators group"
         Set-Content -Path $sshdConfigPath -Value $updatedConfig
         if ($?) {
             logsuccess
