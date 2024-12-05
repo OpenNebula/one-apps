@@ -907,13 +907,13 @@ function enableRemoteDesktop() {
 function enablePing() {
     logmsg "* Enabling Ping"
     #Create firewall manager object
-    New-Object -com hnetcfg.fwmgr
-
+    $fwmgr = New-Object -ComObject HNetCfg.FwMgr
+    
     # Get current profile
-    $pro = $fwmgcalPolicy.CurrentProfile
-
+    $profile = $fwmgr.LocalPolicy.CurrentProfile
+    
     logmsg "- Enable Allow Inbound Echo Requests"
-    $ret = $pro.IcmpSettings.AllowInboundEchoRequest = $true
+    $ret = $profile.IcmpSettings.AllowInboundEchoRequest = $true
     If ($ret) {
         logmsg "  ... Success"
     }
@@ -1322,13 +1322,17 @@ function authorizeSSHKey {
 
     logmsg "* Authorizing SSH_PUBLIC_KEY: ${authorizedKeys}"
 
-    if ($winadmin -ieq "no") {
-        authorizeSSHKeyStandard $authorizedKeys
+    if (${authorizedKeys} -ne $null -and ${authorizedKeys} -ne "") {
+        if ($winadmin -ieq "no") {
+            authorizeSSHKeyStandard $authorizedKeys
+        }
+        else {
+            authorizeSSHKeyAdmin $authorizedKeys
+        }
     }
     else {
-        authorizeSSHKeyAdmin $authorizedKeys
+        logmsg "- No SSH_PUBLIC_KEY provided, skipping"
     }
-
 }
 
 ################################################################################
