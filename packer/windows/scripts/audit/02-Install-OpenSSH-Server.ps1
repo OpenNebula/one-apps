@@ -1,6 +1,12 @@
 Write-Host "Checking if OpenSSH Server is available for this Windows version"
 $FeatureName = "OpenSSH.Server"
+
+# Check if the feature is available for this Windows version
+$oldErrorActionPreference = $ErrorActionPreference
+# The -ErrorAction parameter produced error messages, so we change the preference
+$ErrorActionPreference = "SilentlyContinue"
 $Capability = Get-WindowsCapability -Online -Name $FeatureName
+$ErrorActionPreference = $oldErrorActionPreference
 
 # Check if installation is possible
 if ($Capability.Name) {
