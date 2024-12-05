@@ -88,6 +88,38 @@ variable "windows" {
       iso = "windows10BusinessEditions"
       edition_name = "Windows 10 Enterprise N"
     }
+    "10EnterpriseLTSC2015" = {
+      iso = "windows10EnterpriseLTSC2015"
+      edition_name = "Windows 10 Enterprise 2015 LTSB"
+    }
+    "10EnterpriseNLTSC2015" = {
+      iso = "windows10EnterpriseNLTSC2015"
+      edition_name = "Windows 10 Enterprise N 2015 LTSB"
+    }
+    "10EnterpriseLTSC2016" = {
+      iso = "windows10EnterpriseLTSC2016"
+      edition_name = "Windows 10 Enterprise 2016 LTSB"
+    }
+    "10EnterpriseNLTSC2016" = {
+      iso = "windows10EnterpriseLTSC2016"
+      edition_name = "Windows 10 Enterprise N 2016 LTSB"
+    }
+    "10EnterpriseLTSC2019" = {
+      iso = "windows10EnterpriseLTSC2019"
+      edition_name = "Windows 10 Enterprise LTSC 2019"
+    }
+    "10EnterpriseNLTSC2019" = {
+      iso = "windows10EnterpriseLTSC2019"
+      edition_name = "Windows 10 Enterprise N LTSC 2019"
+    }
+    "10EnterpriseLTSC2021" = {
+      iso = "windows10EnterpriseLTSC2021"
+      edition_name = "Windows 10 Enterprise LTSC 2021"
+    }
+    "10EnterpriseNLTSC2021" = {
+      iso = "windows10EnterpriseLTSC2021"
+      edition_name = "Windows 10 Enterprise N LTSC 2021"
+    }
     # Windows 11
     "11Home" = {
       iso = "windows11ConsumerEditions"
@@ -140,6 +172,14 @@ variable "windows" {
     "11enterpriseN" = {
       iso = "windows11BusinessEditions"
       edition_name = "Windows 11 Enterprise N"
+    }
+    "11EnterpriseLTSC2024" = {
+      iso = "windows11EnterpriseLTSC2024"
+      edition_name = "Windows 11 Enterprise LTSC 2024"
+    }
+    "11EnterpriseNLTSC2024" = {
+      iso = "windows11EnterpriseLTSC2024"
+      edition_name = "Windows 11 Enterprise N LTSC 2024"
     }
     # Windows Server 2016
     "2016Standard" = {
