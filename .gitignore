@@ -5,6 +5,7 @@ version
 packer/*/*-cloud-init.iso
 packer/*/*-context.iso
 packer/*/context/
+packer/windows/iso
 context-windows/out/
 context-windows/*.msi
 context-windows/rhsrvany.exe
