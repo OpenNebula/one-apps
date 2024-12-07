@@ -904,6 +904,46 @@ function enableRemoteDesktop() {
     Write-Host "`r`n" -NoNewline
 }
 
+function enableSSH() {
+    logmsg "* Enabling SSH"
+    # Get sshd service
+    $serviceName = "sshd"
+    $sshdService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    
+    # Check if service is present
+    if ($sshdService) {
+        # Service is running and automatic start is enabled
+        if ($sshdService.StartType -eq "Automatic" -and $sshdService.Status -eq "Running") {
+            logmsg " ... Success (Service is already enabled and running )"
+            return
+        }
+        # Enable autostart
+        if ($sshdService.StartType -ne "Automatic") {
+            logmsg "- Enabling automatic start for SSH service"
+            Set-Service -Name $serviceName -StartupType Automatic
+            if ($?) {
+                logsuccess
+            } else {
+                logfail
+                return
+            }
+        }
+        # Start service
+        if ($sshdService.Status -ne "Running") {
+            logmsg "- Starting SSH service"
+        Start-Service -Name $serviceName
+        if ($?) {
+            logsuccess
+        } else {
+            logfail
+        }
+    }
+    } else {
+        # OpenSSH.Server feature is not installed
+        logmsg " ... Failed (OpenSSH Server is not installed)"
+    }
+}
+
 function enablePing() {
     logmsg "* Enabling Ping"
     #Create firewall manager object
