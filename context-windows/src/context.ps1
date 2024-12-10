@@ -1280,8 +1280,21 @@ function authorizeSSHKeyAdmin {
     $authorizedKeysPath = "$env:ProgramData\ssh\administrators_authorized_keys"
 
 
+    $authoriozedKeysDir = Split-Path -Parent -Path $authorizedKeysPath
+    if (!(Test-Path $authoriozedKeysDir)) {
+        logmsg "- Directory $authoriozedKeysDir does not exist"
+        logmsg "- Trying to create the directory $authoriozedKeysDir"
+        New-Item -ItemType Directory -Path $authoriozedKeysDir
+        if ($?) {
+            logsuccess
+        }
+        else {
+            logfail
+        }
+    }
 
     # whitelisting
+    logmsg "- Writing SSH key to $authorizedKeysPath"
     Set-Content $authorizedKeysPath $authorizedKeys
 
     if ($?) {
