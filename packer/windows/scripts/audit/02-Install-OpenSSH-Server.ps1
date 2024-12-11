@@ -1,5 +1,5 @@
 Write-Host "Checking if OpenSSH Server is available for this Windows version"
-$FeatureName = "OpenSSH.Server"
+$FeatureName = "OpenSSH.Server~~~~0.0.1.0"
 
 # Check if the feature is available for this Windows version
 $oldErrorActionPreference = $ErrorActionPreference
