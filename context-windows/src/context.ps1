@@ -1424,6 +1424,7 @@ do {
     setTimeZone $context
     addLocalUser $context
     enableRemoteDesktop
+    enableSSH
     enablePing
     configureNetwork $context
     renameComputer $context
