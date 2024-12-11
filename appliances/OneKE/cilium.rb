@@ -24,7 +24,7 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
             k8sServiceHost: "#{ep.host}"
             k8sServicePort: #{ep.port}
             cni:
@@ -39,14 +39,15 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
           name: default
           namespace: kube-system
         spec:
-          cidrs: {}
+          blocks: {}
+          allowFirstLastIPs: "No"
         MANIFEST
 
         unless ONEAPP_K8S_CILIUM_RANGES.empty?
             ip_address_pool = documents.find do |doc|
                 doc['kind'] == 'CiliumLoadBalancerIPPool' && doc.dig('metadata', 'name') == 'default'
             end
-            ip_address_pool['spec']['cidrs'] = extract_cilium_ranges.map do |item|
+            ip_address_pool['spec']['blocks'] = extract_cilium_ranges.map do |item|
                 { 'cidr' => item.join('/') }
             end
         end

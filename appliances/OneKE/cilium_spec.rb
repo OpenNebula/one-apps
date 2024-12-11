@@ -49,7 +49,7 @@ RSpec.describe 'configure_cilium' do
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
             k8sServiceHost: "192.168.150.86"
             k8sServicePort: 6443
             cni:
@@ -64,7 +64,8 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          cidrs: {}
+          blocks: {}
+          allowFirstLastIPs: "No"
         MANIFEST
         Dir.mktmpdir do |temp_dir|
             configure_cilium temp_dir
@@ -86,7 +87,7 @@ RSpec.describe 'configure_cilium' do
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
             k8sServiceHost: "192.168.150.86"
             k8sServicePort: 6443
             cni:
@@ -101,9 +102,10 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          cidrs:
+          blocks:
           - cidr: 192.168.150.128/25
           - cidr: 10.11.12.0/24
+          allowFirstLastIPs: "No"
         MANIFEST
         Dir.mktmpdir do |temp_dir|
             configure_cilium temp_dir
@@ -122,7 +124,7 @@ RSpec.describe 'configure_cilium' do
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
             k8sServiceHost: "192.168.150.86"
             k8sServicePort: 6443
             cni:
@@ -137,9 +139,10 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          cidrs:
+          blocks:
           - cidr: 192.168.150.128/25
           - cidr: 10.11.12.0/24
+          allowFirstLastIPs: "No"
         MANIFEST
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CNI_CONFIG', Base64.encode64(manifest)
