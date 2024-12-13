@@ -12,16 +12,16 @@ isoFiles = {
     iso_checksum = "sha256:4D79143291AEF63DBDB812F9A5C80F553F0D8CC4B660129D1BEC7DA2BDB2720C"
   }
   windows10EnterpriseNLTSC2015 = {
-    iso_url      = ""
-    iso_checksum = "none"
+    iso_url      = "packer/windows/iso/win10ent_n_ltsb_2015_en.iso"
+    iso_checksum = "sha256:47A672A0C2ECD2B286517D12D1F05C3AC1FA5B85FD8DC98637A3980DB8BA5003"
   }
   windows10EnterpriseLTSC2016 = {
     iso_url      = "packer/windows/iso/win10ent_ltsb_2016_en.iso"
     iso_checksum = "sha256:3874BC7160ED10F28744DC2B00F9518AF99E706296B969FB7EAF26009E1CAF76"
   }
   windows10EnterpriseNLTSC2016 = {
-    iso_url      = ""
-    iso_checksum = "none"
+    iso_url      = "packer/windows/iso/win10ent_n_ltsb_2015_en.iso"
+    iso_checksum = "sha256:1CF84D3A00832ED8726480CFBADAC62AE9D8B8DA38DDE0F373262FB40E908AF1"
   }
   windows10EnterpriseLTSC2019 = {
     iso_url      = "packer/windows/iso/win10ent_ltsc_2019_en.iso"
