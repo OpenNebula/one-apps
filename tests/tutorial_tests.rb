@@ -15,8 +15,6 @@ describe 'Appliance Certification' do
     # "onetemplate instantiate base --context SSH_PUBLIC_KEY=\\\"\\$USER[SSH_PUBLIC_KEY]\\\",NETWORK=\"YES\",ONEAPP_DB_NAME=\"dbname\",ONEAPP_DB_USER=\"username\",ONEAPP_DB_PASSWORD=\"upass\",ONEAPP_DB_ROOT_PASSWORD=\"arpass\" --disk service_example"
     include_context('vm_handler')
 
-    include_context('general_context')
-
     # if the mysql command exists in $PATH, we can assume it is installed
     it 'mysql is installed' do
         cmd = 'which mysql'
