@@ -47,4 +47,6 @@ The Linux contextualization package has benefited immensely from incredible cont
 
 The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula).
 
-## Acknowledgments
+## Acknowledgements
+
+Some of the appliances included in this repository have been made possible through the funding of the following innovation project: [ONEedge5G](https://opennebula.io/innovation/oneedge5g/).
