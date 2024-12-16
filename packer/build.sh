@@ -6,6 +6,11 @@ DST=$3                                   # e.g. export/debian11-6.6.1-1.qcow2
 INPUT_DIR="$(dirname "$0")/$DISTRO_NAME" # e.g. packer/debian
 OUTPUT_DIR="$DIR_BUILD/$DISTRO"          # e.g. build/debian11 (working dir)
 mkdir -p "$OUTPUT_DIR"
+ARCH='x86_64'
+
+if [[ "$DISTRO_VER" =~ "arch64" ]]; then
+    ARCH='aarch64'
+fi
 
 packer init "$INPUT_DIR"
 
@@ -15,6 +20,7 @@ packer build -force \
     -var "input_dir=${INPUT_DIR}" \
     -var "output_dir=${OUTPUT_DIR}" \
     -var "headless=${PACKER_HEADLESS}" \
+    -var "arch=${ARCH}" \
     "$INPUT_DIR"                       # loads all *.pkr.hcl from dir
 
 # delete potential temporary cloud-init files
