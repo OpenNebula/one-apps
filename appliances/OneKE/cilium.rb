@@ -32,6 +32,7 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
               exclusive: false
             bgpControlPlane:
               enabled: true
+            defaultLBServiceIPAM: none
         ---
         apiVersion: cilium.io/v2alpha1
         kind: CiliumLoadBalancerIPPool
