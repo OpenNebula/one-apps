@@ -39,6 +39,7 @@ RSpec.describe 'configure_cilium' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CNI_CONFIG', nil
+        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
         output = YAML.load_stream <<~MANIFEST
         ---
@@ -77,6 +78,7 @@ RSpec.describe 'configure_cilium' do
     it 'should apply user-defined ranges' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
+        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
         output = YAML.load_stream <<~MANIFEST
         ---
@@ -106,6 +108,36 @@ RSpec.describe 'configure_cilium' do
           - cidr: 192.168.150.128/25
           - cidr: 10.11.12.0/24
           allowFirstLastIPs: "No"
+        MANIFEST
+        Dir.mktmpdir do |temp_dir|
+            configure_cilium temp_dir
+            result = YAML.load_stream File.read "#{temp_dir}/rke2-cilium-config.yaml"
+            expect(result).to eq output
+        end
+    end
+
+    it 'should disable bgpControlPlane and not define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is false' do
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
+        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', false
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
+        output = YAML.load_stream <<~MANIFEST
+        ---
+        apiVersion: helm.cattle.io/v1
+        kind: HelmChartConfig
+        metadata:
+          name: rke2-cilium
+          namespace: kube-system
+        spec:
+          valuesContent: |-
+            kubeProxyReplacement: true
+            k8sServiceHost: "192.168.150.86"
+            k8sServicePort: 6443
+            cni:
+              chainingMode: "none"
+              exclusive: false
+            bgpControlPlane:
+              enabled: false
         MANIFEST
         Dir.mktmpdir do |temp_dir|
             configure_cilium temp_dir
