@@ -23,6 +23,9 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
     if ONEAPP_K8S_CNI_CONFIG.nil?
         msg :info, 'Create Cilium CRD config from user-provided ranges'
 
+        enable_bgp = ONEAPP_K8S_CILIUM_ENABLE_BGP \
+            || (ONEAPP_K8S_CILIUM_ENABLE_BGP.nil? && !ONEAPP_K8S_CILIUM_RANGES.empty?)
+
         documents = YAML.load_stream <<~MANIFEST
         ---
         apiVersion: helm.cattle.io/v1
@@ -39,10 +42,10 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
               chainingMode: "none"
               exclusive: false
             bgpControlPlane:
-              enabled: #{ONEAPP_K8S_CILIUM_ENABLE_BGP}
+              enabled: #{enable_bgp}
         MANIFEST
 
-        if ONEAPP_K8S_CILIUM_ENABLE_BGP and ONEAPP_K8S_CILIUM_RANGES.is_a?(Array)
+        if enable_bgp
             documents += YAML.load_stream <<~MANIFEST
             ---
             apiVersion: cilium.io/v2alpha1

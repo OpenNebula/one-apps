@@ -35,12 +35,10 @@ RSpec.describe 'extract_cilium_ranges' do
 end
 
 RSpec.describe 'configure_cilium' do
-    it 'should apply user-defined ranges (empty)' do
+    it 'should apply user-defined ranges' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CNI_CONFIG', nil
-        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
-        stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
         output = YAML.load_stream <<~MANIFEST
         ---
         apiVersion: helm.cattle.io/v1
@@ -65,7 +63,9 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          blocks: {}
+          blocks:
+          - cidr: 192.168.150.128/25
+          - cidr: 10.11.12.0/24
           allowFirstLastIPs: "No"
         MANIFEST
         Dir.mktmpdir do |temp_dir|
@@ -75,7 +75,37 @@ RSpec.describe 'configure_cilium' do
         end
     end
 
-    it 'should apply user-defined ranges' do
+    it 'should not define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is false and ONEAPP_K8S_CILIUM_RANGES is not empty' do
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
+        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', false
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
+        output = YAML.load_stream <<~MANIFEST
+        ---
+        apiVersion: helm.cattle.io/v1
+        kind: HelmChartConfig
+        metadata:
+          name: rke2-cilium
+          namespace: kube-system
+        spec:
+          valuesContent: |-
+            kubeProxyReplacement: true
+            k8sServiceHost: "192.168.150.86"
+            k8sServicePort: 6443
+            cni:
+              chainingMode: "none"
+              exclusive: false
+            bgpControlPlane:
+              enabled: false
+        MANIFEST
+        Dir.mktmpdir do |temp_dir|
+            configure_cilium temp_dir
+            result = YAML.load_stream File.read "#{temp_dir}/rke2-cilium-config.yaml"
+            expect(result).to eq output
+        end
+    end
+
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is true and ONEAPP_K8S_CILIUM_RANGES is not empty' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
@@ -116,11 +146,11 @@ RSpec.describe 'configure_cilium' do
         end
     end
 
-    it 'should disable bgpControlPlane and not define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is false' do
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is true and ONEAPP_K8S_CILIUM_RANGES is empty' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', false
-        stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
+        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
         output = YAML.load_stream <<~MANIFEST
         ---
         apiVersion: helm.cattle.io/v1
@@ -137,7 +167,16 @@ RSpec.describe 'configure_cilium' do
               chainingMode: "none"
               exclusive: false
             bgpControlPlane:
-              enabled: false
+              enabled: true
+        ---
+        apiVersion: cilium.io/v2alpha1
+        kind: CiliumLoadBalancerIPPool
+        metadata:
+          name: default
+          namespace: kube-system
+        spec:
+          blocks: {}
+          allowFirstLastIPs: "No"
         MANIFEST
         Dir.mktmpdir do |temp_dir|
             configure_cilium temp_dir
