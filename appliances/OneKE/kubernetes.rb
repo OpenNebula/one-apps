@@ -193,7 +193,7 @@ def init_master
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
         'disable-kube-proxy' => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
-        'disable-cloud-controller' => ONEAPP_K8S_ENABLE_CLOUD_CONTROLLER == false
+        'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
 
     msg :info, 'Prepare initial rke2-server config'
@@ -250,7 +250,7 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
         'disable'            => ['rke2-ingress-nginx'],
         'cni'                => cni,
         'disable-kube-proxy' => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
-        'disable-cloud-controller' => ONEAPP_K8S_ENABLE_CLOUD_CONTROLLER == false
+        'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
 
     msg :info, 'Prepare rke2-server config'
