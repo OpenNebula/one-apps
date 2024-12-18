@@ -40,6 +40,9 @@ packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKEa.qcow2
 	@${INFO} "Packer service_OneKEa done"
 
+packer-service_Ray: packer-ubuntu2204 ${DIR_EXPORT}/service_Ray.qcow2
+	@${INFO} "Packer service_Ray done"
+
 # run packer build for given distro or service
 ${DIR_EXPORT}/%.qcow2: $(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES))
 	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9].*//'))
