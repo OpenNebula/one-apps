@@ -1,12 +1,4 @@
-require_relative 'lib/app_handler' # Loads the library to handle VM creation and destruction
-
-# Define on this named variable (needs to have this name exactly) the CONTEXT parameters that your app will require
-APP_CONTEXT_PARAMS = {
-    :DB_NAME => 'dbname',
-    :DB_USER => 'username',
-    :DB_PASSWORD => 'upass',
-    :DB_ROOT_PASSWORD => 'arpass'
-}
+require_relative '../lib/app_handler' # Loads the library to handle VM creation and destruction
 
 # You can put any title you want, this will be where you group your tests
 describe 'Appliance Certification' do
@@ -19,9 +11,8 @@ describe 'Appliance Certification' do
     it 'mysql is installed' do
         cmd = 'which mysql'
 
-        execution = @info[:vm].ssh(cmd)
-
-        expect(execution.exitstatus).to eq(0)
+        # use @info[:vm] to test the VM running the app
+        @info[:vm].ssh(cmd).expect_success
     end
 
     # Use the systemd cli to verify that mysql is up and runnig. will fail if it takes more than 30 seconds to run

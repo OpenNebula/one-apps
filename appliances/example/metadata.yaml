@@ -1,0 +1,39 @@
+---
+:app:
+  :name: service_example
+  :type: service
+  :os:
+    :type: linux
+    :base: alma8
+  :hypervisor: KVM
+  :context: # which ONEAPP_ context params are used to control the app
+    :DB_NAME: 'dbname'
+    :DB_USER: 'username'
+    :DB_PASSWORD: 'upass'
+    :DB_ROOT_PASSWORD: 'arpass'
+
+:one:
+  :template: # how the VM template is expected to be on OpenNebula
+    NAME: base
+    TEMPLATE:
+      ARCH: x86_64
+      CONTEXT:
+        NETWORK: 'YES'
+        SSH_PUBLIC_KEY: "$USER[SSH_PUBLIC_KEY]"
+      CPU: '0.1'
+      CPU_MODEL:
+        MODEL: host-passthrough
+      GRAPHICS:
+        LISTEN: 0.0.0.0
+        TYPE: vnc
+      MEMORY: '1024'
+      NIC:
+        NETWORK: service
+      NIC_DEFAULT:
+        MODEL: virtio
+  :datastore_name: default
+  :timeout: '90'
+
+:infra:
+  :disk_format: qcow2
+  :apps_path: /opt/one-apps/export
