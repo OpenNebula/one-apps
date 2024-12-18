@@ -75,10 +75,10 @@ RSpec.describe 'configure_cilium' do
         end
     end
 
-    it 'should not define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is false and ONEAPP_K8S_CILIUM_RANGES is not empty' do
+    it 'should not define ip ranges when ONEAPP_K8S_CILIUM_BGP_ENABLED is false and ONEAPP_K8S_CILIUM_RANGES is not empty' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', false
+        stub_const 'ONEAPP_K8S_CILIUM_BGP_ENABLED', false
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
         output = YAML.load_stream <<~MANIFEST
         ---
@@ -105,10 +105,10 @@ RSpec.describe 'configure_cilium' do
         end
     end
 
-    it 'should define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is true and ONEAPP_K8S_CILIUM_RANGES is not empty' do
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_BGP_ENABLED is true and ONEAPP_K8S_CILIUM_RANGES is not empty' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
+        stub_const 'ONEAPP_K8S_CILIUM_BGP_ENABLED', true
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
         output = YAML.load_stream <<~MANIFEST
         ---
@@ -146,10 +146,10 @@ RSpec.describe 'configure_cilium' do
         end
     end
 
-    it 'should define ip ranges when ONEAPP_K8S_CILIUM_ENABLE_BGP is true and ONEAPP_K8S_CILIUM_RANGES is empty' do
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_BGP_ENABLED is true and ONEAPP_K8S_CILIUM_RANGES is empty' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CILIUM_ENABLE_BGP', true
+        stub_const 'ONEAPP_K8S_CILIUM_BGP_ENABLED', true
         stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
         output = YAML.load_stream <<~MANIFEST
         ---

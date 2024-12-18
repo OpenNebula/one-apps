@@ -7,7 +7,7 @@ require 'yaml'
 require_relative 'config.rb'
 require_relative 'helpers.rb'
 
-# NOTE: We added the ONEAPP_K8S_CILIUM_ENABLE_BGP flag for being able to disable
+# NOTE: We added the ONEAPP_K8S_CILIUM_BGP_ENABLED flag for being able to disable
 # BGP control plane and CiliumLoadBalancerIPPool CRD creation in order to avoid
 # conflicts with other LB controllers managing services without LBClass set.
 # From cilium v1.17, we will be able to add `defaultLBServiceIPAM: none` in the
@@ -23,8 +23,8 @@ def configure_cilium(manifest_dir = K8S_MANIFEST_DIR, endpoint = ONEAPP_K8S_CONT
     if ONEAPP_K8S_CNI_CONFIG.nil?
         msg :info, 'Create Cilium CRD config from user-provided ranges'
 
-        enable_bgp = ONEAPP_K8S_CILIUM_ENABLE_BGP \
-            || (ONEAPP_K8S_CILIUM_ENABLE_BGP.nil? && !ONEAPP_K8S_CILIUM_RANGES.empty?)
+        enable_bgp = ONEAPP_K8S_CILIUM_BGP_ENABLED \
+            || (ONEAPP_K8S_CILIUM_BGP_ENABLED.nil? && !ONEAPP_K8S_CILIUM_RANGES.empty?)
 
         documents = YAML.load_stream <<~MANIFEST
         ---

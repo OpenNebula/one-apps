@@ -186,13 +186,13 @@ def init_master
     sans << cp.host
 
     server_config = {
-        'node-name'          => name,
-        'token'              => SecureRandom.uuid,
-        'tls-san'            => sans.uniq,
-        'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
-        'disable'            => ['rke2-ingress-nginx'],
-        'cni'                => cni,
-        'disable-kube-proxy' => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
+        'node-name'                => name,
+        'token'                    => SecureRandom.uuid,
+        'tls-san'                  => sans.uniq,
+        'node-taint'               => ['CriticalAddonsOnly=true:NoExecute'],
+        'disable'                  => ['rke2-ingress-nginx'],
+        'cni'                      => cni,
+        'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
 
@@ -242,14 +242,14 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
     sans << cp.host
 
     server_config = {
-        'node-name'          => name,
-        'server'             => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
-        'token'              => token,
-        'tls-san'            => sans.uniq,
-        'node-taint'         => ['CriticalAddonsOnly=true:NoExecute'],
-        'disable'            => ['rke2-ingress-nginx'],
-        'cni'                => cni,
-        'disable-kube-proxy' => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
+        'node-name'                => name,
+        'server'                   => "https://#{ONEAPP_RKE2_SUPERVISOR_EP}",
+        'token'                    => token,
+        'tls-san'                  => sans.uniq,
+        'node-taint'               => ['CriticalAddonsOnly=true:NoExecute'],
+        'disable'                  => ['rke2-ingress-nginx'],
+        'cni'                      => cni,
+        'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
 
@@ -369,29 +369,26 @@ def detect_node
 end
 
 def configure_rke2_proxy(current_role)
-    if ONEAPP_K8S_HTTP_PROXY.to_s.empty? && ONEAPP_K8S_HTTPS_PROXY.to_s.empty?
-        return
-    end
+    return if ONEAPP_K8S_HTTP_PROXY.to_s.empty? && ONEAPP_K8S_HTTPS_PROXY.to_s.empty?
 
     rke2_role = current_role == 'master' ? 'server' : 'agent'
-    filepath = "/etc/default/rke2-#{rke2_role}"
+    filepath  = "/etc/default/rke2-#{rke2_role}"
 
     msg :info, "Prepare rke2-#{rke2_role} proxy config in #{filepath}"
 
-    proxy_config = String.new
-    proxy_config << "HTTP_PROXY=#{ONEAPP_K8S_HTTP_PROXY}\n" unless ONEAPP_K8S_HTTP_PROXY.nil?
-    proxy_config << "HTTPS_PROXY=#{ONEAPP_K8S_HTTPS_PROXY}\n" unless ONEAPP_K8S_HTTPS_PROXY.nil?
+    proxy_config = []
+    proxy_config << "HTTP_PROXY=#{ONEAPP_K8S_HTTP_PROXY}" unless ONEAPP_K8S_HTTP_PROXY.nil?
+    proxy_config << "HTTPS_PROXY=#{ONEAPP_K8S_HTTPS_PROXY}" unless ONEAPP_K8S_HTTPS_PROXY.nil?
     if ONEAPP_K8S_NO_PROXY.to_s.empty?
         no_proxy = ['127.0.0.1/32', 'localhost']
         no_proxy << retrieve_endpoint_host(ONEAPP_K8S_CONTROL_PLANE_EP) if ONEAPP_K8S_CONTROL_PLANE_EP
         no_proxy << retrieve_endpoint_host(ONEAPP_RKE2_SUPERVISOR_EP) if ONEAPP_RKE2_SUPERVISOR_EP
-        proxy_config << "NO_PROXY=#{no_proxy.uniq.join(',')}\n"
+        proxy_config << "NO_PROXY=#{no_proxy.uniq.join(',')}"
     else
-        proxy_config << "NO_PROXY=#{ONEAPP_K8S_NO_PROXY}\n"
+        proxy_config << "NO_PROXY=#{ONEAPP_K8S_NO_PROXY}"
     end
 
-    file filepath, proxy_config, overwrite: true
-
+    file filepath, proxy_config.join("\n"), overwrite: true
 end
 
 def retrieve_endpoint_host(endpoint)
