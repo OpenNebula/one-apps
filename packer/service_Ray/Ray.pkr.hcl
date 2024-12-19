@@ -18,7 +18,7 @@ build {
 # Here are the details about the VM virtual hardware
 source "qemu" "Ray" {
   cpus        = 2
-  memory      = 2048
+  memory      = 4096
   accelerator = "kvm"
 
   iso_url      = "export/ubuntu2204.qcow2"
@@ -93,13 +93,25 @@ build {
   }
 
   provisioner "file" {
-    sources     = ["appliances/Ray"]
+    sources     = [
+        "appliances/Ray/main.rb",
+        "appliances/Ray/config.rb"
+    ]
     destination = "/etc/one-appliance/service.d/"
   }
+
+  provisioner "file" {
+    sources     = [
+        "appliances/Ray/config.yaml.template"
+        ]
+    destination = "/root/" #TODO: Change
+  }
+
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
+
 
   #######################################################################
   # Setup appliance: Execute install step                               #
