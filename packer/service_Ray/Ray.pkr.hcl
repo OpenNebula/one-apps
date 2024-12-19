@@ -93,23 +93,21 @@ build {
   }
 
   provisioner "file" {
-    sources     = [
-        "appliances/Ray/main.rb",
-        "appliances/Ray/config.rb"
-    ]
+    sources     = [ "appliances/Ray" ]
     destination = "/etc/one-appliance/service.d/"
   }
 
-  provisioner "file" {
-    sources     = [
-        "appliances/Ray/config.yaml.template"
-        ]
-    destination = "/root/" #TODO: Change
-  }
-
-
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
+  }
+
+  #This is necessary for allowing serve to detect the python modules
+  # probably we can do it in a better way
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline = [
+      "echo 'export PYTHONPATH=/etc/one-appliance/service.d/Ray:$${PYTHONPATH:-}' >> /etc/profile"
+    ]
   }
 
 

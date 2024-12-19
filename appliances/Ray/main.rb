@@ -58,10 +58,11 @@ module Service
         puts bash "ray start --head --port=#{ONE_APP_RAY_PORT}"
     end
 
+    # The model file should be placed in the same directory where we call serve deploy
     def load_model_file
         if !ONE_APP_RAY_MODEL64.empty?
             msg :info, "Copying model file to #{ONE_APP_RAY_MODEL_DEST_PATH}..."
-            write_file(ONE_APP_RAY_MODEL_DEST_PATH, Base64.decode64(ONE_APP_RAY_MODEL64))
+            write_file(ONE_APP_RAY_MODEL_DEST_PATH, Base64.decode64(ONE_APP_RAY_MODEL64), 0775)
             return
         end
         if !ONE_APP_RAY_MODEL_URL.empty?
@@ -92,7 +93,7 @@ module Service
 
     def run_serve
         msg :info, "Serving Ray deployments in #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}..."
-        puts bash "serve run #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}"
+        puts bash "serve deploy #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}"
     end
 
     def wait_service_available(timeout: 300, check_interval: 5)
