@@ -35,44 +35,6 @@ RSpec.describe 'extract_cilium_ranges' do
 end
 
 RSpec.describe 'configure_cilium' do
-    it 'should apply user-defined ranges (empty)' do
-        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
-        stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
-        stub_const 'ONEAPP_K8S_CNI_CONFIG', nil
-        stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
-        output = YAML.load_stream <<~MANIFEST
-        ---
-        apiVersion: helm.cattle.io/v1
-        kind: HelmChartConfig
-        metadata:
-          name: rke2-cilium
-          namespace: kube-system
-        spec:
-          valuesContent: |-
-            kubeProxyReplacement: strict
-            k8sServiceHost: "192.168.150.86"
-            k8sServicePort: 6443
-            cni:
-              chainingMode: "none"
-              exclusive: false
-            bgpControlPlane:
-              enabled: true
-        ---
-        apiVersion: cilium.io/v2alpha1
-        kind: CiliumLoadBalancerIPPool
-        metadata:
-          name: default
-          namespace: kube-system
-        spec:
-          cidrs: {}
-        MANIFEST
-        Dir.mktmpdir do |temp_dir|
-            configure_cilium temp_dir
-            result = YAML.load_stream File.read "#{temp_dir}/rke2-cilium-config.yaml"
-            expect(result).to eq output
-        end
-    end
-
     it 'should apply user-defined ranges' do
         stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
@@ -86,7 +48,37 @@ RSpec.describe 'configure_cilium' do
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
+            k8sServiceHost: "192.168.150.86"
+            k8sServicePort: 6443
+            cni:
+              chainingMode: "none"
+              exclusive: false
+            bgpControlPlane:
+              enabled: false
+        MANIFEST
+        Dir.mktmpdir do |temp_dir|
+            configure_cilium temp_dir
+            result = YAML.load_stream File.read "#{temp_dir}/rke2-cilium-config.yaml"
+            expect(result).to eq output
+        end
+    end
+
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_BGP_ENABLED is true and ONEAPP_K8S_CILIUM_RANGES is not empty' do
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
+        stub_const 'ONEAPP_K8S_CILIUM_BGP_ENABLED', true
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', ['192.168.150.128/25', '10.11.12.0/24']
+        output = YAML.load_stream <<~MANIFEST
+        ---
+        apiVersion: helm.cattle.io/v1
+        kind: HelmChartConfig
+        metadata:
+          name: rke2-cilium
+          namespace: kube-system
+        spec:
+          valuesContent: |-
+            kubeProxyReplacement: true
             k8sServiceHost: "192.168.150.86"
             k8sServicePort: 6443
             cni:
@@ -101,9 +93,49 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          cidrs:
+          blocks:
           - cidr: 192.168.150.128/25
           - cidr: 10.11.12.0/24
+          allowFirstLastIPs: "No"
+        MANIFEST
+        Dir.mktmpdir do |temp_dir|
+            configure_cilium temp_dir
+            result = YAML.load_stream File.read "#{temp_dir}/rke2-cilium-config.yaml"
+            expect(result).to eq output
+        end
+    end
+
+    it 'should define ip ranges when ONEAPP_K8S_CILIUM_BGP_ENABLED is true and ONEAPP_K8S_CILIUM_RANGES is empty' do
+        stub_const 'ONEAPP_K8S_CONTROL_PLANE_EP', '192.168.150.86:6443'
+        stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
+        stub_const 'ONEAPP_K8S_CILIUM_BGP_ENABLED', true
+        stub_const 'ONEAPP_K8S_CILIUM_RANGES', []
+        output = YAML.load_stream <<~MANIFEST
+        ---
+        apiVersion: helm.cattle.io/v1
+        kind: HelmChartConfig
+        metadata:
+          name: rke2-cilium
+          namespace: kube-system
+        spec:
+          valuesContent: |-
+            kubeProxyReplacement: true
+            k8sServiceHost: "192.168.150.86"
+            k8sServicePort: 6443
+            cni:
+              chainingMode: "none"
+              exclusive: false
+            bgpControlPlane:
+              enabled: true
+        ---
+        apiVersion: cilium.io/v2alpha1
+        kind: CiliumLoadBalancerIPPool
+        metadata:
+          name: default
+          namespace: kube-system
+        spec:
+          blocks: {}
+          allowFirstLastIPs: "No"
         MANIFEST
         Dir.mktmpdir do |temp_dir|
             configure_cilium temp_dir
@@ -122,7 +154,7 @@ RSpec.describe 'configure_cilium' do
           namespace: kube-system
         spec:
           valuesContent: |-
-            kubeProxyReplacement: strict
+            kubeProxyReplacement: true
             k8sServiceHost: "192.168.150.86"
             k8sServicePort: 6443
             cni:
@@ -137,9 +169,10 @@ RSpec.describe 'configure_cilium' do
           name: default
           namespace: kube-system
         spec:
-          cidrs:
+          blocks:
           - cidr: 192.168.150.128/25
           - cidr: 10.11.12.0/24
+          allowFirstLastIPs: "No"
         MANIFEST
         stub_const 'ONEAPP_K8S_CNI_PLUGIN', 'cilium'
         stub_const 'ONEAPP_K8S_CNI_CONFIG', Base64.encode64(manifest)
@@ -151,5 +184,4 @@ RSpec.describe 'configure_cilium' do
             expect(result).to eq output
         end
     end
-
 end

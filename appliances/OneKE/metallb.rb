@@ -82,6 +82,7 @@ def fetch_metallb(addon_dir = ONE_ADDON_DIR)
         speaker:
           image:
             pullPolicy: IfNotPresent
+        loadBalancerClass: #{ONEAPP_K8S_METALLB_CLASS}
     MANIFEST
 
     msg :info, "Generate MetalLB addon manifest: #{ONEAPP_K8S_METALLB_CHART_VERSION}"
