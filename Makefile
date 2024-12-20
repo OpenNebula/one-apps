@@ -23,7 +23,7 @@ packer-service_Wordpress: packer-alma8 ${DIR_EXPORT}/service_Wordpress.qcow2
 packer-service_example: packer-alma8 ${DIR_EXPORT}/service_example.qcow2
 	@${INFO} "Packer service_example done"
 
-packer-service_VRouter: packer-alpine318 ${DIR_EXPORT}/service_VRouter.qcow2
+packer-service_VRouter: packer-alpine319 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"
 
 packer-service_Harbor: packer-ubuntu2204 ${DIR_EXPORT}/service_Harbor.qcow2

@@ -1,0 +1,12 @@
+# Ignore the coredhcp-onelease binary
+coredhcp-onelease
+
+# Ignore client binary
+client/coredhcp_client
+client/client
+
+# Ignore the leases file
+*.sqlite3
+
+# Ignore config files
+onelease-config.yml
