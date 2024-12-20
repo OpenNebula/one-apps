@@ -10,8 +10,10 @@ require_relative 'config'
 
 require 'net/http'
 
+# Base module for OpenNebula services
 module Service
 
+    # Ray service implmentation
     module Ray
 
         extend self
@@ -36,6 +38,11 @@ module Service
         def bootstrap
             msg :info, 'Ray::bootstrap'
             begin
+                ip  = env('ETH0_IP', '0.0.0.0')
+                url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{ONEAPP_RAY_API_ROUTE}"
+
+                bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_URL=#{url}\""
+
                 wait_service_available
                 msg :info, 'Bootstrap completed successfully'
             rescue StandardError => e
@@ -49,60 +56,72 @@ module Service
         puts bash <<~SCRIPT
             apt-get update
             apt-get install -y python3 python3-pip
-            pip3 install ray[#{ONE_APP_RAY_MODULES}]
+            apt remove -y python3-jinja2
+            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4
         SCRIPT
     end
 
     def start_ray
         msg :info, 'Starting Ray...'
-        puts bash "ray start --head --port=#{ONE_APP_RAY_PORT}"
+        puts bash "ray start --head --port=#{ONEAPP_RAY_PORT}"
     end
 
-    # The model file should be placed in the same directory where we call serve deploy
     def load_model_file
-        if !ONE_APP_RAY_MODEL64.empty?
-            msg :info, "Copying model file to #{ONE_APP_RAY_MODEL_DEST_PATH}..."
-            write_file(ONE_APP_RAY_MODEL_DEST_PATH, Base64.decode64(ONE_APP_RAY_MODEL64), 0775)
-            return
+        if !ONEAPP_RAY_MODEL_FILE64.empty?
+            msg :info, "Copying model file to #{ONEAPP_RAY_MODEL_DEST_PATH}..."
+
+            write_file(ONEAPP_RAY_MODEL_DEST_PATH, Base64.decode64(ONEAPP_RAY_MODEL_FILE64), 0o775)
+        elsif !ONEAPP_RAY_MODEL_FILE.empty?
+            msg :info, "Copying model file64 to #{ONEAPP_RAY_MODEL_DEST_PATH}..."
+
+            write_file(ONEAPP_RAY_MODEL_DEST_PATH, ONEAPP_RAY_MODEL_FILE, 0o775)
+        elsif !ONEAPP_RAY_MODEL_URL.empty?
+            msg :info, "Downloading model from #{ONEAPP_RAY_MODEL_URL} to " \
+                       "#{ONEAPP_RAY_MODEL_DEST_PATH}"
+
+            puts bash "curl -o #{ONEAPP_RAY_MODEL_DEST_PATH} #{ONEAPP_RAY_MODEL_URL}"
+        else
+            msg :info, 'No model file provided, using default'
+
+            write_file(ONEAPP_RAY_MODEL_DEST_PATH, ONEAPP_RAY_MODEL_DEFAULT, 0o775)
         end
-        if !ONE_APP_RAY_MODEL_URL.empty?
-            msg :info,
-                "Downloading model from #{ONE_APP_RAY_MODEL_URL} to #{ONE_APP_RAY_MODEL_DEST_PATH}"
-            puts bash "curl -o #{ONE_APP_RAY_MODEL_DEST_PATH} #{ONE_APP_RAY_MODEL_URL}"
-            return
-        end
-        msg :info, 'No model file provided'
     end
 
     def generate_config_file
-        if !ONE_APP_RAY_CONFIG_FILE.empty?
-            msg :info, "Copying config to #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}..."
-            config_content = YAML.dump(ONE_APP_RAY_CONFIG)
-            write_file(ONE_APP_RAY_CONFIGFILE_DEST_PATH, config_content)
-            return
+        if !ONEAPP_RAY_CONFIG_FILE.empty?
+            msg :info, "Copying config to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+
+            config_content = YAML.dump(ONEAPP_RAY_CONFIG_FILE)
+
+            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
+        elsif !ONEAPP_RAY_CONFIG_FILE64.empty?
+            msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+
+            config_content = YAML.dump(YAML.safe_load(Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)))
+
+            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
+        else
+            msg :info, "Generating config file in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+
+            gen_template_config
         end
-        if !ONE_APP_RAY_CONFIG64.empty?
-            msg :info, "Copying base64 config to #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}..."
-            config_content = YAML.dump(YAML.safe_load(Base64.decode64(ONE_APP_RAY_CONFIG64)))
-            write_file(ONE_APP_RAY_CONFIGFILE_DEST_PATH, config_content)
-            return
-        end
-        msg :info, "Generating config file in #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}..."
-        gen_template_config
     end
 
     def run_serve
-        msg :info, "Serving Ray deployments in #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}..."
-        puts bash "serve deploy #{ONE_APP_RAY_CONFIGFILE_DEST_PATH}"
+        msg :info, "Serving Ray deployments in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+        puts bash "serve deploy #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}"
     end
 
-    def wait_service_available(timeout: 300, check_interval: 5)
-        msg :info, "Waiting service to be available in http://localhost:#{ONE_APP_RAY_SERVE_PORT}..."
+    def wait_service_available(timeout: 600, check_interval: 5)
+        msg :info, "Waiting service to be available in http://localhost:#{ONEAPP_RAY_API_PORT}..."
+
         start_time = Time.now
-        uri = URI("http://localhost:#{ONE_APP_RAY_SERVE_PORT}")
+
+        uri = URI("http://localhost:#{ONEAPP_RAY_API_PORT}")
 
         loop do
             response = Net::HTTP.get_response(uri)
+
             break if response.code.to_i == 200 && response.body.include?('OK')
 
             if Time.now - start_time > timeout

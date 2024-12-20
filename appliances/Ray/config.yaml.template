@@ -2,7 +2,7 @@ proxy_location: EveryNode
 
 http_options:
   host: 0.0.0.0
-  port: <%= ONE_APP_RAY_SERVE_PORT %>
+  port: <%= ONEAPP_RAY_API_PORT %>
 
 grpc_options:
   port: 9000
@@ -27,13 +27,13 @@ applications:
       - torchvision
       - torchaudio
   args:
-    model_id: "<%= ONE_APP_RAY_MODEL_ID %>"
-    token: "<%= ONE_APP_RAY_TOKEN %>"
-    temperature: <%= ONE_APP_RAY_TEMPERATURE %>
+    model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
+    token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
+    temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
+    system_prompt: "You are a helpful assisstant. Answer the question."
   deployments:
-  #- name: Translator
   - name: ChatBot
-    num_replicas: <%= ONE_APP_RAY_CHATBOT_REPLICAS %>
+    num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>
     ray_actor_options:
-      num_cpus: <%= ONE_APP_RAY_CHATBOT_CPUS %>
+      num_cpus: <%= ONEAPP_RAY_CHATBOT_CPUS %>
       num_gpus: 0.0
