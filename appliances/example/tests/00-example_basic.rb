@@ -1,4 +1,4 @@
-require_relative '../lib/app_handler' # Loads the library to handle VM creation and destruction
+require_relative '../../lib/community/app_handler' # Loads the library to handle VM creation and destruction
 
 # You can put any title you want, this will be where you group your tests
 describe 'Appliance Certification' do

@@ -179,11 +179,11 @@ module CLITester
         end
 
         def get_ip
-            @ip = @xml["#{@defaults[:one][:xpath_pub_nic]}/IP"]
+            @ip = @xml["#{@defaults[:xpath_pub_nic]}/IP"]
         end
 
         def get_vlan_ip
-            @ip = @xml["#{@defaults[:one][:xpath_vlan_nic]}/IP"]
+            @ip = @xml["#{@defaults[:xpath_vlan_nic]}/IP"]
         end
 
         def sequences

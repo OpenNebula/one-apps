@@ -1,18 +1,22 @@
 ---
 :app:
-  :name: service_example
-  :type: service
+  :name: service_example # name used to make the app with the makefile
+  :type: service # there are service (complex apps) and distro (base apps)
   :os:
-    :type: linux
-    :base: alma8
+    :type: linux # linux, freebsd or windows
+    :base: alma8 # distro where the app runs on
   :hypervisor: KVM
-  :context: # which ONEAPP_ context params are used to control the app
-    :DB_NAME: 'dbname'
-    :DB_USER: 'username'
-    :DB_PASSWORD: 'upass'
-    :DB_ROOT_PASSWORD: 'arpass'
+  :context: # which context params are used to control the app
+    :prefixed: true # params are prefixed with ONEAPP_
+    :params:
+      :DB_NAME: 'dbname'
+      :DB_USER: 'username'
+      :DB_PASSWORD: 'upass'
+      :DB_ROOT_PASSWORD: 'arpass'
 
 :one:
+  # reference template for running the virtual appliance.
+  # Must be diskless, with ssh access and accessible by  the frontend
   :template: # how the VM template is expected to be on OpenNebula
     NAME: base
     TEMPLATE:
@@ -31,9 +35,9 @@
         NETWORK: service
       NIC_DEFAULT:
         MODEL: virtio
-  :datastore_name: default
-  :timeout: '90'
+  :datastore_name: default # target datatore to import the one-apps produced image
+  :timeout: '90' # timeout for XMLRPC calls
 
 :infra:
-  :disk_format: qcow2
-  :apps_path: /opt/one-apps/export
+  :disk_format: qcow2 # oneapps built image disk format
+  :apps_path: /opt/one-apps/export # directory where one-apps exports the appliances to

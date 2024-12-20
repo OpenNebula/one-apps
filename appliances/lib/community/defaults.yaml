@@ -1,0 +1,20 @@
+---
+#:debug: true
+:rspec_disable_logs_on_error: true
+:template: base
+:default_url: http://services/images/
+:oneadmin: oneadmin
+:hosts:
+  - '%HOST0%'
+:xpath_pub_nic: "TEMPLATE/NIC[1]"
+:ec2_hostname:
+  :name: "mxfun-vbx02-vsrxm066"
+  :domain: "novalocal"
+
+# network used for NIC (alias) attach tests
+:network_attach: 'private'
+
+# check DNS is configured (not trying to resolve on its own via resolved)
+:resolve_names:
+  - services
+  - www.google.com

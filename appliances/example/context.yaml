@@ -1,9 +1,8 @@
 ---
-:template: base
 :default_url: http://services/images/
 :tests:
   'alma8':
-    :image_name: alma8.qcow2
+    :image_name: service_example.qcow2
     :type: linux
     :microenvs: ['context-kvm']
     :slow: true

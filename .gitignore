@@ -42,3 +42,6 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# ignore test results
+appliances/lib/community/results
