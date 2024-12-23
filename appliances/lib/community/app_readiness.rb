@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+ENV['RUBYOPT'] = "-W0"
+
 require 'yaml'
 require 'fileutils'
 
