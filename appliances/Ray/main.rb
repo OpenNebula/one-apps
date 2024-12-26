@@ -28,7 +28,7 @@ module Service
 
         def configure
             msg :info, 'Ray::configure'
-            load_model_file
+            load_application_file
             generate_config_file
             start_ray
             run_serve
@@ -66,24 +66,26 @@ module Service
         puts bash "ray start --head --port=#{ONEAPP_RAY_PORT}"
     end
 
-    def load_model_file
-        if !ONEAPP_RAY_MODEL_FILE64.empty?
-            msg :info, "Copying model file to #{ONEAPP_RAY_MODEL_DEST_PATH}..."
+    def load_application_file
+        if !ONEAPP_RAY_APPLICATION_FILE64.empty?
+            msg :info, "Copying model file to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
 
-            write_file(ONEAPP_RAY_MODEL_DEST_PATH, Base64.decode64(ONEAPP_RAY_MODEL_FILE64), 0o775)
-        elsif !ONEAPP_RAY_MODEL_FILE.empty?
-            msg :info, "Copying model file64 to #{ONEAPP_RAY_MODEL_DEST_PATH}..."
+            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
+                       Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64), 0o775)
+        elsif !ONEAPP_RAY_APPLICATION_FILE.empty?
+            msg :info, "Copying model file64 to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
 
-            write_file(ONEAPP_RAY_MODEL_DEST_PATH, ONEAPP_RAY_MODEL_FILE, 0o775)
-        elsif !ONEAPP_RAY_MODEL_URL.empty?
-            msg :info, "Downloading model from #{ONEAPP_RAY_MODEL_URL} to " \
-                       "#{ONEAPP_RAY_MODEL_DEST_PATH}"
+            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
+                       ONEAPP_RAY_APPLICATION_FILE, 0o775)
+        elsif !ONEAPP_RAY_APPLICATION_URL.empty?
+            msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL} to " \
+                       "#{ONEAPP_RAY_APPLICATION_DEST_PATH}"
 
-            puts bash "curl -o #{ONEAPP_RAY_MODEL_DEST_PATH} #{ONEAPP_RAY_MODEL_URL}"
+            puts bash "curl -o #{ONEAPP_RAY_APPLICATION_DEST_PATH} #{ONEAPP_RAY_APPLICATION_URL}"
         else
             msg :info, 'No model file provided, using default'
 
-            write_file(ONEAPP_RAY_MODEL_DEST_PATH, ONEAPP_RAY_MODEL_DEFAULT, 0o775)
+            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH, ONEAPP_RAY_APPLICATION_DEFAULT, 0o775)
         end
     end
 

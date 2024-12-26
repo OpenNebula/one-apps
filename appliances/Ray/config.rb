@@ -33,17 +33,17 @@ ONEAPP_RAY_CONFIG_FILE   = env :ONEAPP_RAY_CONFIG_FILE, ''
 ONEAPP_RAY_CONFIG_FILE64 = env :ONEAPP_RAY_CONFIG_FILE64, ''
 
 # ------------------------------------------------------------------------------
-# Model to deploy
+# Application to deploy in Ray
 # ------------------------------------------------------------------------------
-ONEAPP_RAY_MODEL_DEST_PATH = env \
-    :ONEAPP_RAY_MODEL_DEST_PATH,
+ONEAPP_RAY_APPLICATION_DEST_PATH = env \
+    :ONEAPP_RAY_APPLICATION_DEST_PATH,
     "#{ONEAPP_RAY_GENERATED_FILES_PATH}/model.py"
 
-ONEAPP_RAY_MODEL_URL    = env :ONEAPP_AI_MODEL_URL, ''
-ONEAPP_RAY_MODEL_FILE   = env :ONEAPP_AI_MODEL_FILE, ''
-ONEAPP_RAY_MODEL_FILE64 = env :ONEAPP_AI_MODEL_FILE64, ''
+ONEAPP_RAY_APPLICATION_URL    = env :ONEAPP_AI_APPLICATION_URL, ''
+ONEAPP_RAY_APPLICATION_FILE   = env :ONEAPP_AI_APPLICATION_FILE, ''
+ONEAPP_RAY_APPLICATION_FILE64 = env :ONEAPP_AI_APPLICATION_FILE64, ''
 
-ONEAPP_RAY_MODEL_DEFAULT=<<~EOM
+ONEAPP_RAY_APPLICATION_DEFAULT=<<~EOM
     import ray
     from ray import serve
     from fastapi import FastAPI
@@ -83,7 +83,7 @@ ONEAPP_RAY_MODEL_DEFAULT=<<~EOM
 EOM
 
 # ------------------------------------------------------------------------------
-# Configuration parameters
+# Configuration parameters for API and inference model
 # ------------------------------------------------------------------------------
 ONEAPP_RAY_API_PORT  = env :ONEAPP_RAY_API_PORT, '8000'
 ONEAPP_RAY_API_ROUTE = env :ONEAPP_RAY_API_ROUTE, '/chat'
@@ -93,7 +93,7 @@ ONEAPP_RAY_MODEL_TOKEN       = env :ONEAPP_RAY_MODEL_TOKEN, ''
 ONEAPP_RAY_MODEL_TEMPERATURE = env :ONEAPP_RAY_MODEL_TEMPERATURE, '0.1'
 
 # ------------------------------------------------------------------------------
-# Not exposed parameters, this is computed from VCPU
+# Not exposed parameters, this should be computed from VCPU
 # ------------------------------------------------------------------------------
 ONEAPP_RAY_CHATBOT_REPLICAS = env :ONEAPP_RAY_CHATBOT_REPLICAS, '1'
 ONEAPP_RAY_CHATBOT_CPUS     = env :ONEAPP_RAY_CHATBOT_CPUS, '5.0'
