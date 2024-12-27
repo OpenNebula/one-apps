@@ -1343,11 +1343,16 @@ If ( !(Test-Path "$ctxDir") ) {
     mkdir "$ctxDir"
 }
 
-# Move old logfile away - so we have a current log containing the output of the last boot
+# Delete .old log file (if exist) - simple rotation
+If (Test-Path "$ctxDir\opennebula-context-old.log") {
+    Remove-Item "$ctxDir\opennebula-context-old.log"
+}
+
+# Move last logfile away - so we have a current log containing the output of the last boot
 If ( Test-Path "$ctxDir\opennebula-context.log" ) {
     mv "$ctxDir\opennebula-context.log" "$ctxDir\opennebula-context-old.log"
 }
-m
+
 # Start now logging to logfile
 Start-Transcript -Append -Path "$ctxDir\opennebula-context.log" | Out-Null
 
