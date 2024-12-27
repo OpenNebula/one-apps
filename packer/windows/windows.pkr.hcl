@@ -23,7 +23,9 @@ source "qemu" "windows" {
       language     = var.language
       }
     )
-    "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", { language = var.language })
+    "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", {
+      language = var.language,
+      disable_administrator = var.disable_administrator })
   }
   headless = var.headless
 

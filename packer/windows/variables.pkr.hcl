@@ -31,6 +31,12 @@ variable "isoFiles" {
   type = map(map(string))
 }
 
+variable "disable_administrator" {
+  type = bool
+  default = false
+  description = "Whether to disable the Administrator user after initial setup"
+}
+
 variable "windows" {
   type = map(map(string))
 

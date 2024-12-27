@@ -17,8 +17,16 @@
                 <ProtectYourPC>1</ProtectYourPC>
             </OOBE>
             <FirstLogonCommands>
+                %{ if disable_administrator }
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                    <Description>Disable Administrator account</Description>
+                    <CommandLine>cmd.exe /c net user Administrator /active:no</CommandLine>
+                </SynchronousCommand>
+                %{ endif }
+                <SynchronousCommand wcm:action="add">
+                    <Order>2</Order>
                     <RequiresUserInput>false</RequiresUserInput>
                     <Description>Run scripts</Description>
                     <CommandLine>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Maximized -File C:\Run-Scripts.ps1 C:\scripts</CommandLine>
