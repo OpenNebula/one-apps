@@ -101,7 +101,7 @@ module SDNAT4
                 iptables -t nat -C PREROUTING -j DNAT4 || iptables -t nat -I PREROUTING 1 -j DNAT4
             IPTABLES
 
-            toggle [:save, :start]
+            toggle [:save, :reload]
 
             loop do
                 unless (vnets = get_vrouter_vnets).empty?

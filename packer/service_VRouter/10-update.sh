@@ -7,8 +7,8 @@ set -eux -o pipefail
 
 service haveged stop ||:
 
-apk update
+apk --no-cache add bash curl ethtool gawk go grep iproute2 iptables iptables-openrc jq ruby sed tcpdump
 
-apk add bash curl ethtool gawk grep iproute2 jq ruby sed tcpdump
+rc-update add iptables default
 
 sync

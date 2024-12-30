@@ -18,7 +18,7 @@ source "qemu" "VRouter" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = "export/alpine318.qcow2"
+  iso_url      = "export/alpine320.qcow2"
   iso_checksum = "none"
 
   headless = var.headless
@@ -95,6 +95,10 @@ build {
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+  }
+
+  provisioner "shell" {
+    scripts = ["${var.input_dir}/98-collect-garbage.sh"]
   }
 
   post-processor "shell-local" {

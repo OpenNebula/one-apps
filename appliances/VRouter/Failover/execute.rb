@@ -9,29 +9,24 @@ module Failover
     VROUTER_ID = env :VROUTER_ID, nil
 
     SERVICES = {
-        'one-router4' => { _ENABLED: 'ONEAPP_VNF_ROUTER4_ENABLED',
-                           fallback: VROUTER_ID.nil? ? 'NO' : 'YES' },
+        'one-router4' => { _ENABLED: 'ONEAPP_VNF_ROUTER4_ENABLED', fallback: VROUTER_ID.nil? ? 'NO' : 'YES' },
 
-        'one-nat4'    => { _ENABLED: 'ONEAPP_VNF_NAT4_ENABLED',
-                           fallback: 'NO' },
+        'one-nat4'    => { _ENABLED: 'ONEAPP_VNF_NAT4_ENABLED' },
 
-        'one-lvs'     => { _ENABLED: 'ONEAPP_VNF_LB_ENABLED',
-                           fallback: 'NO' },
+        'one-lvs'     => { _ENABLED: 'ONEAPP_VNF_LB_ENABLED' },
 
-        'one-haproxy' => { _ENABLED: 'ONEAPP_VNF_HAPROXY_ENABLED',
-                           fallback: 'NO' },
+        'one-haproxy' => { _ENABLED: 'ONEAPP_VNF_HAPROXY_ENABLED' },
+        'haproxy'     => { _ENABLED: 'ONEAPP_VNF_HAPROXY_ENABLED', dependency: true },
 
-        'one-sdnat4'  => { _ENABLED: 'ONEAPP_VNF_SDNAT4_ENABLED',
-                           fallback: 'NO' },
+        'one-sdnat4'  => { _ENABLED: 'ONEAPP_VNF_SDNAT4_ENABLED' },
 
-        'one-dns'     => { _ENABLED: 'ONEAPP_VNF_DNS_ENABLED',
-                           fallback: 'NO' },
+        'one-dns'     => { _ENABLED: 'ONEAPP_VNF_DNS_ENABLED' },
+        'unbound'     => { _ENABLED: 'ONEAPP_VNF_DNS_ENABLED', dependency: true },
 
-        'one-dhcp4'   => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED',
-                           fallback: 'NO' },
+        'one-dhcp4v2' => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED' },
+        'coredhcp'    => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED', dependency: true },
 
-        'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED',
-                           fallback: 'NO' }
+        'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED' }
     }
 
     FIFO_PATH  = '/run/keepalived/vrrp_notify_fifo.sock'
@@ -39,10 +34,10 @@ module Failover
 
     STATE_TO_DIRECTION = {
         'BACKUP'  => :down,
-        'DELETED' => :down,
-        'FAULT'   => :down,
+        'DELETED' => :stay,
+        'FAULT'   => :stay,
         'MASTER'  => :up,
-        'STOP'    => :down,
+        'STOP'    => :stay,
         nil       => :stay
     }
 
@@ -62,7 +57,11 @@ module Failover
             direction = :stay
             ignored   = true
         else
-            if STATE_TO_DIRECTION[event[:state]] == STATE_TO_DIRECTION[state[:state]]
+            case
+            when event[:state] == 'BACKUP'
+                direction = STATE_TO_DIRECTION['BACKUP']
+                ignored   = false
+            when STATE_TO_DIRECTION[event[:state]] == STATE_TO_DIRECTION[state[:state]]
                 direction = :stay
                 ignored   = false
             else
@@ -100,13 +99,12 @@ module Failover
                     f.each do |line|
                         event = to_event line
                         task = to_task event
-                        msg :info, task
+                        msg :debug, task
                         method(task[:direction]).call
                     end
                 end
             rescue StandardError => e
                 msg :error, e.full_message
-
                 # NOTE: We always disable all services on fatal errors
                 #       to avoid any potential conflicts.
                 down
@@ -117,70 +115,88 @@ module Failover
         end
     end
 
+    def wait_ready(role = :master)
+        # Give one-context 30 seconds to fully start..
+        6.times do
+            bash 'rc-service one-context status', terminate: false
+            break
+        rescue RuntimeError => e
+            msg :error, e.full_message
+            sleep 5
+        end.then do |result|
+            msg :error, 'one-context not ready!' unless result.nil?
+        end
+        # Give keepalived 30 seconds to fully start..
+        6.times do
+            bash "rc-service keepalived #{role == :master ? 'ready' : 'standby'}", terminate: false
+            break
+        rescue RuntimeError => e
+            msg :error, e.full_message
+            sleep 5
+        end.then do |result|
+            msg :error, 'keepalived not ready!' unless result.nil?
+        end
+    end
+
     def execute
         msg :info, 'Failover::execute'
         process_events
     end
 
     def stay
-        msg :debug, :STAY
+        msg :debug, ":STAY (pid = #{Process.pid})"
     end
 
     def up
-        msg :debug, :UP
+        msg :debug, ":UP (pid = #{Process.pid})"
+
+        wait_ready :master
 
         load_env
 
-        # Give one-context 30 seconds to fully start..
-        6.times do
-            bash 'rc-service one-context status', terminate: false
-            break
-        rescue RuntimeError
-            sleep 5
-        end.then do |result|
-            unless result.nil?
-                msg :error, 'one-context not ready!'
-                return
-            end
-        end
-
-        # Give keepalived 30 seconds to setup VIPs..
-        6.times do
-            bash 'rc-service keepalived ready', terminate: false
-            break
-        rescue RuntimeError
-            sleep 5
-        end.then do |result|
-            unless result.nil?
-                msg :error, 'keepalived not ready!'
-                return
-            end
-        end
-
         SERVICES.each do |service, settings|
-            enabled = env settings[:_ENABLED], settings[:fallback]
+            if env settings[:_ENABLED], (settings[:fallback] || 'NO')
+                next if settings[:dependency]
 
-            msg :debug, "#{service}(#{enabled ? ':enabled' : ':disabled'})"
+                msg :info, "#{service}(:enabled)"
 
-            if enabled
-                bash "rc-service #{service} restart ||:", terminate: false
+                puts bash "rc-service #{service} restart ||:", terminate: false
             else
-                bash "rc-service #{service} stop ||:" , terminate: false
-            end
+                msg :info, "#{service}(:disabled)"
 
-            sleep 1
+                puts bash "rc-service #{service} stop ||:", terminate: false
+            end
         end
+
+        puts bash 'rc-update -v -u ||:', terminate: false
     end
 
     def down
-        msg :debug, :DOWN
+        msg :debug, ":DOWN (pid = #{Process.pid})"
 
-        SERVICES.each do |service, _|
-            msg :debug, "#{service}(:disabled)"
+        wait_ready :standby
 
-            bash "rc-service #{service} stop ||:", terminate: false
+        12.times do |attempt|
+            services = bash 'rc-status --nocolor --format ini --servicelist', terminate: false
 
-            sleep 1
+            stopped = services.lines.map(&:split)
+                                    .select { |_, _, s| s == 'stopped' }
+                                    .map(&:first)
+
+            break if (running = SERVICES.keys - stopped).empty?
+
+            running.each do |service|
+                msg :info, "#{service}(:disabled)"
+
+                puts bash "rc-service #{service} stop ||:", terminate: false
+            end
+
+            puts bash 'rc-update -v -u ||:', terminate: false
+        rescue RuntimeError => e
+            msg :error, e.full_message
+            sleep 5
+        end.then do |result|
+            msg :error, 'could not stop services!' unless result.nil?
         end
     end
 end

@@ -20,15 +20,14 @@ module SDNAT4
 
         puts bash 'apk --no-cache add iproute2 iptables-openrc ruby'
 
-        file "#{initdir}/one-sdnat4", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-sdnat4", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"
             command_args="-r /etc/one-appliance/lib/helpers.rb -r #{__FILE__} -e Service::SDNAT4.execute"
 
-            command_background="yes"
+            command_background="YES"
             pidfile="/run/$RC_SVCNAME.pid"
 
             output_log="/var/log/one-appliance/one-sdnat4.log"
@@ -82,8 +81,6 @@ module SDNAT4
                 puts bash 'rc-update del one-sdnat4 default ||:'
             when :update
                 puts bash 'rc-update -u'
-            when :start
-                puts bash 'rc-service iptables start'
             else
                 puts bash "rc-service one-sdnat4 #{op.to_s}"
             end

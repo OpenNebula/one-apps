@@ -203,9 +203,8 @@ module WireGuard
 
         puts bash 'apk --no-cache add cdrkit ruby wireguard-tools-wg-quick'
 
-        file "#{initdir}/one-wg", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-wg", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"
