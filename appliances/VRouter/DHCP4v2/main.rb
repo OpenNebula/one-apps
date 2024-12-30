@@ -23,7 +23,7 @@ module Service
 
         ONEAPP_VNF_DHCP4_INTERFACES = env :ONEAPP_VNF_DHCP4_INTERFACES, '' # nil -> none, empty -> all
 
-        SERVICE_DIR = '/etc/one-appliance/service.d/VRouter/DHCP4v2/coredhcp-onelease'
+        ONELEASE_DIR     = '/etc/one-appliance/service.d/VRouter/DHCP4v2/coredhcp-onelease'
         CONFIG_FILE_NAME = 'onelease-config.yml'
 
         def parse_env
@@ -120,20 +120,26 @@ module Service
         def install(initdir: '/etc/init.d')
             msg :info, 'DHCP4v2::install'
 
-            file "#{initdir}/one-dhcp4v2", <<~SERVICE, :mode => 'u=rwx,g=rx,o='
+            puts bash <<~SCRIPT
+                CGO_ENABLED=1 GCC=musl-gcc go build -C #{ONELEASE_DIR}/
+                strip --strip-unneeded #{ONELEASE_DIR}/coredhcp-onelease
+                find #{ONELEASE_DIR}/ \\( -type f ! -name coredhcp-onelease -o -type d -empty \\) -delete
+            SCRIPT
+
+            file "#{initdir}/coredhcp", <<~SERVICE, :mode => 'u=rwx,go=rx'
                 #!/sbin/openrc-run
                 source /run/one-context/one_env
 
-                BASE_DIR="#{SERVICE_DIR}"
+                BASE_DIR="#{ONELEASE_DIR}"
                 CONFIG_FILE="$BASE_DIR/#{CONFIG_FILE_NAME}"
                 SERVICE_EXEC="$BASE_DIR/coredhcp-onelease"
                 PIDFILE="/run/$RC_SVCNAME.pid"
-                LOG_DIR="#{SERVICE_LOGDIR}"
+                LOG_DIR="/var/log/one-appliance"
                 LOG_FILE="$LOG_DIR/$RC_SVCNAME.log"
 
                 command="$SERVICE_EXEC"
                 command_args="-c $CONFIG_FILE"
-                command_background="yes"
+                command_background="YES"
                 pidfile="$PIDFILE"
 
                 output_log="$LOG_FILE"
@@ -143,10 +149,38 @@ module Service
                     after net firewall keepalived
                 }
             SERVICE
+
+            file "#{initdir}/one-dhcp4v2", <<~SERVICE, mode: 'u=rwx,go=rx'
+                #!/sbin/openrc-run
+                source /run/one-context/one_env
+
+                command="/usr/bin/ruby"
+                command_args="-r /etc/one-appliance/lib/helpers.rb -r #{__FILE__}"
+
+                output_log="/var/log/one-appliance/one-dhcp4v2.log"
+                error_log="/var/log/one-appliance/one-dhcp4v2.log"
+
+                depend() {
+                    after net firewall keepalived
+                }
+
+                start_pre() {
+                    rc-service coredhcp start --nodeps
+                }
+
+                start() { :; }
+
+                stop() { :; }
+
+                stop_post() {
+                    rc-service coredhcp stop --nodeps
+                }
+            SERVICE
+
             toggle [:update]
         end
 
-        def configure(basedir: SERVICE_DIR)
+        def configure(basedir: ONELEASE_DIR)
             msg :info, 'DHCP4v2::configure'
 
             unless ONEAPP_VNF_DHCP4_ENABLED
@@ -158,7 +192,6 @@ module Service
             dhcp4_vars = parse_env
 
             generate_config(basedir, dhcp4_vars)
-
         end
 
         def toggle(operations)
@@ -166,6 +199,7 @@ module Service
                 msg :debug, "DHCP4v2::toggle([:#{op}])"
                 case op
                 when :disable
+                    puts bash 'rc-update del coredhcp default ||:'
                     puts bash 'rc-update del one-dhcp4v2 default ||:'
                 when :update
                     puts bash 'rc-update -u'

@@ -18,7 +18,7 @@ source "qemu" "VRouter" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = "export/alpine319.qcow2"
+  iso_url      = "export/alpine320.qcow2"
   iso_checksum = "none"
 
   headless = var.headless
@@ -87,28 +87,18 @@ build {
     sources     = ["appliances/VRouter"]
     destination = "/etc/one-appliance/service.d/"
   }
-  # Exclude DHCP4 legacy version
-  provisioner "shell" {
-    inline_shebang = "/bin/bash -e"
-    inline = ["rm -rf /etc/one-appliance/service.d/VRouter/DHCP4"]
-  }
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
-  provisioner "shell" {
-    inline_shebang = "/bin/bash -e"
-    environment_vars = [
-      "COREDHCP_ONELEASE_DIR=/etc/one-appliance/service.d/VRouter/DHCP4v2/coredhcp-onelease",
-    ]
-    inline = [
-      "CGO_ENABLED=1 GCC=musl-gcc go build -C $COREDHCP_ONELEASE_DIR",
-      "find $COREDHCP_ONELEASE_DIR \\( -type f ! -name 'coredhcp-onelease' -o -type d -empty \\) -delete",
-    ]
-  }
+
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+  }
+
+  provisioner "shell" {
+    scripts = ["${var.input_dir}/98-collect-garbage.sh"]
   }
 
   post-processor "shell-local" {
