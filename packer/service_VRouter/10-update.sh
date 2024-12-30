@@ -11,4 +11,6 @@ apk --no-cache add bash curl ethtool gawk go grep iproute2 iptables iptables-ope
 
 rc-update add iptables default
 
+touch /etc/iptables/rules-save
+
 sync
