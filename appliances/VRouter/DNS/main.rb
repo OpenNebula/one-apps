@@ -70,9 +70,8 @@ module DNS
             install -o unbound -g unbound -m u=rwx,go=rx -d /var/log/unbound/
         SCRIPT
 
-        file "#{initdir}/one-dns", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-dns", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"

@@ -64,9 +64,8 @@ module NAT4
 
         puts bash 'apk --no-cache add iptables-openrc ruby'
 
-        file "#{initdir}/one-nat4", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-nat4", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"
@@ -112,8 +111,6 @@ module NAT4
                 puts bash 'rc-update del one-nat4 default ||:'
             when :update
                 puts bash 'rc-update -u'
-            when :start
-                puts bash 'rc-service iptables start'
             else
                 puts bash "rc-service one-nat4 #{op.to_s}"
             end

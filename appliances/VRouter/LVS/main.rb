@@ -22,22 +22,21 @@ module LVS
 
         puts bash 'apk --no-cache add ipvsadm ruby'
 
-        file "#{initdir}/one-lvs", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-lvs", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"
             command_args="-r /etc/one-appliance/lib/helpers.rb -r #{__FILE__} -e Service::LVS.execute"
 
-            command_background="yes"
+            command_background="YES"
             pidfile="/run/$RC_SVCNAME.pid"
 
             output_log="/var/log/one-appliance/one-lvs.log"
             error_log="/var/log/one-appliance/one-lvs.log"
 
             depend() {
-                after net keepalived
+                after net firewall keepalived
             }
 
             stop_post() {

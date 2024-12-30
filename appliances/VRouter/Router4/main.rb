@@ -20,9 +20,8 @@ module Router4
 
         puts bash 'apk --no-cache add procps ruby'
 
-        file "#{initdir}/one-router4", <<~SERVICE, mode: 'u=rwx,g=rx,o='
+        file "#{initdir}/one-router4", <<~SERVICE, mode: 'u=rwx,go=rx'
             #!/sbin/openrc-run
-
             source /run/one-context/one_env
 
             command="/usr/bin/ruby"

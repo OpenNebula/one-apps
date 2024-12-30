@@ -58,7 +58,7 @@ module Keepalived
 
         script = File.open("#{initdir}/keepalived").each_with_object([]) do |line, acc|
             if line =~ /^extra_started_commands="(.*)"$/
-                acc << %{extra_started_commands="#{$1} ready"\n}
+                acc << %{extra_started_commands="#{$1} ready standby"\n}
             else
                 acc << line
             end
@@ -68,9 +68,16 @@ module Keepalived
             #{script}
 
             ready() {
-                ebegin "Checking readiness"
+                ebegin "Checking readiness (:master)"
                 source /run/one-context/one_env
-                /usr/bin/ruby -r #{__FILE__} -e Service::Keepalived.ready
+                /usr/bin/ruby -r #{__FILE__} -e 'Service::Keepalived.ready(:master)'
+                eend $?
+            }
+
+            standby() {
+                ebegin "Checking readiness (:standby)"
+                source /run/one-context/one_env
+                /usr/bin/ruby -r #{__FILE__} -e 'Service::Keepalived.ready(:standby)'
                 eend $?
             }
         SCRIPT
@@ -193,7 +200,7 @@ module Keepalived
         msg :info, 'Keepalived::bootstrap'
     end
 
-    def ready
+    def ready(role = :master)
         detect_vips.each do |nic, vips|
             vips = vips.values.map do |vip|
                 vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
@@ -203,7 +210,7 @@ module Keepalived
                 acc << item['local'] unless item['local'].nil?
             end
 
-            if (vips & addrs) != vips
+            if role == :master ? (vips & addrs) != vips : (vips & addrs) == vips
                 msg :debug, { nic => { vips: vips, addrs: addrs, ready: false } }
                 exit 1
             end

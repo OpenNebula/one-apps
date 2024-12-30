@@ -55,7 +55,7 @@ module NAT4
             IPTABLES
         end
 
-        toggle [:save, :start, :reload]
+        toggle [:save, :reload]
     end
 
     def cleanup
