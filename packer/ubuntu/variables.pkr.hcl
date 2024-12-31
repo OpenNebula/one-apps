@@ -25,6 +25,16 @@ variable "ubuntu" {
   type = map(map(string))
 
   default = {
+
+    "2204oneke" = {
+      iso_url      = "https://cloud-images.ubuntu.com/releases/22.04/release-20241206/ubuntu-22.04-server-cloudimg-amd64.img"
+      iso_checksum = "file:https://cloud-images.ubuntu.com/releases/22.04/release-20241206/SHA256SUMS"
+    }
+    "2204oneke.aarch64" = {
+      iso_url      = "https://cloud-images.ubuntu.com/releases/22.04/release-20241206/ubuntu-22.04-server-cloudimg-arm64.img"
+      iso_checksum = "file:https://cloud-images.ubuntu.com/releases/22.04/release-20241206/SHA256SUMS"
+    }
+
     "2204" = {
       iso_url      = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
       iso_checksum = "file:https://cloud-images.ubuntu.com/jammy/current/SHA256SUMS"

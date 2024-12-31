@@ -18,7 +18,7 @@ source "qemu" "OneKE" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = "export/ubuntu2204.qcow2"
+  iso_url      = "export/ubuntu2204oneke.qcow2"
   iso_checksum = "none"
 
   headless = var.headless
