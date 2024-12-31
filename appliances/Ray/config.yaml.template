@@ -36,4 +36,4 @@ applications:
     num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>
     ray_actor_options:
       num_cpus: <%= ONEAPP_RAY_CHATBOT_CPUS %>
-      num_gpus: 0.0
+      num_gpus: <%= Service.gpu_count %>

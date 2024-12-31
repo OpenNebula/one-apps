@@ -9,6 +9,7 @@ end
 require_relative 'config'
 
 require 'net/http'
+require 'open3'
 
 # Base module for OpenNebula services
 module Service
@@ -132,6 +133,17 @@ module Service
 
             sleep check_interval
         end
+    end
+
+    def self.gpu_count
+        stdout, _stderr, status = Open3.capture3('nvidia-smi --query-gpu=count' \
+                                                 ' --format=csv,noheader')
+
+        return 0 unless status.success?
+
+        stdout.strip.to_i
+    rescue StandardError
+        return 0
     end
 
 end
