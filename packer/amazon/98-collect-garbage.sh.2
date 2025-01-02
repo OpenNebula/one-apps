@@ -10,7 +10,7 @@ systemctl mask gssproxy.service
 package-cleanup --oldkernels --count=1 -y
 
 yum remove -y NetworkManager
-yum remove -y fwupd linux-firmware
+yum remove -y linux-firmware
 
 yum clean -y all
 
