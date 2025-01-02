@@ -75,6 +75,7 @@ build {
     ]
 
     expect_disconnect = true
+    timeout = "15m"
   }
 
   post-processor "shell-local" {
