@@ -1,10 +1,16 @@
 source "qemu" "alpine" {
   cpus        = 2
+  cpu_model   = "host"
   memory      = 2048
   accelerator = "kvm"
 
   iso_url      = lookup(lookup(var.alpine, var.version, {}), "iso_url", "")
   iso_checksum = lookup(lookup(var.alpine, var.version, {}), "iso_checksum", "")
+
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
   headless = var.headless
 

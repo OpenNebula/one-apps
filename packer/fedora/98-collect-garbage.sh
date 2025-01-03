@@ -8,7 +8,7 @@ set -eux -o pipefail
 # Remove old kernels.
 dnf remove -y $(dnf repoquery --installonly --latest-limit=-1 -q)
 
-dnf remove -y fwupd linux-firmware
+dnf remove -y linux-firmware
 
 dnf clean -y all
 
