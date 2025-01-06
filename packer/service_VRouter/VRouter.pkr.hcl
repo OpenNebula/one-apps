@@ -17,11 +17,17 @@ source "qemu" "VRouter" {
   cpus        = 2
   memory      = 2048
   accelerator = "kvm"
+  cpu_model   = "host"
 
-  iso_url      = "export/alpine320.qcow2"
+  iso_url      = lookup(lookup(var.VRouter, var.version, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless
+
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
   disk_image       = true
   disk_cache       = "unsafe"

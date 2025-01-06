@@ -25,3 +25,17 @@ variable "version" {
   type    = string
   default = ""
 }
+
+variable "OneKE" {
+  type = map(map(string))
+
+  default = {
+    ".x64_64" = {
+      iso_url      = "export/ubuntu2204.qcow2"
+    }
+
+    ".aarch64" = {
+      iso_url      = "export/ubuntu2204.aarch64.qcow2"
+    }
+  }
+}

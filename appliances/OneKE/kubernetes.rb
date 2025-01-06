@@ -13,39 +13,50 @@ require_relative 'vnf.rb'
 def install_kubernetes(airgap_dir = ONE_AIRGAP_DIR)
     rke2_release_url = "https://github.com/rancher/rke2/releases/download/#{ONE_SERVICE_RKE2_VERSION}"
 
+    amap= {
+      "x86_64" => "amd64",
+      "aarch64" => "arm64"
+    }
+    begin
+      arch = amap[`arch`.strip]
+    rescue KeyError
+      msg :error, "Unknown architecture"
+      exit 1
+    end
+
     msg :info, "Install RKE2 runtime: #{ONE_SERVICE_RKE2_VERSION}"
     bash <<~SCRIPT
-    curl -fsSL '#{rke2_release_url}/rke2.linux-amd64.tar.gz' | tar -xz -f- -C /usr/local/
+    curl -fsSL '#{rke2_release_url}/rke2.linux-#{arch}.tar.gz' | tar -xz -f- -C /usr/local/
     SCRIPT
 
     if ONE_SERVICE_AIRGAPPED
         msg :info, "Download RKE2 airgapped image archives: #{ONE_SERVICE_RKE2_VERSION}"
         bash <<~SCRIPT
-        curl -fsSL '#{rke2_release_url}/rke2-images-core.linux-amd64.tar.zst' \
-        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-core/rke2-images-core.linux-amd64.tar.zst'
+        curl -fsSL '#{rke2_release_url}/rke2-images-core.linux-#{arch}.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-core/rke2-images-core.linux-#{arch}.tar.zst'
         SCRIPT
         bash <<~SCRIPT
-        curl -fsSL '#{rke2_release_url}/rke2-images-multus.linux-amd64.tar.zst' \
-        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-multus/rke2-images-multus.linux-amd64.tar.zst'
+        curl -fsSL '#{rke2_release_url}/rke2-images-multus.linux-#{arch}.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-multus/rke2-images-multus.linux-#{arch}.tar.zst'
         SCRIPT
         bash <<~SCRIPT
-        curl -fsSL '#{rke2_release_url}/rke2-images-calico.linux-amd64.tar.zst' \
-        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-calico/rke2-images-calico.linux-amd64.tar.zst'
+        curl -fsSL '#{rke2_release_url}/rke2-images-calico.linux-#{arch}.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-calico/rke2-images-calico.linux-#{arch}.tar.zst'
         SCRIPT
         bash <<~SCRIPT
-        curl -fsSL '#{rke2_release_url}/rke2-images-canal.linux-amd64.tar.zst' \
-        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-canal/rke2-images-canal.linux-amd64.tar.zst'
+        curl -fsSL '#{rke2_release_url}/rke2-images-canal.linux-#{arch}.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-canal/rke2-images-canal.linux-#{arch}.tar.zst'
         SCRIPT
         bash <<~SCRIPT
-        curl -fsSL '#{rke2_release_url}/rke2-images-cilium.linux-amd64.tar.zst' \
-        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-cilium/rke2-images-cilium.linux-amd64.tar.zst'
+        curl -fsSL '#{rke2_release_url}/rke2-images-cilium.linux-#{arch}.tar.zst' \
+        | install -o 0 -g 0 -m u=rw,go=r -D /dev/fd/0 '#{airgap_dir}/rke2-images-cilium/rke2-images-cilium.linux-#{arch}.tar.zst'
         SCRIPT
     end
 
     msg :info, "Install Helm binary: #{ONE_SERVICE_HELM_VERSION}"
     bash <<~SCRIPT
-    curl -fsSL 'https://get.helm.sh/helm-v#{ONE_SERVICE_HELM_VERSION}-linux-amd64.tar.gz' \
-    | tar -xOz -f- linux-amd64/helm \
+    curl -fsSL 'https://get.helm.sh/helm-v#{ONE_SERVICE_HELM_VERSION}-linux-#{arch}.tar.gz' \
+    | tar -xOz -f- linux-#{arch}/helm \
     | install -o 0 -g 0 -m u=rwx,go=rx -D /dev/fd/0 /usr/local/bin/helm
     SCRIPT
 
