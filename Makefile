@@ -4,10 +4,11 @@ include Makefile.config
 # load possible overrides or non-free definitions
 -include Makefile.local
 
-# all, aliases
-all: $(patsubst %, packer-%, $(DISTROS)) $(patsubst %, packer-%, $(SERVICES))
-distros: $(patsubst %, packer-%, $(DISTROS))
-services: $(patsubst %, packer-%, $(SERVICES))
+# aliases
+distros-amd64: $(patsubst %, packer-%, $(DISTROS_AMD64))
+distros-arm64: $(patsubst %, packer-%, $(DISTROS_ARM64))
+services-amd64: $(patsubst %, packer-%, $(SERVICES_AMD64))
+services-arm64: $(patsubst %, packer-%, $(SERVICES_ARM64))
 
 # allow individual distribution targets (e.g., "make debian11")
 $(DISTROS) $(SERVICES):  %: packer-% ;
@@ -25,6 +26,9 @@ packer-service_example: packer-alma8 ${DIR_EXPORT}/service_example.qcow2
 
 packer-service_VRouter: packer-alpine320 ${DIR_EXPORT}/service_VRouter.qcow2
 	@${INFO} "Packer service_VRouter done"
+
+packer-service_VRouter.aarch64: packer-alpine320.aarch64 ${DIR_EXPORT}/service_VRouter.aarch64.qcow2
+	@${INFO} "Packer service_VRouter.aarch64 done"
 
 packer-service_Harbor: packer-ubuntu2204 ${DIR_EXPORT}/service_Harbor.qcow2
 	@${INFO} "Packer service_Harbor done"
@@ -49,8 +53,8 @@ ${DIR_EXPORT}/service_OneKE_storage.qcow2:
 	@${INFO} "Packer service_OneKE_storage done"
 
 ${DIR_EXPORT}/%.qcow2: $(patsubst %, context-linux/out/%, $(LINUX_CONTEXT_PACKAGES))
-	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9].*//'))
-	$(eval DISTRO_VER  := $(shell echo ${*} | sed 's/^.[^0-9]*\(.*\)/\1/'))
+	$(eval DISTRO_NAME := $(shell echo ${*} | sed 's/[0-9\.].*//'))
+	$(eval DISTRO_VER  := $(shell echo ${*} | sed 's/^.[^0-9\.]*\(.*\)/\1/'))
 	packer/build.sh "${DISTRO_NAME}" "${DISTRO_VER}" ${@}
 
 # context packages
@@ -83,19 +87,25 @@ help:
 	@echo '    make <distro>          -- build just one distro'
 	@echo '    make <service>         -- build just one service'
 	@echo
-	@echo '    make all               -- build all distros and services'
-	@echo '    make all -j 4          -- build all in 4 parallel tasks'
-	@echo '    make distros           -- build all distros'
-	@echo '    make services          -- build all services'
+	@echo '    make distros-amd64     -- build all distros (x86_64)'
+	@echo '    make distros-amd64 -j4 -- build all distros (x86_64) in 4 parallel tasks'
+	@echo '    make distros-arm64     -- build all distros (aarch64)'
+	@echo '    make services-amd64    -- build all services (x86_64)'
 	@echo
 	@echo '    make context-linux     -- build context linux packages'
 	@echo '    make context-windows   -- build windows linux packages'
 	@echo
-	@echo 'Available distros:'
-	@echo "$(shell echo "${DISTROS}" | fmt -w 65 | tr '\n' '\1' )" \
+	@echo 'Available distros (x86_64):'
+	@echo "$(shell echo "${DISTROS_AMD64}" | fmt -w 65 | tr '\n' '\1' )" \
 		           | tr '\1' '\n' | sed 's/^/    /'
-	@echo 'Available services:'
-	@echo '    $(SERVICES)'
+	@echo 'Available distros (aarch64):'
+	@echo "$(shell echo "${DISTROS_ARM64}" | fmt -w 65 | tr '\n' '\1' )" \
+		           | tr '\1' '\n' | sed 's/^/    /'
+	@echo 'Available services (x86_64):'
+	@echo "$(shell echo "${SERVICES_AMD64}" | fmt -w 65 | tr '\n' '\1' )" \
+		           | tr '\1' '\n' | sed 's/^/    /'
+	@echo 'Available services (aarch64):'
+	@echo '    $(SERVICES_ARM64)'
 	@echo
 
 version:
