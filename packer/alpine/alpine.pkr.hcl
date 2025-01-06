@@ -1,5 +1,18 @@
+source "null" "null" { communicator = "none" }
+
+build {
+  sources = ["sources.null.null"]
+
+  provisioner "shell-local" {
+    inline = [
+      "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/cloud-init.yml",
+    ]
+  }
+}
+
 source "qemu" "alpine" {
   cpus        = 2
+  cpu_model   = "host"
   memory      = 2048
   accelerator = "kvm"
 
@@ -7,16 +20,12 @@ source "qemu" "alpine" {
   iso_checksum = lookup(lookup(var.alpine, var.version, {}), "iso_checksum", "")
 
   headless = var.headless
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
-  http_directory = "${var.input_dir}"
-  boot_command = [
-    "root<enter>",
-    "ifconfig eth0 up && udhcpc -i eth0<enter><wait1>",
-    "wget -qO alpine.init http://{{ .HTTPIP }}:{{ .HTTPPort }}/alpine.init<enter><wait1>",
-    "/bin/ash alpine.init<enter><wait20>"
-  ]
-  boot_wait = "20s"
-
+  disk_image       = true
   disk_cache       = "unsafe"
   disk_interface   = "virtio"
   net_device       = "virtio-net"
@@ -27,8 +36,8 @@ source "qemu" "alpine" {
   output_directory = "${var.output_dir}"
 
   qemuargs = [
-    ["-cpu", "host"],
-    ["-serial", "stdio"],
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"],
+    ["-serial", "stdio"]
   ]
 
   ssh_username     = "root"
