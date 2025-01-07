@@ -38,10 +38,17 @@ packer-service_MinIO: packer-ubuntu2204 ${DIR_EXPORT}/service_MinIO.qcow2
 packer-service_OneKE: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKE.qcow2
 	@${INFO} "Packer service_OneKE done"
 
+packer-service_OneKE.aarch64: packer-ubuntu2204.aarch64 ${DIR_EXPORT}/service_OneKE.aarch64.qcow2
+	@${INFO} "Packer service_OneKE.aarch64 done"
+
 # airgapped version
 packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204 ${DIR_EXPORT}/service_OneKEa.qcow2
 	@${INFO} "Packer service_OneKEa done"
+
+packer-service_OneKEa.aarch64: PKR_VAR_airgapped := YES
+packer-service_OneKEa.aarch64: packer-ubuntu2204.aarch64 ${DIR_EXPORT}/service_OneKEa.aarch64.qcow2
+	@${INFO} "Packer service_OneKEa.aarch64 done"
 
 packer-service_Ray: packer-ubuntu2204 ${DIR_EXPORT}/service_Ray.qcow2
 	@${INFO} "Packer service_Ray done"

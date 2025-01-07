@@ -17,11 +17,16 @@ source "qemu" "OneKE" {
   cpus        = 2
   memory      = 2048
   accelerator = "kvm"
+  cpu_model   = "host"
 
-  iso_url      = "export/ubuntu2204.qcow2"
+  iso_url      = lookup(lookup(var.OneKE, var.version, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
   disk_image       = true
   disk_cache       = "unsafe"
@@ -34,7 +39,6 @@ source "qemu" "OneKE" {
   output_directory = var.output_dir
 
   qemuargs = [
-    ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
     ["-serial", "stdio"],
     # MAC addr needs to mach ETH0_MAC from context iso
