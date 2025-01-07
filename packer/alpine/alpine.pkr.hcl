@@ -29,7 +29,7 @@ source "qemu" "alpine" {
   disk_cache       = "unsafe"
   disk_interface   = "virtio"
   net_device       = "virtio-net"
-  disk_size        = 256
+  disk_size        = 512
   format           = "qcow2"
   disk_compression = false
 
