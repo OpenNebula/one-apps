@@ -121,7 +121,6 @@ module Service
             msg :info, 'DHCP4v2::install'
 
             puts bash <<~SCRIPT
-                apk --no-cache add gcc musl-dev
                 CGO_ENABLED=1 GCC=musl-gcc go build -C #{ONELEASE_DIR}/
                 strip --strip-unneeded #{ONELEASE_DIR}/coredhcp-onelease
                 find #{ONELEASE_DIR}/ \\( -type f ! -name coredhcp-onelease -o -type d -empty \\) -delete
