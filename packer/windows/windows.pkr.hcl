@@ -21,17 +21,17 @@ source "qemu" "windows" {
     "Autounattend.xml" = templatefile("autounattend.pkrtpl", {
       edition_name = lookup(lookup(var.windows, var.version, {}), "edition_name", "")
       language     = var.language
-      }
-    )
+    })
     "OOBEunattend.xml" = templatefile("OOBEunattend.pkrtpl", {
-      language = var.language,
-      disable_administrator = var.disable_administrator })
+      language              = var.language
+      disable_administrator = var.disable_administrator
+    })
   }
   headless = var.headless
 
-  boot_command = ["<enter><enter><enter><enter><enter><enter><enter><enter><enter><enter>"]
+  boot_command      = ["<enter><enter><enter><enter><enter><enter><enter><enter><enter><enter>"]
   boot_key_interval = "1s"
-  boot_wait    = "1s"
+  boot_wait         = "1s"
 
   disk_cache     = "unsafe"
   disk_interface = "virtio"
