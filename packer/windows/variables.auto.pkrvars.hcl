@@ -1,4 +1,4 @@
-isoFiles = {
+iso_files = {
   windows10ConsumerEditions = {
     iso_url      = "packer/windows/iso/en-us_windows_10_consumer_editions_version_22h2_updated_april_2024_x64_dvd_9a92dc89.iso"
     iso_checksum = "sha256:B072627C9B8D9F62AF280FAF2A8B634376F91DC73EA1881C81943C151983AA4A"

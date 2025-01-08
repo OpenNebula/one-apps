@@ -27,7 +27,7 @@ variable "language" {
   default = "en-US"
 }
 
-variable "isoFiles" {
+variable "iso_files" {
   type = map(map(string))
 }
 

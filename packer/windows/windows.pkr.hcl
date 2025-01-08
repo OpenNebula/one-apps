@@ -7,8 +7,8 @@ source "qemu" "windows" {
   memory       = 4096
   accelerator  = "kvm"
 
-  iso_url      = lookup(lookup(var.isoFiles, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_url", "")
-  iso_checksum = lookup(lookup(var.isoFiles, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.iso_files, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.iso_files, lookup(lookup(var.windows, var.version, {}), "iso", ""), {}), "iso_checksum", "")
 
   floppy_files = [
     "${path.root}/Run-Scripts.ps1",
