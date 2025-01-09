@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <InputLocale>${language}</InputLocale>
+            <SystemLocale>${language}</SystemLocale>
+            <UILanguage>${language}</UILanguage>
+            <UserLocale>${language}</UserLocale>
+        </component>
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <HideLocalAccountScreen>true</HideLocalAccountScreen>
+                <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+                <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+                <ProtectYourPC>1</ProtectYourPC>
+            </OOBE>
+            <FirstLogonCommands>
+                %{ if disable_administrator }
+                <SynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                    <Description>Disable Administrator account</Description>
+                    <CommandLine>cmd.exe /c net user Administrator /active:no</CommandLine>
+                </SynchronousCommand>
+                %{ endif }
+                <SynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                    <Description>Run scripts</Description>
+                    <CommandLine>powershell.exe -ExecutionPolicy Bypass -NonInteractive -NoProfile -WindowStyle Maximized -File C:\Run-Scripts.ps1 C:\scripts</CommandLine>
+                </SynchronousCommand>
+            </FirstLogonCommands>
+            <AutoLogon>
+                <LogonCount>1</LogonCount>
+                <Username>Administrator</Username>
+                <Enabled>true</Enabled>
+                <Password>
+                    <Value>VABlAHMAdAAxADIAMwBQAGEAcwBzAHcAbwByAGQA</Value>
+                    <PlainText>false</PlainText>
+                </Password>
+            </AutoLogon>
+            <UserAccounts>
+                <AdministratorPassword>
+                    <Value>VABlAHMAdAAxADIAMwBBAGQAbQBpAG4AaQBzAHQAcgBhAHQAbwByAFAAYQBzAHMAdwBvAHIAZAA=</Value>
+                    <PlainText>false</PlainText>
+                </AdministratorPassword>
+            </UserAccounts>
+        </component>
+    </settings>
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>%systemroot%\system32\reg.exe add &quot;HKLM\Software\microsoft\Windows\CurrentVersion\Setup\OOBE&quot; /v SetupDisplayedProductKey /t REG_DWORD /d 1 /f</Path>
+                    <Description>Skip product key OOBE page</Description>
+                    <WillReboot>Never</WillReboot>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+    </settings>
+</unattend>
