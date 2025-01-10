@@ -19,7 +19,7 @@ source "qemu" "VRouter" {
   accelerator = "kvm"
   cpu_model   = "host"
 
-  iso_url      = lookup(lookup(var.VRouter, var.version, {}), "iso_url", "")
+  iso_url      = lookup(lookup(var.VRouter, var.arch, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless

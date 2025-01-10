@@ -19,10 +19,11 @@ source "qemu" "OneKE" {
   accelerator = "kvm"
   cpu_model   = "host"
 
-  iso_url      = lookup(lookup(var.OneKE, var.version, {}), "iso_url", "")
+  iso_url      = lookup(lookup(var.OneKE, var.arch, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless
+
   firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
   use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
   machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
