@@ -107,6 +107,8 @@ help:
 	@echo 'Available services (aarch64):'
 	@echo '    $(SERVICES_ARM64)'
 	@echo
+	@echo 'Available Windows (x86_64):'
+	@echo "$(shell echo "$${WINDOWS:0:45}... see Makefile.config" )"
 
 version:
 	@echo $(VERSION)-$(RELEASE) > version
