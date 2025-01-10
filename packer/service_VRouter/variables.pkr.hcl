@@ -25,12 +25,12 @@ variable "VRouter" {
   type = map(map(string))
 
   default = {
-    ".x64_64" = {
-      iso_url      = "export/alpine320.qcow2"
+    "x86_64" = {
+      iso_url = "export/alpine320.qcow2"
     }
 
-    ".aarch64" = {
-      iso_url      = "export/alpine320.aarch64.qcow2"
+    "aarch64" = {
+      iso_url = "export/alpine320.aarch64.qcow2"
     }
   }
 }
