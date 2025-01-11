@@ -21,7 +21,7 @@ applications:
   import_path: model:app_builder
   runtime_env:
     pip:
-      - transformers
+      - transformers==4.48.0
       - fastapi
       - torch
       - torchvision
@@ -30,7 +30,7 @@ applications:
     model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
     token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
     temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
-    system_prompt: "You are a helpful assisstant. Answer the question."
+    system_prompt: "<%= ONEAPP_RAY_MODEL_PROMPT %>"
   deployments:
   - name: ChatBot
     num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>

@@ -97,6 +97,11 @@ build {
     destination = "/etc/one-appliance/service.d/"
   }
 
+#  provisioner "file" {
+#    sources = ["${var.input_dir}/nvidia-linux-grid-535_535.216.01_amd64.deb"]
+#    destination = "/var/tmp/nvidia-linux-grid-535_535.216.01_amd64.deb"
+#  }
+
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
@@ -115,6 +120,11 @@ build {
   # Setup appliance: Execute install step                               #
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#installation #
   #######################################################################
+#  provisioner "shell" {
+#    inline_shebang = "/bin/bash"
+#    inline         = ["apt-get update --fix-missing; dpkg -i /var/tmp/nvidia-linux-grid-535_535.216.01_amd64.deb; apt --fix-broken install --yes" ]
+#  }
+
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]

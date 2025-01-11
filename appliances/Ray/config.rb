@@ -47,10 +47,11 @@ ONEAPP_RAY_APPLICATION_DEFAULT=<<~EOM
     import ray
     from ray import serve
     from fastapi import FastAPI
-    from transformers import pipeline
+    from transformers import pipeline, AutoModelForCausalLM, AutoTokenizer
     from ray.serve.handle import DeploymentHandle
     from typing import Dict
     from ray.serve import Application
+    import torch
 
     app = FastAPI()
 
@@ -59,12 +60,26 @@ ONEAPP_RAY_APPLICATION_DEFAULT=<<~EOM
     class ChatBot:
         def __init__(self, model_id: str, token:str, temperature: float, system_prompt: str):
             # Load model
-            self.model = pipeline(
-                "text-generation",
-                model=model_id,
-                token=token)
+            self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_id, token=token)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_id, token=token).to(self.device)
             self.temperature = temperature
             self.system_prompt = system_prompt
+            # Check if there is chat_template
+            if self.tokenizer.chat_template is None:
+                self.tokenizer.chat_template = """
+                    {% if not add_generation_prompt is defined %}
+                        {% set add_generation_prompt = false %}
+                    {% endif %}
+                    {% for message in messages %}
+                        {{ '<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>\n' }}
+                    {% endfor %}
+                    {% if add_generation_prompt %}
+                        {{ '<|im_start|>assistant\n' }}
+                    {% endif %}
+                """
 
         @app.post("/chat")
         def chat(self, text: str) -> str:
@@ -72,9 +87,19 @@ ONEAPP_RAY_APPLICATION_DEFAULT=<<~EOM
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": text}]
 
-            model_output = self.model(messages, temperature=self.temperature)
+            # Tokenize the text
+            chat = self.tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True, return_tensors="pt")
+            input_tokens = self.tokenizer(chat, return_tensors="pt").to(self.device)
 
-            answer = model_output[0]['generated_text'][-1]['content']
+            # Run inference
+            output = self.model.generate(
+                **input_tokens,
+                max_new_tokens=1024)
+
+            # Decode output tokens into text
+            output = self.tokenizer.batch_decode(output)
+            answer = output[0].split('<|end_header_id|>')[-1][:-10]
             return answer
 
 
@@ -91,7 +116,8 @@ ONEAPP_RAY_API_ROUTE = env :ONEAPP_RAY_API_ROUTE, '/chat'
 ONEAPP_RAY_MODEL_ID          = env :ONEAPP_RAY_MODEL_ID, 'meta-llama/Llama-3.2-1B-Instruct'
 ONEAPP_RAY_MODEL_TOKEN       = env :ONEAPP_RAY_MODEL_TOKEN, ''
 ONEAPP_RAY_MODEL_TEMPERATURE = env :ONEAPP_RAY_MODEL_TEMPERATURE, '0.1'
-
+ONEAPP_RAY_MODEL_PROMPT      = env :ONEAPP_RAY_MODEL_PROMPT, \
+                                   'You are a helpful assisstant. Answer the question.'
 # ------------------------------------------------------------------------------
 # Not exposed parameters, this should be computed from VCPU
 # ------------------------------------------------------------------------------

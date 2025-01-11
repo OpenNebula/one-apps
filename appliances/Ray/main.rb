@@ -8,7 +8,7 @@ end
 
 require_relative 'config'
 
-require 'net/http'
+require 'socket'
 require 'open3'
 
 # Base module for OpenNebula services
@@ -39,12 +39,15 @@ module Service
         def bootstrap
             msg :info, 'Ray::bootstrap'
             begin
+                wait_service_available
+
+                msg :info, 'Updating VM with inference endpoint'
+
                 ip  = env('ETH0_IP', '0.0.0.0')
                 url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{ONEAPP_RAY_API_ROUTE}"
 
                 bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_URL=#{url}\""
 
-                wait_service_available
                 msg :info, 'Bootstrap completed successfully'
             rescue StandardError => e
                 msg :error, "Error during bootstrap: #{e.message}"
@@ -115,20 +118,25 @@ module Service
         puts bash "serve deploy #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}"
     end
 
+    def listening?
+        Socket.tcp('localhost', ONEAPP_RAY_API_PORT, connect_timeout: 5) do |s|
+            s.close
+            true
+        end
+    rescue StandardError
+        false
+    end
+
     def wait_service_available(timeout: 600, check_interval: 5)
-        msg :info, "Waiting service to be available in http://localhost:#{ONEAPP_RAY_API_PORT}..."
+        msg :info, "Waiting for service at http://localhost:#{ONEAPP_RAY_API_PORT}..."
 
         start_time = Time.now
 
-        uri = URI("http://localhost:#{ONEAPP_RAY_API_PORT}")
-
         loop do
-            response = Net::HTTP.get_response(uri)
-
-            break if response.code.to_i == 200 && response.body.include?('OK')
+            break if listening?
 
             if Time.now - start_time > timeout
-                raise "Service did not become available within #{timeout} seconds"
+                raise "Service did not become available in #{timeout} seconds"
             end
 
             sleep check_interval
