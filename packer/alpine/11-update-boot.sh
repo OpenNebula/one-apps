@@ -7,6 +7,7 @@ set -eux -o pipefail
 
 gawk -i inplace -f- /etc/inittab <<'EOF'
 /^ttyS/ { $0 = "#" $0 }
+/^#tty[0-9]/ { sub(/^#/, "") }
 { print }
 EOF
 
