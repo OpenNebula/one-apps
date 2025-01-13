@@ -5,7 +5,7 @@
 exec 1>&2
 set -eux -o pipefail
 
-dnf update -y --skip-broken
+dnf update -y
 
 # Ensure packages needed for post-processing scripts do exist.
 dnf install -y curl gawk grep jq sed
