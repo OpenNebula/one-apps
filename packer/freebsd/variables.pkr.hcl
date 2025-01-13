@@ -165,13 +165,13 @@ variable "boot_cmd" {
       "N<wait2s>",       # IPv6 no
       "<enter><wait2s>", # Resolver configuration
 
-      "11<enter><wait2s>", # Time zone selector
+      "0<enter><wait2s>",  # Time zone selector
       "Y<wait>",           # UTC
       "S<wait>",           # Skip date
       "S<wait>",           # Skip time
 
-      "<enter><wait2s>", # System Configuration, OK
-      "<enter><wait2s>", # System Hardening, OK
+      "<enter><wait2s>",  # System Configuration, OK
+      "<enter><wait10s>", # System Hardening OK, Firmware wait
 
       "N<wait>",          # Add User Accounts, no
       "E<enter><wait10>", # Final Configuration, exit
