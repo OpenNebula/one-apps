@@ -858,7 +858,7 @@ function Rename-Computer {
         Write-LogMessage "- Current: $currentHostname"
         Write-LogMessage "- Context: $contextHostname"
     }
-    ElseIf ($contextHostname -ne $currentHostname) {
+    elseif ($contextHostname -ne $currentHostname) {
 
         # the current_name does not match the context_name, rename the computer
 
@@ -1117,7 +1117,7 @@ function Invoke-ScriptSetExecution {
     Write-Host "`r`n" -NoNewline
 }
 
-function Resize-Partition {
+function Resize-SinglePartition {
     param (
         $Disk,
         $Part
@@ -1183,7 +1183,7 @@ function Resize-PartitionSet {
             else {
                 Write-LogMessage "- Extend Disk: $($disk.diskId) / Part: $partId"
             }
-            Resize-Partition $disk.diskId $partId
+            Resize-SinglePartition $disk.diskId $partId
         }
     }
 }
@@ -1308,7 +1308,7 @@ function Dismount-ContextCD {
     }
 }
 
-function Remove-File($file) {
+function Remove-File {
     param (
         $File
     )
