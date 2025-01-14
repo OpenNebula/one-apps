@@ -1102,8 +1102,8 @@ function extendPartitions($context) {
     # Cmdlet 'Get-Partition' is not in older Windows/Powershell versions
     if (Get-Command -ErrorAction SilentlyContinue -Name Get-Partition) {
         if ([string]$context['GROW_ROOTFS'] -eq '' -or $context['GROW_ROOTFS'].ToUpper() -eq 'YES') {
-            # Add at least C:
-            $drives = "C: $($context['GROW_FS'])"
+            # Add at least system drive
+            $drives = "$env:systemdrive $($context['GROW_FS'])"
         }
         else {
             $drives = "$($context['GROW_FS'])"
