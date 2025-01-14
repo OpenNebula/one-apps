@@ -1349,16 +1349,58 @@ function authorizeSSHKeyAdmin {
 
 }
 
+function disableSharedAdminSSHKeys {
+    $cfgtoRemoveRegex = ('Match Group administrators\r?\n' + 
+                        ' {7}AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys(?:\r?\n)')
+    $sshdConfigPath = "$env:PROGRAMDATA\ssh\sshd_config"
+    $currentConfig = Get-Content $sshdConfigPath -Raw
+    if ($currentConfig -match $cfgtoRemoveRegex) {
+        $updatedConfig = $currentConfig -replace $cfgtoRemoveRegex
+        logmsg "- Disabling use of default shared admins_authorized_keys for Administrators group"
+        Set-Content -Path $sshdConfigPath -Value $updatedConfig
+        if ($?) {
+            logsuccess
+        } else {
+            logfail
+        }
+        $sshdService = Get-Service -Name sshd -ErrorAction SilentlyContinue
+        if ($sshdService.Status -eq "Running") {
+            Restart-Service $sshdService
+        }
+    }
+}
+
 function authorizeSSHKeyStandard {
     param (
-        $authorizedKeys
+        $authorizedKeys,
+        $username
     )
+    
+    # Check if user profile directory exists
+    $userProfilePath = "$env:systemdrive\Users\$username"
+    if ( !(Test-Path $userProfilePath)) {
+        logmsg "  ... Failed (Userprofile directory $userProfilePath does not exists)"
+        return
+    }
+    
+    # prepare .ssh folder
+    $sshFolderPath = "$userProfilePath\.ssh"
+    if ( !(Test-Path $sshFolderPath)) {
+        logmsg "- Creating .ssh folder in $userProfilePath"
+        New-Item -Force -ItemType Directory -Path $sshFolderPath | Out-Null
+        if ($?) {
+            logsuccess
+        }
+        else {
+            logfail
+            return
+        }
+    }
 
-    $authorizedKeysPath = "$env:USERPROFILE\.ssh"
-
-    New-Item -Force -ItemType Directory -Path $authorizedKeysPath
-    Set-Content $authorized_keys_path $authorizedKeys
-
+    # write the keys
+    $authorizedKeysFilePath = "$userProfilePath\.ssh\authorized_keys"
+    logmsg "- Writing key to $authorizedKeysFilePath"
+    Set-Content -Path $authorizedKeysFilePath -Value $authorizedKeys
     if ($?) {
         logsuccess
     }
@@ -1370,13 +1412,15 @@ function authorizeSSHKeyStandard {
 function authorizeSSHKey {
     param (
         $authorizedKeys,
-        $winadmin
+        $winadmin,
+        $username
     )
 
     logmsg "* Authorizing SSH_PUBLIC_KEY: ${authorizedKeys}"
 
     if ($winadmin -ieq "no") {
-        authorizeSSHKeyStandard $authorizedKeys
+        disableSharedAdminSSHKeys
+        authorizeSSHKeyStandard $authorizedKeys $username
     }
     else {
         authorizeSSHKeyAdmin $authorizedKeys
@@ -1442,7 +1486,7 @@ do {
     configureNetwork $context
     renameComputer $context
     runScripts $context $contextPaths
-    authorizeSSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"]
+    authorizeSSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"] $context["USERNAME"]
     reportReady $context $contextPaths.contextLetter
 
     # Save the 'applied' context.sh checksum for the next recontextualization
