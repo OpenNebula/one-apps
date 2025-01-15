@@ -1474,23 +1474,21 @@ function Grant-SSHKey {
 
     Write-LogMessage "* Authorizing SSH_PUBLIC_KEY: ${AuthorizedKeys}"
 
-    if (${AuthorizedKeys} -ne $null -and ${AuthorizedKeys} -ne "") {
-        if ($EnableSSHService -ieq "no") {
-            Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
-            return
-        }
-
-        Enable-SSH
-        if ($WinAdmin -ieq "no") {
-            Disable-SharedAdminSSHKeySet
-            Grant-SSHKeyStandard $AuthorizedKeys $Username
-        }
-        else {
-            Grant-SSHKeyAdmin $AuthorizedKeys
-        }
+    if ($EnableSSHService -ieq "no") {
+        Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
+        return
     }
-    else {
+    if (${AuthorizedKeys} -eq $null -or ${AuthorizedKeys} -eq "") {
         Write-LogMessage "- No SSH_PUBLIC_KEY provided, skipping"
+        return
+    }
+
+    Enable-SSH
+    if ($WinAdmin -ieq "no") {
+        Disable-SharedAdminSSHKeySet
+        Grant-SSHKeyStandard $AuthorizedKeys $Username
+    } else {
+        Grant-SSHKeyAdmin $AuthorizedKeys
     }
 }
 
