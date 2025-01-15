@@ -1468,11 +1468,18 @@ function Grant-SSHKey {
     param (
         $AuthorizedKeys,
         $WinAdmin,
-        $Username
+        $Username,
+        $EnableSSHService
     )
 
     Write-LogMessage "* Authorizing SSH_PUBLIC_KEY: ${AuthorizedKeys}"
 
+    if ($EnableSSHService -ieq "no") {
+        Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
+        return
+    }
+
+    Enable-SSH
     if ($WinAdmin -ieq "no") {
         Disable-SharedAdminSSHKeySet
         Grant-SSHKeyStandard $AuthorizedKeys $Username
@@ -1541,12 +1548,11 @@ do {
     Set-TimeZone $context
     Add-LocalUser $context
     Enable-RemoteDesktop
-    Enable-SSH
     Enable-Ping
     Set-NetworkConfiguration $context
     Rename-Computer $context
     Invoke-ScriptSetExecution $context $contextPaths
-    Grant-SSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"] $context["USERNAME"]
+    Grant-SSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"] $context["USERNAME"] $context["ENABLE_SSH"]
     Invoke-ReportReady $context $contextPaths.contextLetter
 
     # Save the 'applied' context.sh checksum for the next recontextualization
