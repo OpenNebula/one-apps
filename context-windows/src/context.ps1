@@ -972,9 +972,9 @@ function Enable-Ping {
     # Get current profile
     $profile = $fwMgr.LocalPolicy.CurrentProfile
 
-    logmsg "- Enable Allow Inbound Echo Requests"
+    Write-LogMessage "- Enable Allow Inbound Echo Requests"
     $ret = $profile.IcmpSettings.AllowInboundEchoRequest = $true
-    If ($ret) {
+    if ($ret) {
         Write-LogMessage "  ... Success"
     }
     else {
@@ -1474,7 +1474,7 @@ function Grant-SSHKey {
 
     Write-LogMessage "* Authorizing SSH_PUBLIC_KEY: ${AuthorizedKeys}"
 
-    if (${authorizedKeys} -ne $null -and ${authorizedKeys} -ne "") {
+    if (${AuthorizedKeys} -ne $null -and ${AuthorizedKeys} -ne "") {
         if ($EnableSSHService -ieq "no") {
             Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
             return
@@ -1490,7 +1490,7 @@ function Grant-SSHKey {
         }
     }
     else {
-        logmsg "- No SSH_PUBLIC_KEY provided, skipping"
+        Write-LogMessage "- No SSH_PUBLIC_KEY provided, skipping"
     }
 }
 
