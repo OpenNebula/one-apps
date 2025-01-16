@@ -967,13 +967,13 @@ function Enable-SSH {
 function Enable-Ping {
     Write-LogMessage "* Enabling Ping"
     #Create firewall manager object
-    New-Object -com hnetcfg.fwmgr
+    $fwMgr = New-Object -ComObject HNetCfg.FwMgr
 
     # Get current profile
-    $pro = $fwmgcalPolicy.CurrentProfile
+    $profile = $fwMgr.LocalPolicy.CurrentProfile
 
     Write-LogMessage "- Enable Allow Inbound Echo Requests"
-    $ret = $pro.IcmpSettings.AllowInboundEchoRequest = $true
+    $ret = $profile.IcmpSettings.AllowInboundEchoRequest = $true
     if ($ret) {
         Write-LogMessage "  ... Success"
     }
@@ -1468,19 +1468,28 @@ function Grant-SSHKey {
     param (
         $AuthorizedKeys,
         $WinAdmin,
-        $Username
+        $Username,
+        $EnableSSHService
     )
 
     Write-LogMessage "* Authorizing SSH_PUBLIC_KEY: ${AuthorizedKeys}"
 
+    if ($EnableSSHService -ieq "no") {
+        Write-LogMessage "- ENABLE_SSH set to 'NO', skipping SSH service configuration"
+        return
+    }
+    if (${AuthorizedKeys} -eq $null -or ${AuthorizedKeys} -eq "") {
+        Write-LogMessage "- No SSH_PUBLIC_KEY provided, skipping"
+        return
+    }
+
+    Enable-SSH
     if ($WinAdmin -ieq "no") {
         Disable-SharedAdminSSHKeySet
         Grant-SSHKeyStandard $AuthorizedKeys $Username
-    }
-    else {
+    } else {
         Grant-SSHKeyAdmin $AuthorizedKeys
     }
-
 }
 
 ################################################################################
@@ -1541,12 +1550,11 @@ do {
     Set-TimeZone $context
     Add-LocalUser $context
     Enable-RemoteDesktop
-    Enable-SSH
     Enable-Ping
     Set-NetworkConfiguration $context
     Rename-Computer $context
     Invoke-ScriptSetExecution $context $contextPaths
-    Grant-SSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"] $context["USERNAME"]
+    Grant-SSHKey $context["SSH_PUBLIC_KEY"] $context["WINADMIN"] $context["USERNAME"] $context["ENABLE_SSH"]
     Invoke-ReportReady $context $contextPaths.contextLetter
 
     # Save the 'applied' context.sh checksum for the next recontextualization
