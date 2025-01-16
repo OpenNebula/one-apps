@@ -19,7 +19,7 @@ variable "arch_vars" {
     "x86_64" = {
       firmware     = null
       use_pflash   = true
-      machine_type = "q35"
+      machine_type = "pc"
       qemu_binary  = "/usr/bin/qemu-system-x86_64"
     }
 
