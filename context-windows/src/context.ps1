@@ -41,15 +41,24 @@ function Get-ContextData {
         $File
     )
 
-    # TODO: Improve regexp for multiple SSH keys on SSH_PUBLIC_KEY
-    $context = @{}
-    switch -regex -file $File {
-        "^([^=]+)='(.+?)'$" {
-            $name, $value = $matches[1..2]
-            $context[$name] = $value
+    $Loaded = Get-Content -Path $File
+
+    $Folded = @('')
+    foreach ($Line in $Loaded) {
+        switch -Regex ($Line) {
+            "^[^=]+?='" { $Folded += $Line }
+            default     { $Folded[-1] += "`n" + $Line }
         }
     }
-    return $context
+
+    $Context = @{}
+    foreach ($Line in $Folded) {
+        switch -Regex ($Line) {
+            "(?s)^(?<Key>[^=]+?)='(?<Value>.*)'$" { $Context[$Matches.Key] = $Matches.Value }
+        }
+    }
+
+    return $Context
 }
 
 function Set-EnvironmentContext {
@@ -1405,7 +1414,7 @@ function Grant-SSHKeyAdmin {
 }
 
 function Disable-SharedAdminSSHKeySet {
-    $cfgtoRemoveRegex = ('Match Group administrators\r?\n' + 
+    $cfgtoRemoveRegex = ('Match Group administrators\r?\n' +
                         ' {7}AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys(?:\r?\n)')
     $sshdConfigPath = "$env:PROGRAMDATA\ssh\sshd_config"
     $currentConfig = Get-Content $sshdConfigPath -Raw
