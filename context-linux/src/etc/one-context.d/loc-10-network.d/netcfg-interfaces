@@ -368,7 +368,7 @@ gen_network_configuration()
     # since Ubuntu 22.04 and newer networkd systemd-networkd-wait-online
     # started to timeout+fail with NETCFG_TYPE='interfaces'
     _networkd_version=$(networkctl --version 2>/dev/null | head -1 | awk '{print $2}')
-    if [ -n "$_networkd_version" ] && [ $_networkd_version -ge 249 ]; then
+    if [ $_networkd_version -ge 249 ]; then
         systemctl disable --now systemd-networkd-wait-online.service
     fi
 

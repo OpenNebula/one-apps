@@ -44,12 +44,7 @@ elif which update-rc.d >/dev/null 2>&1; then
 
 elif which rc-update >/dev/null 2>&1; then
     for S in ${SERVICES}; do
-        # one-context weak dependency on 'net' only work in same run level (default)
-        if [ "${S}" = 'one-context' ]; then
-            rc-update add "${S}" default >/dev/null 2>&1
-        else
-            rc-update add "${S}" boot >/dev/null 2>&1
-        fi
+        rc-update add "${S}" boot >/dev/null 2>&1
     done
 
     # Add crontab action for 1min schedules
