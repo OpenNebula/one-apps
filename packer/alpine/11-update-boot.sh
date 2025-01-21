@@ -16,6 +16,7 @@ if [ "$(arch)" = "x86_64" ]; then
 
     gawk -i inplace -f- /etc/update-extlinux.conf <<'EOF'
 /^default_kernel_opts=/ { gsub(/console=ttyS[^ "]*/, "") }
+/^default_kernel_opts=/ { gsub(/console=ttyAMA[^ "]*/, "console=tty0") }
 { print }
 EOF
 fi
