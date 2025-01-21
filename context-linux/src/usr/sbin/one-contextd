@@ -100,7 +100,7 @@ function log
 function export_rc_vars
 {
     if [ -f $1 ] ; then
-        ONE_VARS=$(cat $1 | egrep -e '^[a-zA-Z\-\_0-9]*=' | sed 's/=.*$//')
+        ONE_VARS=$(cat $1 | grep -E '^[a-zA-Z\-\_0-9]*=' | sed 's/=.*$//')
 
         . $1
 
