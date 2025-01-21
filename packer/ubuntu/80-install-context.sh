@@ -21,7 +21,7 @@ policy_rc_d_disable
 dpkg -i --auto-deconfigure "$LATEST" || apt-get install -y -f
 dpkg -i --auto-deconfigure "$LATEST"
 
-apt-get install -y haveged open-vm-tools
+apt-get install -y haveged
 
 systemctl enable haveged
 

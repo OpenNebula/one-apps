@@ -9,7 +9,7 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-zypper --non-interactive --no-gpg-checks install -y "$LATEST" haveged open-vm-tools
+zypper --non-interactive --no-gpg-checks install -y "$LATEST" haveged
 
 systemctl enable haveged
 

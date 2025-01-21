@@ -9,7 +9,7 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-dnf install -y "$LATEST" haveged open-vm-tools
+dnf install -y "$LATEST" haveged
 
 systemctl enable haveged
 
