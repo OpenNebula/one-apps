@@ -8,7 +8,7 @@ freebsd-update install --not-running-from-cron || :
 
 # contextualize
 export ASSUME_ALWAYS_YES=yes
-pkg install -y curl bash sudo base64 ruby open-vm-tools-nox11 gawk virt-what isc-dhcp44-client
+pkg install -y curl bash sudo base64 ruby gawk virt-what isc-dhcp44-client
 LATEST=$(find /tmp/context/ -type f -name "one-context-*.txz" | sort -V | tail -n1)
 pkg install -y "$LATEST"
 pkg clean -ay

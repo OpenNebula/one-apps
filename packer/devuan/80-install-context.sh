@@ -19,8 +19,6 @@ policy_rc_d_disable
 dpkg -i "$LATEST" || apt-get install -y -f
 dpkg -i "$LATEST"
 
-apt-get install -y open-vm-tools
-
 policy_rc_d_enable
 
 sync
