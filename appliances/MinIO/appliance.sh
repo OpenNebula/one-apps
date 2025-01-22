@@ -31,6 +31,8 @@ ONE_SERVICE_PARAMS=(
     'ONEAPP_MINIO_TLS_CERT'            'configure'  'MinIO TLS certificate (.crt)'                                  'O|text64'
     'ONEAPP_MINIO_TLS_KEY'             'configure'  'MinIO TLS key (.key)'                                          'O|text64'
     'ONEAPP_MINIO_MULTI'               'configure'  'MinIO Multi-Node configuration'                                'O|boolean'
+    'FALLBACK_GW'                      'configure'  'Appliance GW for Service mode'                                 'O|text'
+    'FALLBACK_DNS'                     'configure'  'Appliance DNS for Service mode'                                'O|text'
 )
 
 
@@ -208,12 +210,26 @@ service_configure()
 
     # If Multi-Node deployment, edit MinIO volumes
     if [[ ${ONEAPP_MINIO_MULTI} =~ ^(yes|YES)$ ]]; then
+        # Configure GW & DNS
+        if [[ ! -z ${FALLBACK_GW} ]] && [[ ! -z ${FALLBACK_DNS} ]]; then
+            msg info "Configure networking to connect through VNF"
+            msg info "Change default route to VNF IP"
+            ip route replace default via ${FALLBACK_GW} dev eth0
+            msg info "Change DNS server to VNF IP"
+            cat > /etc/resolv.conf <<EOF
+nameserver ${FALLBACK_DNS}
+EOF
+        else
+            msg info "No fallback GW or DNS defined, appliance may not be able to reach Internet"
+        fi
+
+        msg info "Retrieve information about all nodes"
         local_subdomain=$(awk -F. '{ print $1 }' <<< "$ONEAPP_MINIO_HOSTNAME")
         local_domain=$(sed -e "s/[^.]*//" <<< "$ONEAPP_MINIO_HOSTNAME")
         # Dynamically create hosts entries on /etc/hosts, getting IP for each node from onegate
         # Do this before updating env file, so MinIO can connect to other nodes
         # Get array of nodes IDs from MinIO role on service
-        local_nodes=($(onegate service show --json | jq -r '.SERVICE.roles[] | select(.name=="MinIO").nodes[].deploy_id'))
+        local_nodes=($(onegate service show --json | jq -r '.SERVICE.roles[] | select(.name | test("^minio")).nodes[].deploy_id'))
         # For each node, get IP and create entry using MinIO Multi-Node notation
         i=1
         for node in "${local_nodes[@]}"
@@ -225,9 +241,10 @@ service_configure()
         msg info "Adding MinIO hostnames to /etc/hosts"
         sed -i "/# End MinIO hosts/i ${local_hosts}" /etc/hosts
 
-        local_cardinality=$(onegate service show -j | jq -r '.SERVICE.roles[] | select(.name=="MinIO").cardinality')
+        local_cardinality=$(onegate service show -j | jq -r '.SERVICE.roles[] | select(.name | test("^minio")).cardinality' | paste -sd+ - | bc)
         local_minio_volumes="${MINIO_PROTOCOL}://${local_subdomain}{1...$((local_cardinality))}${local_domain}:9000/mnt/disk-{1...$((local_drives_count))}/minio"
 
+        msg info "Update environment variable with Multi-Node configuration"
         update_environment_variable_file ${local_minio_volumes}
     # Single-Node Multi-Drive
     elif (( local_drives_count > 1 )); then
