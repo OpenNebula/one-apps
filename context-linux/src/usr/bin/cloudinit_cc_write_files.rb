@@ -26,7 +26,8 @@ require 'open-uri'
 module CloudInit
 
     DEFAULT_PERMS = '0644'
-    DEFAULT_OWNER = 'root:root'
+    DEFAULT_GROUP = `id -gn root`.strip
+    DEFAULT_OWNER = "root:#{DEFAULT_GROUP}"
     TEXT_PLAIN_ENC = 'text/plain'
     DEFAULT_DEFER = false
     DEFAULT_APPEND = false
