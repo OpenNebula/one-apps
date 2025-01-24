@@ -19,6 +19,7 @@ if [ "$(arch)" = "x86_64" ]; then
 /^default_kernel_opts=/ { gsub(/console=ttyAMA[^ "]*/, "console=tty0") }
 { print }
 EOF
-fi
     update-extlinux
+fi
+
 sync
