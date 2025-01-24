@@ -1,6 +1,17 @@
 # Build cloud init iso
 source "null" "null" { communicator = "none" }
 
+build {
+  sources = ["sources.null.null"]
+
+  provisioner "shell-local" {
+    inline = [
+      "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/cloud-init.yml",
+    ]
+  }
+}
+
+
 # Build VM image
 source "qemu" "opensuse" {
   cpus        = 2
