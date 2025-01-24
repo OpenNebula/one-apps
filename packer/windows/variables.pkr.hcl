@@ -33,7 +33,7 @@ variable "iso_files" {
 
 variable "disable_administrator" {
   type        = bool
-  default     = false
+  default     = true
   description = "Whether to disable the Administrator user after initial setup"
 }
 
