@@ -92,7 +92,6 @@ help:
 	@echo '    make <service>         -- build just one service'
 	@echo
 	@echo '    make distros-amd64     -- build all distros (x86_64)'
-	@echo '    make distros-amd64 -j4 -- build all distros (x86_64) in 4 parallel tasks'
 	@echo '    make distros-arm64     -- build all distros (aarch64)'
 	@echo '    make services-amd64    -- build all services (x86_64)'
 	@echo
