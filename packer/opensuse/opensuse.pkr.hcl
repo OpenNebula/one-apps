@@ -9,26 +9,23 @@ build {
       "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/cloud-init.yml",
     ]
   }
-
-  # Workaround for https://github.com/openSUSE/MirrorCache/issues/528
-  provisioner "shell-local" {
-    inline = [
-      # Replace image name for symlinked image on checksum file
-      "wget -O ${var.checksum_file} ${var.checksum_url}",
-      "sed -i 's/${var.iso_prefix}-.*\\.qcow2/${var.iso_prefix}-Cloud.qcow2/' ${var.checksum_file}",
-    ]
-  }
 }
+
 
 # Build VM image
 source "qemu" "opensuse" {
   cpus        = 2
+  cpu_model   = "host"
   memory      = 2048
   accelerator = "kvm"
 
   iso_url      = lookup(lookup(var.opensuse, var.version, {}), "iso_url", "")
-  # iso_checksum = lookup(lookup(var.opensuse, var.version, {}), "iso_checksum", "")
-  iso_checksum = "file:${var.checksum_file}"
+  iso_checksum = lookup(lookup(var.opensuse, var.version, {}), "iso_checksum", "")
+
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
   headless = var.headless
 
@@ -43,7 +40,6 @@ source "qemu" "opensuse" {
   output_directory = var.output_dir
 
   qemuargs = [
-    ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"],
     ["-serial", "stdio"],
   ]
