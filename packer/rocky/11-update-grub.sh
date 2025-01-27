@@ -56,3 +56,5 @@ dracut --force "$INITRAMFS_IMG" "$INITRAMFS_VER"
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
 sync
+
+reboot

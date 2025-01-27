@@ -1,28 +1,44 @@
+# Build cloud init iso
+source "null" "null" { communicator = "none" }
+
+build {
+  sources = ["sources.null.null"]
+
+  provisioner "shell-local" {
+    inline = [
+      "cloud-localds ${var.input_dir}/${var.appliance_name}-cloud-init.iso ${var.input_dir}/cloud-init.yml",
+    ]
+  }
+}
+
 source "qemu" "rocky" {
   cpus        = 2
+  cpu_model   = "host"
   memory      = 2048
   accelerator = "kvm"
 
   iso_url      = lookup(lookup(var.rocky, var.version, {}), "iso_url", "")
   iso_checksum = lookup(lookup(var.rocky, var.version, {}), "iso_checksum", "")
 
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
+
   headless = var.headless
 
-  http_directory = "${var.input_dir}"
-  boot_command   = ["<tab><bs><bs><bs><bs><bs> append rd.live.check=0 inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/${var.appliance_name}.ks<enter><wait>"]
-  boot_wait      = "20s"
-
+  disk_image       = true
   disk_cache       = "unsafe"
   disk_interface   = "virtio"
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  disk_size        = 4096
+  skip_resize_disk = true
 
   output_directory = "${var.output_dir}"
 
   qemuargs = [
-    ["-cpu", "host"],
+    ["-cdrom", "${var.input_dir}/${var.appliance_name}-cloud-init.iso"],
     ["-serial", "stdio"],
   ]
   ssh_username     = "root"
