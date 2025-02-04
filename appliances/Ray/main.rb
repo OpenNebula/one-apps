@@ -31,8 +31,13 @@ module Service
             msg :info, 'Ray::configure'
             load_application_file
             generate_config_file
-            start_ray
-            run_serve
+
+            if ONEAPP_RAY_API_OPENAI.casecmp?('NO')
+                start_ray
+                run_serve
+            else
+                run_vllm
+            end
             msg :info, 'Configuration completed successfully'
         end
 
@@ -61,7 +66,7 @@ module Service
             apt-get update
             apt-get install -y python3 python3-pip
             apt remove -y python3-jinja2
-            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4
+            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm
         SCRIPT
     end
 
@@ -72,50 +77,56 @@ module Service
 
     def load_application_file
         if !ONEAPP_RAY_APPLICATION_FILE64.empty?
-            msg :info, "Copying model file to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
+            msg :info, "Copying model file to #{RAY_APPLICATION_PATH}..."
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
-                       Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64), 0o775)
+            app = Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64)
+
+            write_file(RAY_APPLICATION_PATH, app , 0o775)
         elsif !ONEAPP_RAY_APPLICATION_FILE.empty?
-            msg :info, "Copying model file64 to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
+            msg :info, "Copying model file64 to #{RAY_APPLICATION_PATH}..."
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
-                       ONEAPP_RAY_APPLICATION_FILE, 0o775)
+            write_file(RAY_APPLICATION_PATH, ONEAPP_RAY_APPLICATION_FILE, 0o775)
         elsif !ONEAPP_RAY_APPLICATION_URL.empty?
-            msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL} to " \
-                       "#{ONEAPP_RAY_APPLICATION_DEST_PATH}"
+            msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL}..."
 
-            puts bash "curl -o #{ONEAPP_RAY_APPLICATION_DEST_PATH} #{ONEAPP_RAY_APPLICATION_URL}"
+            puts bash "curl -o #{RAY_APPLICATION_PATH} #{ONEAPP_RAY_APPLICATION_URL}"
         else
             msg :info, 'No model file provided, using default'
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH, ONEAPP_RAY_APPLICATION_DEFAULT, 0o775)
+            gen_model
         end
     end
 
     def generate_config_file
         if !ONEAPP_RAY_CONFIG_FILE.empty?
-            msg :info, "Copying config to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+            msg :info, "Copying config to #{RAY_CONFIG_PATH}..."
 
             config_content = YAML.dump(ONEAPP_RAY_CONFIG_FILE)
 
-            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
+            write_file(RAY_CONFIG_PATH, config_content)
         elsif !ONEAPP_RAY_CONFIG_FILE64.empty?
             msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
 
-            config_content = YAML.dump(YAML.safe_load(Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)))
+            config = Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)
 
-            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
+            config_content = YAML.dump(YAML.safe_load(config))
+
+            write_file(RAY_CONFIG_PATH, config_content)
         else
-            msg :info, "Generating config file in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+            msg :info, "Generating config file in #{RAY_CONFIG_PATH}..."
 
             gen_template_config
         end
     end
 
     def run_serve
-        msg :info, "Serving Ray deployments in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
-        puts bash "serve deploy #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}"
+        msg :info, "Serving Ray deployments in #{RAY_CONFIG_PATH}..."
+        puts bash "serve deploy #{RAY_CONFIG_PATH}"
+    end
+
+    def run_vllm
+        msg :info, "Serving vLLM application in #{RAY_APPLICATION_PATH}..."
+        puts bash "vvlm serve #{RAY_APPLICATION_PATH}"
     end
 
     def listening?

@@ -1,0 +1,38 @@
+proxy_location: EveryNode
+
+http_options:
+  host: 0.0.0.0
+  port: <%= ONEAPP_RAY_API_PORT %>
+
+grpc_options:
+  port: 9000
+  grpc_servicer_functions: []
+
+logging_config:
+  encoding: TEXT
+  log_level: INFO
+  logs_dir: null
+  enable_access_log: true
+
+applications:
+- name: app1
+  route_prefix: /
+  import_path: model:app_builder
+  runtime_env:
+    pip:
+      - transformers==4.48.0
+      - fastapi
+      - torch
+      - torchvision
+      - torchaudio
+  args:
+    model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
+    token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
+    temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
+    system_prompt: "<%= ONEAPP_RAY_MODEL_PROMPT %>"
+  deployments:
+  - name: ChatBot
+    num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>
+    ray_actor_options:
+      num_cpus: <%= ONEAPP_RAY_CHATBOT_CPUS %>
+      num_gpus: <%= Service.gpu_count %>
