@@ -32,7 +32,7 @@ source "qemu" "Ray" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  disk_size        = 8192
+  disk_size        = 102400
 
   output_directory = var.output_dir
 

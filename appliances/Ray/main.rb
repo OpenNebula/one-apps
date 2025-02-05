@@ -32,12 +32,13 @@ module Service
             load_application_file
             generate_config_file
 
-            if ONEAPP_RAY_API_OPENAI.casecmp?('NO')
+            if ONEAPP_RAY_API_OPENAI
+                run_vllm
+            else
                 start_ray
                 run_serve
-            else
-                run_vllm
             end
+
             msg :info, 'Configuration completed successfully'
         end
 
