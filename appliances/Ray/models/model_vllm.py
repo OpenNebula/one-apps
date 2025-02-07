@@ -17,10 +17,10 @@ class ChatBot:
         os.environ["HF_TOKEN"] = token
 
         # Load model
-        self.model         = LLM(model=model_id)
+        self.model = LLM(model=model_id, max_model_len=5000)
+
         self.temperature   = temperature
         self.system_prompt = system_prompt
-        #top_p > to be included
 
     @app.post("/chat")
     def chat(self, text: str) -> str:
@@ -34,12 +34,10 @@ class ChatBot:
             sampling_params=SamplingParams(
                 temperature=self.temperature,
                 max_tokens=1024),
-                # top_p, penalty?
             use_tqdm=False)
 
         # Run inference
         answer = outputs[0].outputs[0].text
-
         return answer
 
 def app_builder(args: Dict[str, str]) -> Application:

@@ -20,12 +20,13 @@ applications:
   import_path: model:app_builder
   runtime_env:
     pip:
-      - transformers==4.48.0
-      - fastapi
-      - torch
-      - torchvision
-      - torchaudio
-      - vllm
+      - transformers==4.48.2
+      - fastapi==0.115.8
+      - torch==2.5.1
+      - torchvision==0.20.1
+      - torchaudio==2.5.1
+      - vllm==0.7.2
+      - packaging==24.1
   args:
     model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
     token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
