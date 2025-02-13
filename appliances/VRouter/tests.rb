@@ -95,7 +95,7 @@ RSpec.describe 'detect_vips' do
           .to eq({
                      'eth0' => { 'ETH0_VIP0' => '1.2.3.4/16',
                                  'ETH0_VIP1' => '2.3.4.5/24' },
-                     'eth1' => { 'ETH1_VIP0' => '3.4.5.6/32' }
+                     'eth1' => { 'ETH1_VIP0' => '3.4.5.6/24' }
                  })
   end
 
@@ -116,7 +116,7 @@ RSpec.describe 'detect_vips' do
                  })
   end
 
-  it 'should default to /32 for public VIPs without network or mask' do
+  it 'should default to /24 for public VIPs without network or mask' do
       clear_env
 
       ENV['ETH0_VROUTER_IP'] = '1.2.3.4'
@@ -124,8 +124,8 @@ RSpec.describe 'detect_vips' do
 
       expect(detect_vips)
           .to eq({
-                     'eth0' => { 'ETH0_VIP0' => '1.2.3.4/32',
-                                 'ETH0_VIP1' => '2.3.4.5/32' }
+                     'eth0' => { 'ETH0_VIP0' => '1.2.3.4/24',
+                                 'ETH0_VIP1' => '2.3.4.5/24' }
                  })
   end
 
@@ -139,7 +139,7 @@ RSpec.describe 'detect_vips' do
       expect(detect_vips)
           .to eq({
                      'eth0' => { 'ETH0_VIP0' => '172.16.5.9/16' },
-                     'eth1' => { 'ETH1_VIP0' => '10.5.6.8/8' },
+                     'eth1' => { 'ETH1_VIP0' => '10.5.6.7/8' },
                      'eth2' => { 'ETH2_VIP0' => '192.168.1.3/24' }
                  })
   end
@@ -174,8 +174,8 @@ RSpec.describe 'detect_endpoints' do
 
       expect(detect_endpoints)
           .to eq({
-                     'eth0' => { 'ETH0_EP0' => '1.2.3.4/24' },
-                     'eth1' => { 'ETH1_EP0' => '3.4.5.6/24' }
+                     'eth0' => { 'ETH0_EP0' => '1.2.3.4/16' },
+                     'eth1' => { 'ETH1_EP0' => '3.4.5.6/16' }
                  })
   end
 
@@ -430,7 +430,7 @@ RSpec.describe 'vips_to_subnets' do
 
               { '1.2.3.4/24' => '1.2.3.0/24',
                 '2.3.4.5/16' => '2.3.0.0/16',
-                '6.7.8.9/32' => '6.7.8.9/32' } ]
+                '6.7.8.9/24' => '6.7.8.0/24' } ]
         ]
         tests.each do |nics, vips, output|
             expect(vips_to_subnets(nics, vips)).to eq output
