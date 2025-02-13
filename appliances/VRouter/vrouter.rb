@@ -108,29 +108,29 @@ def detect_mgmt_nics
 end
 
 def infer_pfxlen(eth_index, ip)
-    unless (pfxlen = ip.split(%[/])[1]).nil?
-        return pfxlen.to_i
-    end
+    pfxlen = ip.then do |ip|
+        unless (pfxlen = ip.split(%[/])[1]).nil?
+            next pfxlen.to_i
+        end
 
-    unless (mask = env("ETH#{eth_index}_MASK", nil)).nil?
-        return IPAddr.new("#{ip}/#{mask}").prefix.to_i
-    end
+        unless (mask = env("ETH#{eth_index}_MASK", nil)).nil?
+            next IPAddr.new("#{ip}/#{mask}").prefix.to_i
+        end
 
-    unless (network = env("ETH#{eth_index}_NETWORK", nil)).nil?
-        return IPAddr
-               .new(
-                   "#{ip}/#{32 - network.split('.').map(&:to_i).count(0) * 8}"
-               ).prefix.to_i
-    end
+        unless (network = env("ETH#{eth_index}_NETWORK", nil)).nil?
+            next 32 - 8 * network.split(%[.]).map(&:to_i).reverse.take_while(&:zero?).count
+        end
 
-    case (ip = IPAddr.new(ip)).family
-    when Socket::AF_INET
-        return  8 if ip.to_i & 0xff00_0000 == 0x0a00_0000 # A 10.x.y.z/8
-        return 16 if ip.to_i & 0xfff0_0000 == 0xac10_0000 # B 172.16.x.y/16
-        return 24 if ip.to_i & 0xffff_0000 == 0xc0a8_0000 # C 192.168.x.y/24
-    end
+        case (ip = IPAddr.new(ip)).family
+        when Socket::AF_INET
+            next  8 if ip.to_i & 0xff00_0000 == 0x0a00_0000 # A 10.x.y.z/8
+            next 16 if ip.to_i & 0xfff0_0000 == 0xac10_0000 # B 172.16.x.y/16
+            next 24 if ip.to_i & 0xffff_0000 == 0xc0a8_0000 # C 192.168.x.y/24
+        end
 
-    return 24 # guess/fallback
+        next 24 # guess/fallback
+    end
+    return pfxlen.zero? ? 32 : pfxlen
 end
 
 def append_pfxlen(eth_index, ip)
