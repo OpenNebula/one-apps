@@ -36,54 +36,162 @@ RSpec.describe 'infer_pfxlen' do
 end
 
 RSpec.describe 'detect_addrs' do
-    it 'should parse IP variables' do
-        clear_env
+  it 'should parse IP variables with mask' do
+      clear_env
 
-        ENV['ETH0_IP']   = '1.2.3.4'
-        ENV['ETH0_MASK'] = '255.255.0.0'
-        ENV['ETH1_IP']   = '2.3.4.5'
-        ENV['ETH1_MASK'] = '255.255.255.0'
+      ENV['ETH0_IP']   = '1.2.3.4'
+      ENV['ETH0_MASK'] = '255.255.0.0'
+      ENV['ETH1_IP']   = '2.3.4.5'
+      ENV['ETH1_MASK'] = '255.255.255.0'
 
-        expect(detect_addrs).to eq ({
-            'eth0' => { 'ETH0_IP0' => '1.2.3.4/16' },
-            'eth1' => { 'ETH1_IP0' => '2.3.4.5/24' }
-        })
-    end
+      expect(detect_addrs)
+          .to eq({
+                     'eth0' => { 'ETH0_IP0' => '1.2.3.4/16' },
+                     'eth1' => { 'ETH1_IP0' => '2.3.4.5/24' }
+                 })
+  end
+
+  it 'should parse IP variables with network address' do
+      clear_env
+
+      ENV['ETH0_IP'] = '10.2.3.4'
+      ENV['ETH0_NETWORK'] = '10.0.0.0'
+      ENV['ETH1_IP'] = '172.16.3.4'
+      ENV['ETH1_NETWORK'] = '172.16.0.0'
+
+      expect(detect_addrs)
+          .to eq({
+                     'eth0' => { 'ETH0_IP0' => '10.2.3.4/8' },
+                     'eth1' => { 'ETH1_IP0' => '172.16.3.4/16' }
+                 })
+  end
+
+  it 'should handle private network ranges without mask or network' do
+      clear_env
+
+      ENV['ETH0_IP'] = '10.2.3.4'
+      ENV['ETH1_IP'] = '172.16.3.4'
+      ENV['ETH2_IP'] = '192.168.1.2'
+
+      expect(detect_addrs)
+          .to eq({
+                     'eth0' => { 'ETH0_IP0' => '10.2.3.4/8' },
+                     'eth1' => { 'ETH1_IP0' => '172.16.3.4/16' },
+                     'eth2' => { 'ETH2_IP0' => '192.168.1.2/24' }
+                 })
+  end
 end
 
 RSpec.describe 'detect_vips' do
-    it 'should parse VIP variables' do
-        clear_env
+  it 'should parse VIP variables with mask' do
+      clear_env
 
-        ENV['ETH0_MASK']                = '255.255.0.0'
-        ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
-        ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5/24'
-        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
+      ENV['ETH0_MASK']                = '255.255.0.0'
+      ENV['ETH0_VROUTER_IP']          = '1.2.3.4'
+      ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5/24'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
 
-        expect(detect_vips).to eq ({
-            'eth0' => { 'ETH0_VIP0' => '1.2.3.4/16',
-                        'ETH0_VIP1' => '2.3.4.5/24' },
-            'eth1' => { 'ETH1_VIP0' => '3.4.5.6/32' }
-        })
-    end
+      expect(detect_vips)
+          .to eq({
+                     'eth0' => { 'ETH0_VIP0' => '1.2.3.4/16',
+                                 'ETH0_VIP1' => '2.3.4.5/24' },
+                     'eth1' => { 'ETH1_VIP0' => '3.4.5.6/24' }
+                 })
+  end
+
+  it 'should parse VIP variables with network address' do
+      clear_env
+
+      ENV['ETH0_NETWORK'] = '10.0.0.0'
+      ENV['ETH0_VROUTER_IP'] = '10.2.3.4'
+      ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '10.2.4.5'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '172.16.5.6'
+      ENV['ETH1_NETWORK'] = '172.16.0.0'
+
+      expect(detect_vips)
+          .to eq({
+                     'eth0' => { 'ETH0_VIP0' => '10.2.3.4/8',
+                                 'ETH0_VIP1' => '10.2.4.5/8' },
+                     'eth1' => { 'ETH1_VIP0' => '172.16.5.6/16' }
+                 })
+  end
+
+  it 'should default to /24 for public VIPs without network or mask' do
+      clear_env
+
+      ENV['ETH0_VROUTER_IP'] = '1.2.3.4'
+      ENV['ONEAPP_VROUTER_ETH0_VIP1'] = '2.3.4.5'
+
+      expect(detect_vips)
+          .to eq({
+                     'eth0' => { 'ETH0_VIP0' => '1.2.3.4/24',
+                                 'ETH0_VIP1' => '2.3.4.5/24' }
+                 })
+  end
+
+  it 'should infer prefix for private range VIPs without mask or network' do
+      clear_env
+
+      ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '172.16.5.9'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.5.6.7'
+      ENV['ONEAPP_VROUTER_ETH2_VIP0'] = '192.168.1.3'
+
+      expect(detect_vips)
+          .to eq({
+                     'eth0' => { 'ETH0_VIP0' => '172.16.5.9/16' },
+                     'eth1' => { 'ETH1_VIP0' => '10.5.6.7/8' },
+                     'eth2' => { 'ETH2_VIP0' => '192.168.1.3/24' }
+                 })
+  end
 end
 
 RSpec.describe 'detect_endpoints' do
-    it 'should merge IP and VIP variables correctly' do
-        clear_env
+  it 'should merge IP and VIP variables correctly (with mask)' do
+      clear_env
 
-        ENV['ETH0_IP']   = '1.2.3.4'
-        ENV['ETH0_MASK'] = '255.255.0.0'
-        ENV['ETH1_IP']   = '2.3.4.5'
-        ENV['ETH1_MASK'] = '255.255.255.0'
+      ENV['ETH0_IP']   = '1.2.3.4'
+      ENV['ETH0_MASK'] = '255.255.0.0'
+      ENV['ETH1_IP']   = '2.3.4.5'
+      ENV['ETH1_MASK'] = '255.255.255.0'
 
-        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
 
-        expect(detect_endpoints).to eq ({
-            'eth0' => { 'ETH0_EP0' => '1.2.3.4/16' },
-            'eth1' => { 'ETH1_EP0' => '3.4.5.6/24' }
-        })
-    end
+      expect(detect_endpoints)
+          .to eq({
+                     'eth0' => { 'ETH0_EP0' => '1.2.3.4/16' },
+                     'eth1' => { 'ETH1_EP0' => '3.4.5.6/24' }
+                 })
+  end
+
+  it 'should use network address when mask is not available' do
+      clear_env
+
+      ENV['ETH0_IP'] = '1.2.3.4'
+      ENV['ETH0_NETWORK'] = '1.2.0.0'
+      ENV['ETH1_IP'] = '2.3.4.5'
+      ENV['ETH1_NETWORK'] = '2.3.0.0'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '3.4.5.6'
+
+      expect(detect_endpoints)
+          .to eq({
+                     'eth0' => { 'ETH0_EP0' => '1.2.3.4/16' },
+                     'eth1' => { 'ETH1_EP0' => '3.4.5.6/16' }
+                 })
+  end
+
+  it 'should handle private network ranges without mask or network' do
+      clear_env
+
+      ENV['ETH0_IP'] = '10.2.3.4'
+      ENV['ETH1_IP'] = '172.16.3.4'
+      ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '172.16.5.6'
+
+      expect(detect_endpoints)
+          .to eq({
+                     'eth0' => { 'ETH0_EP0' => '10.2.3.4/8' },
+                     'eth1' => { 'ETH1_EP0' => '172.16.5.6/16' }
+                 })
+  end
 end
 
 RSpec.describe 'parse_interfaces' do
@@ -322,7 +430,7 @@ RSpec.describe 'vips_to_subnets' do
 
               { '1.2.3.4/24' => '1.2.3.0/24',
                 '2.3.4.5/16' => '2.3.0.0/16',
-                '6.7.8.9/32' => '6.7.8.9/32' } ]
+                '6.7.8.9/24' => '6.7.8.0/24' } ]
         ]
         tests.each do |nics, vips, output|
             expect(vips_to_subnets(nics, vips)).to eq output

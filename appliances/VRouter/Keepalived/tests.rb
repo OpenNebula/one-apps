@@ -63,15 +63,15 @@ RSpec.describe self do
         expect(keepalived_vars[:by_nic]['eth0'][:interval]).to eq '1'
         expect(keepalived_vars[:by_nic]['eth0'][:priority]).to eq '100'
         expect(keepalived_vars[:by_nic]['eth0'][:vrid]).to eq '11'
-        expect(keepalived_vars[:by_nic]['eth0'][:vips][0]).to eq '10.2.11.69/32'
-        expect(keepalived_vars[:by_nic]['eth0'][:vips][1]).to eq '10.2.11.86/32'
+        expect(keepalived_vars[:by_nic]['eth0'][:vips][0]).to eq '10.2.11.69/8'
+        expect(keepalived_vars[:by_nic]['eth0'][:vips][1]).to eq '10.2.11.86/8'
         expect(keepalived_vars[:by_nic]['eth0'][:noip]).to be true
 
         expect(keepalived_vars[:by_nic]['eth1'][:interval]).to eq '1'
         expect(keepalived_vars[:by_nic]['eth1'][:priority]).to eq '100'
         expect(keepalived_vars[:by_nic]['eth1'][:vrid]).to eq '11'
-        expect(keepalived_vars[:by_nic]['eth1'][:vips][0]).to eq '10.2.12.69/32'
-        expect(keepalived_vars[:by_nic]['eth1'][:vips][1]).to eq '10.2.12.86/32'
+        expect(keepalived_vars[:by_nic]['eth1'][:vips][0]).to eq '10.2.12.69/8'
+        expect(keepalived_vars[:by_nic]['eth1'][:vips][1]).to eq '10.2.12.86/8'
         expect(keepalived_vars[:by_nic]['eth1'][:noip]).to be false
 
         expect(keepalived_vars[:by_vrid]['11'].keys).to eq %w[eth0 eth1]
@@ -112,11 +112,11 @@ RSpec.describe self do
         expect(Service::Keepalived.instance_variable_get(:@interfaces).keys).to eq %w[eth0 eth1]
 
         expect(keepalived_vars[:by_nic]['eth0'][:vrid]).to eq '21'
-        expect(keepalived_vars[:by_nic]['eth0'][:vips][0]).to eq '10.2.21.69/32'
+        expect(keepalived_vars[:by_nic]['eth0'][:vips][0]).to eq '10.2.21.69/8'
         expect(keepalived_vars[:by_nic]['eth0'][:noip]).to be true
 
         expect(keepalived_vars[:by_nic]['eth1'][:vrid]).to eq '21'
-        expect(keepalived_vars[:by_nic]['eth1'][:vips][0]).to eq '10.2.22.69/32'
+        expect(keepalived_vars[:by_nic]['eth1'][:vips][0]).to eq '10.2.22.69/8'
         expect(keepalived_vars[:by_nic]['eth1'][:noip]).to be false
 
         expect(keepalived_vars[:by_vrid]['21'].keys).to eq %w[eth0 eth1]
@@ -185,10 +185,10 @@ RSpec.describe self do
                 priority          100
                 advert_int        1
                 virtual_ipaddress {
-                    10.2.30.69/32 dev eth0
-                    10.2.30.86/32 dev eth0
-                    10.2.31.69/32 dev eth1
-                    10.2.31.86/32 dev eth1
+                    10.2.30.69/8 dev eth0
+                    10.2.30.86/8 dev eth0
+                    10.2.31.69/8 dev eth1
+                    10.2.31.86/8 dev eth1
                 }
                 virtual_routes {
                     0.0.0.0/0 via 10.2.30.1
@@ -201,7 +201,7 @@ RSpec.describe self do
                 priority          100
                 advert_int        1
                 virtual_ipaddress {
-                    10.2.33.69/32 dev eth3
+                    10.2.33.69/8 dev eth3
                 }
                 virtual_routes {
                 }
