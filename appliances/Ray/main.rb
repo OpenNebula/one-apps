@@ -127,7 +127,7 @@ module Service
 
     def run_vllm
         msg :info, "Serving vLLM application in #{RAY_APPLICATION_PATH}..."
-        puts bash "vvlm serve #{RAY_APPLICATION_PATH}"
+        puts bash "vllm serve #{ONEAPP_RAY_MODEL_ID} --gpu-memory-utilization 0.5"
     end
 
     def listening?
