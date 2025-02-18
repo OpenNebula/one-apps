@@ -27,7 +27,7 @@ class ChatBot:
 
         # Load model
         self.model = LLM(
-            model=model_id, max_model_len=2048)
+            model=model_id, max_model_len=2048, gpu_memory_utilization=0.5)
         self.temperature = temperature
         self.system_prompt = system_prompt
         self.nmessages_hist = 4
