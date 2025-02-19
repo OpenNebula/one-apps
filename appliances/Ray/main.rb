@@ -130,7 +130,7 @@ module Service
 
         ENV["HF_TOKEN"] = ONEAPP_RAY_MODEL_TOKEN
 
-        puts bash "vllm serve #{ONEAPP_RAY_MODEL_ID} --gpu-memory-utilization 0.5"
+        puts bash "vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS}"
     end
 
     def listening?
