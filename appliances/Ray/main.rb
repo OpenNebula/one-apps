@@ -127,6 +127,9 @@ module Service
 
     def run_vllm
         msg :info, "Serving vLLM application in #{RAY_APPLICATION_PATH}..."
+
+        ENV["HF_TOKEN"] = ONEAPP_RAY_MODEL_TOKEN
+
         puts bash "vllm serve #{ONEAPP_RAY_MODEL_ID} --gpu-memory-utilization 0.5"
     end
 
