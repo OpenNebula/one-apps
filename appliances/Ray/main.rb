@@ -19,7 +19,9 @@ module Service
 
         extend self
 
-        DEPENDS_ON = []
+        DEPENDS_ON    = []
+
+        VLLM_LOG_FILE = "/var/log/one-appliance/vllm.log"
 
         def install
             msg :info, 'Ray::install'
@@ -130,7 +132,12 @@ module Service
 
         ENV["HF_TOKEN"] = ONEAPP_RAY_MODEL_TOKEN
 
-        puts bash "vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS}"
+        VLLM_LOG_FILE = "/var/log/one-appliance/vllm.log"
+
+        pid = fork do
+            Process.setsid
+            bash "vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS} 2>&1 >> #{VLLM_LOG_FILE}"
+        end
     end
 
     def listening?
