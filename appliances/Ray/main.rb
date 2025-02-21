@@ -132,12 +132,12 @@ module Service
 
         ENV["HF_TOKEN"] = ONEAPP_RAY_MODEL_TOKEN
 
-        VLLM_LOG_FILE = "/var/log/one-appliance/vllm.log"
+        command =<<~EOF
+            bash -c 'vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS} 2>&1 >> #{VLLM_LOG_FILE}'
+        EOF
 
-        pid = fork do
-            Process.setsid
-            bash "vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS} 2>&1 >> #{VLLM_LOG_FILE}"
-        end
+        pid = spawn(command, [:in, :out, :err] => "/dev/null")
+        Process.detach(pid)
     end
 
     def listening?
