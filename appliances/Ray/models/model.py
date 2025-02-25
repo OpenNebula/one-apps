@@ -7,6 +7,8 @@ from typing import Dict
 from ray.serve import Application
 import torch
 import re
+import asyncio
+
 
 app = FastAPI()
 
@@ -50,7 +52,7 @@ class ChatBot:
             """
 
     @app.post("/chat")
-    def chat(self, text: str) -> str:
+    async def chat(self, text: str) -> str:
         """Endpoint to communicate with deployed LLM.
         Args:
             text (str): given user input.

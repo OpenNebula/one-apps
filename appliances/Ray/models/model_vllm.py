@@ -4,7 +4,7 @@ from typing import Dict
 from ray.serve import Application
 from vllm import LLM, SamplingParams
 import os
-
+import asyncio
 
 app = FastAPI()
 
@@ -35,7 +35,7 @@ class ChatBot:
             {"role": "system", "content": self.system_prompt}]
         
     @app.post("/chat")
-    def chat(self, text: str) -> str:
+    async def chat(self, text: str) -> str:
         """Endpoint to communicate with deployed LLM.
         Args:
             text (str): given user input.
