@@ -52,7 +52,7 @@ module Service
                     {},
                     "/usr/bin/bash",
                     "-c",
-                    "cd #{WEB_PATH}; python #{web_app}",
+                    "cd #{WEB_PATH}; /usr/bin/python3 #{web_app}",
                     :pgroup => true
                 )
 
