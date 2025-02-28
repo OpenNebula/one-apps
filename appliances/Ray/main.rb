@@ -72,7 +72,12 @@ module Service
                 ip  = env('ETH0_IP', '0.0.0.0')
                 url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{route}"
 
-                bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_URL=#{url}\""
+                bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_API=#{url}\""
+
+                if ONEAPP_RAY_API_WEB
+                    url = "http://#{ip}:5000"
+                    bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_WEB=#{url}\""
+                end
 
                 msg :info, 'Bootstrap completed successfully'
             rescue StandardError => e
