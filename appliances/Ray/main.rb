@@ -31,14 +31,32 @@ module Service
 
         def configure
             msg :info, 'Ray::configure'
+
             load_application_file
+
             generate_config_file
 
-            if ONEAPP_RAY_API_OPENAI
-                run_vllm
-            else
-                start_ray
-                run_serve
+            web_app = if ONEAPP_RAY_API_OPENAI
+                          run_vllm
+
+                          'web_client_openai.py'
+                      else
+                          start_ray
+                          run_serve
+
+                          'web_client.py'
+                      end
+
+            if ONEAPP_RAY_API_WEB
+                pid = spawn(
+                    {},
+                    "/usr/bin/bash",
+                    "-c",
+                    "cd #{WEB_PATH}; python #{web_app}",
+                    :pgroup => true
+                )
+
+                Process.detach(pid)
             end
 
             msg :info, 'Configuration completed successfully'
@@ -52,7 +70,7 @@ module Service
                 msg :info, 'Updating VM with inference endpoint'
 
                 ip  = env('ETH0_IP', '0.0.0.0')
-                url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{ONEAPP_RAY_API_ROUTE}"
+                url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{route}"
 
                 bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_URL=#{url}\""
 
@@ -69,7 +87,7 @@ module Service
             apt-get update
             apt-get install -y python3 python3-pip
             apt remove -y python3-jinja2
-            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm
+            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm flask
         SCRIPT
     end
 

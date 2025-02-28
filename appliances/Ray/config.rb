@@ -12,6 +12,7 @@ require 'fileutils'
 
 BASE_PATH     = '/etc/one-appliance/service.d/Ray'
 VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
+WEB_PATH      = '/etc/one-appliance/service.d/Ray/client'
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_RAY_MODULES = 'default,serve'
@@ -45,6 +46,7 @@ RAY_VLLM_APPLICATION_DEFAULT = File.join(BASE_PATH, 'models/model_vllm.py')
 # ------------------------------------------------------------------------------
 ONEAPP_RAY_API_PORT  = env :ONEAPP_RAY_API_PORT, '8000'
 ONEAPP_RAY_API_ROUTE = env :ONEAPP_RAY_API_ROUTE, '/chat'
+ONEAPP_RAY_API_WEB   = env :ONEAPP_RAY_API_WEB, 'YES'
 
 ONEAPP_RAY_MODEL_ID          = env :ONEAPP_RAY_MODEL_ID, 'meta-llama/Llama-3.2-1B-Instruct'
 ONEAPP_RAY_MODEL_TOKEN       = env :ONEAPP_RAY_MODEL_TOKEN, ''
@@ -65,6 +67,24 @@ ONEAPP_RAY_CHATBOT_CPUS     = env :ONEAPP_RAY_CHATBOT_CPUS, '5.0'
 
 def vllm?
     ONEAPP_RAY_MODEL_VLLM || ONEAPP_RAY_API_OPENAI
+end
+
+def route
+    if vllm?
+        'v1'
+    else
+        ONEAPP_RAY_API_ROUTE
+    end
+end
+
+def gen_web_config
+    config = <<~CONFIG
+      base_url: "http://localhost:8000/#{route}"
+      model: "#{ONEAPP_RAY_MODEL_ID}"
+      api_key: "your-api-key-here"
+    CONFIG
+
+    write_file(File.join(WEB_PATH, 'config.yaml'), config)
 end
 
 def gen_template_config
