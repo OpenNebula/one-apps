@@ -48,6 +48,8 @@ module Service
                       end
 
             if ONEAPP_RAY_API_WEB
+                gen_web_config
+
                 pid = spawn(
                     {},
                     "/usr/bin/bash",
