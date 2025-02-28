@@ -3,120 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Interface</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            background-color: #f4f4f4; 
-        }
-        .chat-container { 
-            width: 600px;  /* Increased width */
-            height: 500px; /* Increased height */
-            max-width: 100%; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 10px; 
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
-            display: flex; 
-            flex-direction: column;
-        }
-        .chat-box { 
-            flex-grow: 1; /* Allows the chat box to take available space */
-            overflow-y: auto; 
-            padding: 10px; 
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background: #fafafa;
-        }
-        .message { 
-            padding: 10px; 
-            border-radius: 5px; 
-            margin: 5px 0; 
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .user-message { 
-            background: #007bff; 
-            color: white; 
-            text-align: right; 
-            align-self: flex-end;
-        }
-        .bot-message { 
-            background: #e0e0e0; 
-            text-align: left; 
-            align-self: flex-start;
-        }
-        .input-container {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        textarea { 
-            flex: 1; 
-            padding: 10px; 
-            resize: none;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            font-size: 16px;
-            height: 50px; /* Larger input field */
-        }
-        button { 
-            padding: 10px 20px; 
-            border: none; 
-            background: #28a745; 
-            color: white; 
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover { background: #218838; }
-    </style>
+    <title>ONE - Ray Appliance</title>
+    <!-- Link to Local Materialize CSS -->
+    <link rel="stylesheet" href="static/css/materialize.min.css">    
+    <!-- Link to Local Material Icons -->
+    <link href="static/css/material-icons.css" rel="stylesheet">
+    <!-- Link to Local CSS -->
+    <link rel="stylesheet" href="static/css/style.css">
+    <!-- Link to Local Favicon -->
+    <link rel="icon" type="image/png" href="static/logos/logo.svg">
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-box" id="chat-box"></div>
-        <div class="input-container">
-            <textarea id="user-input" placeholder="Type your message..."></textarea>
-            <button onclick="sendMessage()">Send</button>
-        </div>
+
+<div class="chat-container">
+    <div class="header">
+        <img src="static/logos/logo.svg" alt="Logo"> <!-- Local logo path -->
+        <h1>Ray Appliance</h1>
     </div>
+    <div class="chat-history" id="chat-history">
+        <!-- Messages will be displayed here -->
+    </div>
+    <div class="input-container">
+        <input type="text" id="message-input" class="input-field" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+        <button class="btn waves-effect waves-light send-btn" onclick="sendMessage()">
+            <i class="material-icons">send</i>
+        </button>
+    </div>
+</div>
 
-    <script>
-        document.getElementById("user-input").addEventListener("keypress", function(event) {
-            if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-            }
-        });
+<script src="static/js/marked.min.js"></script>
 
-        function sendMessage() {
-            let userInput = document.getElementById("user-input").value.trim();
-            if (!userInput) return;
+<!-- Link to Local JavaScript -->
+<script src="static/js/script.js"></script>
 
-            let chatBox = document.getElementById("chat-box");
-            let userMessage = `<div class='message user-message'>${userInput}</div>`;
-            chatBox.innerHTML += userMessage;
-            document.getElementById("user-input").value = "";
 
-            fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: userInput })
-            })
-            .then(response => response.json())
-            .then(data => {
-                let formattedResponse = marked.parse(data.response); // Markdown rendering
-                let botMessage = `<div class='message bot-message'>${formattedResponse}</div>`;
-                chatBox.innerHTML += botMessage;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            });
-        }
-    </script>
 </body>
 </html>
-
