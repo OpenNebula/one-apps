@@ -206,6 +206,7 @@ def init_master
         'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
+    server_config['service-cidr'] = ONEAPP_K8S_SERVICE_CIDR unless ONEAPP_K8S_SERVICE_CIDR.to_s.empty?
 
     msg :info, 'Prepare initial rke2-server config'
     file '/etc/rancher/rke2/config.yaml', YAML.dump(server_config), overwrite: false
@@ -263,6 +264,7 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
         'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
+    server_config['service-cidr'] = ONEAPP_K8S_SERVICE_CIDR unless ONEAPP_K8S_SERVICE_CIDR.to_s.empty?
 
     msg :info, 'Prepare rke2-server config'
     file '/etc/rancher/rke2/config.yaml', YAML.dump(server_config), overwrite: true
@@ -396,6 +398,7 @@ def configure_rke2_proxy(current_role)
         no_proxy = ['127.0.0.1/32', 'localhost']
         no_proxy << retrieve_endpoint_host(ONEAPP_K8S_CONTROL_PLANE_EP) if ONEAPP_K8S_CONTROL_PLANE_EP
         no_proxy << retrieve_endpoint_host(ONEAPP_RKE2_SUPERVISOR_EP) if ONEAPP_RKE2_SUPERVISOR_EP
+        no_proxy << ONEAPP_K8S_SERVICE_CIDR
         proxy_config << "NO_PROXY=#{no_proxy.uniq.join(',')}"
     else
         proxy_config << "NO_PROXY=#{ONEAPP_K8S_NO_PROXY}"
