@@ -16,11 +16,9 @@ Check the supported OpenNebula versions for each release.
 
 ## Install
 
-Documentation on packages installation and guest contextualization can
-be found in the latest stable
-[OpenNebula Operation Guide](http://docs.opennebula.org/stable/operation/vm_setup/context_overview.html).
-For beta releases, refer to the latest
-[development documentation](http://docs.opennebula.org/devel/operation/vm_setup/context_overview.html).
+Documentation on packages installation and guest contextualization can 
+be found in the latest stable [Contextualization Guide](https://docs.opennebula.io/stable/management_and_operations/guest_os/kvm_contextualization.html).
+For beta releases, refer to the latest [development documentation](https://docs.opennebula.io/devel/management_and_operations/guest_os/kvm_contextualization.html).
 
 ## Build own package
 
