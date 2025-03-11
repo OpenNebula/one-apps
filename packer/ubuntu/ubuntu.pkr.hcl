@@ -34,7 +34,8 @@ source "qemu" "ubuntu" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  skip_resize_disk = true
+  disk_size        = 3072
+  skip_resize_disk = false
 
   output_directory = var.output_dir
 
