@@ -39,7 +39,7 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ## Author Information
 
-Copyright 2002-2023, OpenNebula Project, OpenNebula Systems
+Copyright 2002-2025, OpenNebula Project, OpenNebula Systems
 
 ## Contributors
 
