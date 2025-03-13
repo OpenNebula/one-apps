@@ -13,15 +13,11 @@ require_relative 'vnf.rb'
 def install_kubernetes(airgap_dir = ONE_AIRGAP_DIR)
     rke2_release_url = "https://github.com/rancher/rke2/releases/download/#{ONE_SERVICE_RKE2_VERSION}"
 
-    amap= {
-      "x86_64" => "amd64",
-      "aarch64" => "arm64"
-    }
     begin
-      arch = amap[`arch`.strip]
+        arch = {'x86_64' => 'amd64', 'aarch64' => 'arm64'}[`arch`.strip]
     rescue KeyError
-      msg :error, "Unknown architecture"
-      exit 1
+        msg :error, 'Unknown architecture'
+        exit 1
     end
 
     msg :info, "Install RKE2 runtime: #{ONE_SERVICE_RKE2_VERSION}"
@@ -203,10 +199,11 @@ def init_master
         'node-taint'               => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'                  => ['rke2-ingress-nginx'],
         'cni'                      => cni,
+        'cluster-cidr'             => ONEAPP_K8S_CLUSTER_CIDR,
+        'service-cidr'             => ONEAPP_K8S_SERVICE_CIDR,
         'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
-    server_config['service-cidr'] = ONEAPP_K8S_SERVICE_CIDR unless ONEAPP_K8S_SERVICE_CIDR.to_s.empty?
 
     msg :info, 'Prepare initial rke2-server config'
     file '/etc/rancher/rke2/config.yaml', YAML.dump(server_config), overwrite: false
@@ -261,10 +258,11 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
         'node-taint'               => ['CriticalAddonsOnly=true:NoExecute'],
         'disable'                  => ['rke2-ingress-nginx'],
         'cni'                      => cni,
+        'cluster-cidr'             => ONEAPP_K8S_CLUSTER_CIDR,
+        'service-cidr'             => ONEAPP_K8S_SERVICE_CIDR,
         'disable-kube-proxy'       => ONEAPP_K8S_CNI_PLUGIN == 'cilium',
         'disable-cloud-controller' => ONEAPP_RKE2_CLOUD_CONTROLLER_ENABLED == false
     }
-    server_config['service-cidr'] = ONEAPP_K8S_SERVICE_CIDR unless ONEAPP_K8S_SERVICE_CIDR.to_s.empty?
 
     msg :info, 'Prepare rke2-server config'
     file '/etc/rancher/rke2/config.yaml', YAML.dump(server_config), overwrite: true
@@ -394,10 +392,12 @@ def configure_rke2_proxy(current_role)
     proxy_config = []
     proxy_config << "HTTP_PROXY=#{ONEAPP_K8S_HTTP_PROXY}" unless ONEAPP_K8S_HTTP_PROXY.nil?
     proxy_config << "HTTPS_PROXY=#{ONEAPP_K8S_HTTPS_PROXY}" unless ONEAPP_K8S_HTTPS_PROXY.nil?
+
     if ONEAPP_K8S_NO_PROXY.to_s.empty?
-        no_proxy = ['127.0.0.1/32', 'localhost']
+        no_proxy = ['127.0.0.0/8', 'localhost']
         no_proxy << retrieve_endpoint_host(ONEAPP_K8S_CONTROL_PLANE_EP) if ONEAPP_K8S_CONTROL_PLANE_EP
         no_proxy << retrieve_endpoint_host(ONEAPP_RKE2_SUPERVISOR_EP) if ONEAPP_RKE2_SUPERVISOR_EP
+        no_proxy << ONEAPP_K8S_CLUSTER_CIDR
         no_proxy << ONEAPP_K8S_SERVICE_CIDR
         proxy_config << "NO_PROXY=#{no_proxy.uniq.join(',')}"
     else
