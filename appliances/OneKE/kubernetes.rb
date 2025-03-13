@@ -267,6 +267,8 @@ def join_master(token, retries = RETRIES, seconds = SECONDS)
     msg :info, 'Prepare rke2-server config'
     file '/etc/rancher/rke2/config.yaml', YAML.dump(server_config), overwrite: true
 
+    configure_rke2_proxy 'master'
+
     # The rke2-server systemd service restarts automatically and eventually joins.
     # If it really cannot join we want to reflect this in OneFlow.
     retries.downto(0).each do |retry_num|
