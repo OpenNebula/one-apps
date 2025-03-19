@@ -17,3 +17,4 @@ context-linux/*.deb
 context-linux/.vagrant*/
 context-linux/*~bak
 .vscode
+.DS_Store

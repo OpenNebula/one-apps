@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -e
+
 DISTRO_NAME=$1                           # e.g. debian
 DISTRO_VER=$2                            # e.g. 11
 DISTRO=${DISTRO_NAME}${DISTRO_VER}       # e.g. debian11
