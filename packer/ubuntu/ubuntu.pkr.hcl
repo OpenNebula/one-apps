@@ -11,6 +11,13 @@ build {
   }
 }
 
+locals {
+  disk_size = lookup({
+    "2204oneke"         = 3072
+    "2204oneke.aarch64" = 3072
+  }, var.version, 0)
+}
+
 # Build VM image
 source "qemu" "ubuntu" {
   cpus        = 2
@@ -34,7 +41,8 @@ source "qemu" "ubuntu" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  skip_resize_disk = true
+  skip_resize_disk = local.disk_size == 0 ? true : false
+  disk_size        = local.disk_size == 0 ? null : local.disk_size
 
   output_directory = var.output_dir
 

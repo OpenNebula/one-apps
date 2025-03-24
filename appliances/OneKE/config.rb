@@ -60,6 +60,10 @@ ONEAPP_RKE2_SUPERVISOR_EP   = env :ONEAPP_RKE2_SUPERVISOR_EP, "#{ONEAPP_VROUTER_
 ONEAPP_K8S_CONTROL_PLANE_EP = env :ONEAPP_K8S_CONTROL_PLANE_EP, "#{ONEAPP_VROUTER_ETH0_VIP0}:#{ONEAPP_VNF_HAPROXY_LB1_PORT}"
 ONEAPP_K8S_EXTRA_SANS       = env :ONEAPP_K8S_EXTRA_SANS, 'localhost,127.0.0.1'
 
+# IPv4/IPv6 network CIDRs to use for cluster and service IPs: https://docs.rke2.io/reference/server_config#networking
+ONEAPP_K8S_CLUSTER_CIDR = env :ONEAPP_K8S_CLUSTER_CIDR, '10.42.0.0/16'
+ONEAPP_K8S_SERVICE_CIDR = env :ONEAPP_K8S_SERVICE_CIDR, '10.43.0.0/16'
+
 # Proxy config for RKE2: https://docs.rke2.io/advanced#configuring-an-http-proxy
 ONEAPP_K8S_HTTP_PROXY  = env :ONEAPP_K8S_HTTP_PROXY, nil
 ONEAPP_K8S_HTTPS_PROXY = env :ONEAPP_K8S_HTTPS_PROXY, nil
