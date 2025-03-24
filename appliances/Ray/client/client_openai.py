@@ -25,9 +25,10 @@ def chat(api_endpoint, model_name):
             completion = client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "user", "content": user_input}
-                ]
-            )
+                    {"role": "system", "content": "You are a helpful assistant, answer the questions."},
+                    {"role": "user", "content": user_input}],
+                max_tokens=512,
+                temperature=0.1)
 
             # Parse and print the server's response
             response = completion.choices[0].message.content
