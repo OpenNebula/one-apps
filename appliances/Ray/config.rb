@@ -13,6 +13,7 @@ require 'fileutils'
 BASE_PATH     = '/etc/one-appliance/service.d/Ray'
 VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
 WEB_PATH      = '/etc/one-appliance/service.d/Ray/client'
+PYTHON_VENV   = 'source /root/ray_env/bin/activate'
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_RAY_MODULES = 'default,serve'

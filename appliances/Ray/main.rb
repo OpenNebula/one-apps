@@ -21,10 +21,6 @@ module Service
 
         DEPENDS_ON    = []
 
-        VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
-
-        PYTHON_VENV   = 'source /root/ray_env/bin/activate'
-
         def install
             msg :info, 'Ray::install'
             install_dependencies
@@ -58,7 +54,7 @@ module Service
                     {},
                     "/usr/bin/bash",
                     "-c",
-                    "cd #{WEB_PATH}; /usr/bin/python3 #{web_app}",
+                    "#{PYTHON_VENV}; cd #{WEB_PATH}; python3 #{web_app}",
                     :pgroup => true
                 )
 
