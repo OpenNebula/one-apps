@@ -37,15 +37,17 @@ module Service
             generate_config_file
 
             web_app = if ONEAPP_RAY_API_OPENAI
-                          run_vllm
-
                           'web_client_openai.py'
                       else
-                          start_ray
-                          run_serve
-
                           'web_client.py'
                       end
+
+            if ONEAPP_RAY_AI_FRAMEWORK == 'VLLM' && ONEAPP_RAY_API_OPENAI
+                run_vllm
+            else
+                start_ray
+                run_serve
+            end
 
             if ONEAPP_RAY_API_WEB
                 gen_web_config
@@ -110,10 +112,6 @@ module Service
             app = Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64)
 
             write_file(RAY_APPLICATION_PATH, app , 0o775)
-        elsif !ONEAPP_RAY_APPLICATION_FILE.empty?
-            msg :info, "Copying model file64 to #{RAY_APPLICATION_PATH}..."
-
-            write_file(RAY_APPLICATION_PATH, ONEAPP_RAY_APPLICATION_FILE, 0o775)
         elsif !ONEAPP_RAY_APPLICATION_URL.empty?
             msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL}..."
 
@@ -126,13 +124,7 @@ module Service
     end
 
     def generate_config_file
-        if !ONEAPP_RAY_CONFIG_FILE.empty?
-            msg :info, "Copying config to #{RAY_CONFIG_PATH}..."
-
-            config_content = YAML.dump(ONEAPP_RAY_CONFIG_FILE)
-
-            write_file(RAY_CONFIG_PATH, config_content)
-        elsif !ONEAPP_RAY_CONFIG_FILE64.empty?
+        if !ONEAPP_RAY_CONFIG_FILE64.empty?
             msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
 
             config = Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)
@@ -159,7 +151,7 @@ module Service
             { "HF_TOKEN" => ONEAPP_RAY_MODEL_TOKEN },
             "/usr/bin/bash",
             "-c",
-            "vllm serve #{ONEAPP_RAY_MODEL_ID} #{ONEAPP_RAY_MODEL_VLLM_ARGS} 2>&1 >> #{VLLM_LOG_FILE}",
+            "vllm serve #{ONEAPP_RAY_MODEL_ID} #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
             :pgroup => true
         )
 
@@ -191,6 +183,40 @@ module Service
         end
     end
 
+    def vllm_arguments
+        arguments = ""
+
+        gpus = Service.gpu_count
+
+        if gpus > 0
+            arguments << " --tensor-parallel-size #{gpus}"
+        end
+
+        qbits = quantization
+
+        if qbits == 4
+            arguments << " --quantization bitsandbytes --load-format bitsandbytes"
+        end
+
+        arguments << " --max-model-len #{model_length}"
+
+        arguments << " --host 0.0.0.0 --port #{ONEAPP_RAY_API_PORT}"
+
+        arguments
+    end
+
+    def model_length
+        Integer(ONEAPP_RAY_MAX_NEW_TOKENS)
+    rescue StandardError
+        512
+    end
+
+    def quantization
+        Integer(ONEAPP_RAY_MODEL_QUANTIZATION)
+    rescue StandardError
+        0
+    end
+
     def self.gpu_count
         stdout, _stderr, status = Open3.capture3('nvidia-smi --query-gpu=count' \
                                                  ' --format=csv,noheader')
@@ -199,7 +225,7 @@ module Service
 
         stdout.strip.to_i
     rescue StandardError
-        return 0
+        0
     end
 
 end

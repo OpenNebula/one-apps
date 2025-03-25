@@ -31,7 +31,7 @@ applications:
     temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
     system_prompt: "<%= ONEAPP_RAY_MODEL_PROMPT %>"
     max_new_tokens: "<%= ONEAPP_RAY_MAX_NEW_TOKENS %>"
-    quantization: "<%= ONEAPP_RAY_MODEL_QUANTIZATION %>"
+    quantization: "<%= quantization %>"
   deployments:
   - name: ChatBot
     num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>

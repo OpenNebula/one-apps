@@ -21,7 +21,7 @@ source "qemu" "Ray" {
   memory      = 4096
   accelerator = "kvm"
 
-  iso_url      = "export/ubuntu2204.qcow2"
+  iso_url      = "export/ubuntu2404.qcow2"
   iso_checksum = "none"
 
   headless = var.headless
