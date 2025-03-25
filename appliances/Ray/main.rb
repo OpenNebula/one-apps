@@ -21,7 +21,9 @@ module Service
 
         DEPENDS_ON    = []
 
-        VLLM_LOG_FILE = "/var/log/one-appliance/vllm.log"
+        VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
+
+        PYTHON_VENV   = 'source /root/ray_env/bin/activate'
 
         def install
             msg :info, 'Ray::install'
@@ -93,16 +95,19 @@ module Service
 
     def install_dependencies
         puts bash <<~SCRIPT
+            export DEBIAN_FRONTEND=noninteractive
             apt-get update
             apt-get install -y python3 python3-pip
-            apt remove -y python3-jinja2
+            cd /root
+            python3 -m venv ray_env
+            source ray_env/bin/activate
             pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm flask
         SCRIPT
     end
 
     def start_ray
         msg :info, 'Starting Ray...'
-        puts bash "ray start --head --port=#{ONEAPP_RAY_PORT}"
+        puts bash "#{PYTHON_VENV}; ray start --head --port=#{ONEAPP_RAY_PORT}"
     end
 
     def load_application_file
@@ -141,7 +146,7 @@ module Service
 
     def run_serve
         msg :info, "Serving Ray deployments in #{RAY_CONFIG_PATH}..."
-        puts bash "serve deploy #{RAY_CONFIG_PATH}"
+        puts bash "#{PYTHON_VENV}; serve deploy #{RAY_CONFIG_PATH}"
     end
 
     def run_vllm
@@ -151,7 +156,7 @@ module Service
             { "HF_TOKEN" => ONEAPP_RAY_MODEL_TOKEN },
             "/usr/bin/bash",
             "-c",
-            "vllm serve #{ONEAPP_RAY_MODEL_ID} #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
+            "#{PYTHON_VENV}; vllm serve #{ONEAPP_RAY_MODEL_ID} #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
             :pgroup => true
         )
 
