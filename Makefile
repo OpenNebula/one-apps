@@ -46,7 +46,7 @@ packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKEa.qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2
 	@$(INFO) "Packer service_OneKEa done"
 
-packer-service_Ray: packer-ubuntu2204 $(DIR_EXPORT)/service_Ray.qcow2
+packer-service_Ray: packer-ubuntu2404 $(DIR_EXPORT)/service_Ray.qcow2
 	@$(INFO) "Packer service_Ray done"
 
 # run packer build for given distro or service
