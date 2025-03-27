@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 client = OpenAI(base_url=config["base_url"], api_key=config["api_key"])
 model  = config["model"]
+prompt = config["prompt"]
 
 @app.route("/")
 def index():
@@ -24,8 +25,13 @@ def chat():
 
     response = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": user_input}]
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_input}],
+        max_tokens=512,
+        temperature=0.1
     )
+
     message = response.choices[0].message.content
 
     return jsonify({"response": message})

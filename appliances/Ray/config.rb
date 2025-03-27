@@ -97,7 +97,7 @@ ONEAPP_RAY_MODEL_ID    = env :ONEAPP_RAY_MODEL_ID, 'meta-llama/Llama-3.2-1B-Inst
 ONEAPP_RAY_MODEL_TOKEN = env :ONEAPP_RAY_MODEL_TOKEN, ''
 
 ONEAPP_RAY_MODEL_QUANTIZATION = env :ONEAPP_RAY_MODEL_QUANTIZATION, 0
-ONEAPP_RAY_MAX_NEW_TOKENS = env :ONEAPP_RAY_MAX_NEW_TOKENS, 512
+ONEAPP_RAY_MAX_NEW_TOKENS     = env :ONEAPP_RAY_MAX_NEW_TOKENS, 512
 
 ONEAPP_RAY_MODEL_TEMPERATURE = env :ONEAPP_RAY_MODEL_TEMPERATURE, '0.1'
 ONEAPP_RAY_MODEL_PROMPT      = env :ONEAPP_RAY_MODEL_PROMPT, \
@@ -122,6 +122,7 @@ def gen_web_config
       base_url: "http://localhost:#{ONEAPP_RAY_API_PORT}/#{route}"
       model: "#{ONEAPP_RAY_MODEL_ID}"
       api_key: "your-api-key-here"
+      prompt: "You are a helpful assistant, answer the questions."
     CONFIG
 
     write_file(File.join(WEB_PATH, 'config.yaml'), config)
@@ -133,7 +134,7 @@ def gen_template_config
                   when 'RAY'
                       RAY_CONFIG_TEMPLATE
                   when 'VLLM'
-                      if ONEAPP_RAY_OPENAI
+                      if ONEAPP_RAY_API_OPENAI
                           ''
                       else
                           RAY_VLLM_CONFIG_TEMPLATE

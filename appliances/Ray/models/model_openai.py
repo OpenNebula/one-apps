@@ -126,9 +126,6 @@ class ChatBot:
     @app.post("/v1/chat/completions")
     async def chat_completions(self, request: ChatCompletionRequest):
         try:
-            # Add system prompt to the conversation if it exists
-            request.messages.insert(0, {"role": "system", "content": request.system_prompt})
-
             # Generate the chat response using the local model
             generated_text = await asyncio.to_thread(
                 self._generate_chat_completions, request.messages,

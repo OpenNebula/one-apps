@@ -185,7 +185,7 @@ module Service
     end
 
     def vllm_arguments
-        arguments = ""
+        arguments = String.new
 
         gpus = Service.gpu_count
 
@@ -193,9 +193,7 @@ module Service
             arguments << " --tensor-parallel-size #{gpus}"
         end
 
-        qbits = quantization
-
-        if qbits == 4
+        if quantization == 4
             arguments << " --quantization bitsandbytes --load-format bitsandbytes"
         end
 
