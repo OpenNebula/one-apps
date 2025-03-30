@@ -38,14 +38,14 @@ class ChatBot:
         # Load model
         if quantization > 0:
             self.model = LLM(
-                model=model_id, max_model_len=max_new_tokens,
-                gpu_memory_utilization=0.9, tensor_parallel_size=torch.cuda.device_count(),
+                model=model_id, gpu_memory_utilization=0.8, 
+                tensor_parallel_size=torch.cuda.device_count(),
                 quantization="bitsandbytes", load_format="bitsandbytes",
                 dtype=torch.bfloat16)
         else:
             self.model = LLM(
-                model=model_id, max_model_len=512,
-                gpu_memory_utilization=0.9, tensor_parallel_size=torch.cuda.device_count(),
+                model=model_id, gpu_memory_utilization=0.8, 
+                tensor_parallel_size=torch.cuda.device_count(),
                 dtype=torch.bfloat16)
             
         # Identify model params

@@ -152,7 +152,7 @@ module Service
             { "HF_TOKEN" => ONEAPP_RAY_MODEL_TOKEN },
             "/usr/bin/bash",
             "-c",
-            "#{PYTHON_VENV}; vllm serve #{ONEAPP_RAY_MODEL_ID} #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
+            "#{PYTHON_VENV}; vllm serve #{ONEAPP_RAY_MODEL_ID} --gpu-memory-utilization 0.8 #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
             :pgroup => true
         )
 
