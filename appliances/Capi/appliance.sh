@@ -26,23 +26,21 @@ ONE_SERVICE_PARAMS=(
 
 CAPI_K3S_VERSION="${ONEAPP_CAPI_K3S_VERSION:-v1.31.7+k3s1}"
 CAPI_RANCHER_HOSTNAME="${ONEAPP_CAPI_RANCHER_HOSTNAME:-capi}"
-CAPI_RANCHER_PASSWORD="${ONEAPP_CAPI_RANCHER_PASSWORD:-admin}"
+CAPI_RANCHER_PASSWORD="${ONEAPP_CAPI_RANCHER_PASSWORD:-7nJPgqDlkyWzOZrL}"
 CAPI_RANCHER_TURTLES_VERSION="${ONEAPP_CAPI_RANCHER_TURTLES_VERSION:-0.18.0}"
-CAPI_OPENNEBULA_VERSION="${ONEAPP_CAPI_OPENNEBULA_VERSION:-v0.1.1}"
+CAPI_OPENNEBULA_VERSION="${ONEAPP_CAPI_OPENNEBULA_VERSION:-v0.1.2}"
 
 service_install() {
     msg info "Checking internet access..."
-
-    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$CAPI_K3S_VERSION" sh -
-    # Set bash as script uses [[ ]]
     curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash -
-
     msg info "Installation phase finished"
 }
 
 
 service_configure() {
     msg info "Starting configuration..."
+
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$CAPI_K3S_VERSION" sh -
 
     helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
     helm repo add jetstack https://charts.jetstack.io
@@ -84,6 +82,12 @@ metadata:
   name: embedded-cluster-api
 spec:
   value: false
+---
+apiVersion: management.cattle.io/v3
+kind: Setting
+metadata:
+  name: server-url
+value: https://$CAPI_RANCHER_HOSTNAME
 EOF
 
     kubectl delete \
@@ -101,6 +105,8 @@ EOF
     --create-namespace \
     --set turtlesUI.enabled=true \
     --wait
+
+    kubectl label namespace default cluster-api.cattle.io/rancher-auto-import=true
 
     msg info "Configuration phase finished"
 }
