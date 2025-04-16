@@ -14,23 +14,25 @@ logging_config:
   logs_dir: null
   enable_access_log: true
 
-
 applications:
 - name: app1
   route_prefix: /
   import_path: model:app_builder
   runtime_env:
     pip:
-      - transformers==4.48.0
-      - fastapi
-      - torch
+      - transformers==4.49.0
+      - fastapi==0.115.8
+      - torch==2.5.1
       - torchvision
-      - torchaudio
+      - accelerate
+      - bitsandbytes==0.45.0
   args:
     model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
     token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
     temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
     system_prompt: "<%= ONEAPP_RAY_MODEL_PROMPT %>"
+    max_new_tokens: <%= ONEAPP_RAY_MAX_NEW_TOKENS %>
+    quantization: <%= quantization %>
   deployments:
   - name: ChatBot
     num_replicas: <%= ONEAPP_RAY_CHATBOT_REPLICAS %>

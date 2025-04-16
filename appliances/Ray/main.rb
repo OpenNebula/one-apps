@@ -19,7 +19,7 @@ module Service
 
         extend self
 
-        DEPENDS_ON = []
+        DEPENDS_ON    = []
 
         def install
             msg :info, 'Ray::install'
@@ -29,10 +29,38 @@ module Service
 
         def configure
             msg :info, 'Ray::configure'
+
             load_application_file
+
             generate_config_file
-            start_ray
-            run_serve
+
+            web_app = if ONEAPP_RAY_API_OPENAI
+                          'web_client_openai.py'
+                      else
+                          'web_client.py'
+                      end
+
+            if ONEAPP_RAY_AI_FRAMEWORK == 'VLLM' && ONEAPP_RAY_API_OPENAI
+                run_vllm
+            else
+                start_ray
+                run_serve
+            end
+
+            if ONEAPP_RAY_API_WEB
+                gen_web_config
+
+                pid = spawn(
+                    {},
+                    "/usr/bin/bash",
+                    "-c",
+                    "#{PYTHON_VENV}; cd #{WEB_PATH}; python3 #{web_app}",
+                    :pgroup => true
+                )
+
+                Process.detach(pid)
+            end
+
             msg :info, 'Configuration completed successfully'
         end
 
@@ -44,9 +72,14 @@ module Service
                 msg :info, 'Updating VM with inference endpoint'
 
                 ip  = env('ETH0_IP', '0.0.0.0')
-                url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{ONEAPP_RAY_API_ROUTE}"
+                url = "http://#{ip}:#{ONEAPP_RAY_API_PORT}#{route}"
 
-                bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_URL=#{url}\""
+                bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_API=#{url}\""
+
+                if ONEAPP_RAY_API_WEB
+                    url = "http://#{ip}:5000"
+                    bash "onegate vm update --data \"ONEAPP_RAY_CHATBOT_WEB=#{url}\""
+                end
 
                 msg :info, 'Bootstrap completed successfully'
             rescue StandardError => e
@@ -58,64 +91,72 @@ module Service
 
     def install_dependencies
         puts bash <<~SCRIPT
+            export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            apt-get install -y python3 python3-pip
-            apt remove -y python3-jinja2
-            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4
+            apt-get install -y python3 python3-pip python3-venv
+            cd /root
+            python3 -m venv ray_env
+            source ray_env/bin/activate
+            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm flask
         SCRIPT
     end
 
     def start_ray
         msg :info, 'Starting Ray...'
-        puts bash "ray start --head --port=#{ONEAPP_RAY_PORT}"
+        puts bash "#{PYTHON_VENV}; ray start --head --port=#{ONEAPP_RAY_PORT}"
     end
 
     def load_application_file
         if !ONEAPP_RAY_APPLICATION_FILE64.empty?
-            msg :info, "Copying model file to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
+            msg :info, "Copying model file to #{RAY_APPLICATION_PATH}..."
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
-                       Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64), 0o775)
-        elsif !ONEAPP_RAY_APPLICATION_FILE.empty?
-            msg :info, "Copying model file64 to #{ONEAPP_RAY_APPLICATION_DEST_PATH}..."
+            app = Base64.decode64(ONEAPP_RAY_APPLICATION_FILE64)
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH,
-                       ONEAPP_RAY_APPLICATION_FILE, 0o775)
+            write_file(RAY_APPLICATION_PATH, app , 0o775)
         elsif !ONEAPP_RAY_APPLICATION_URL.empty?
-            msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL} to " \
-                       "#{ONEAPP_RAY_APPLICATION_DEST_PATH}"
+            msg :info, "Downloading model from #{ONEAPP_RAY_APPLICATION_URL}..."
 
-            puts bash "curl -o #{ONEAPP_RAY_APPLICATION_DEST_PATH} #{ONEAPP_RAY_APPLICATION_URL}"
+            puts bash "curl -o #{RAY_APPLICATION_PATH} #{ONEAPP_RAY_APPLICATION_URL}"
         else
             msg :info, 'No model file provided, using default'
 
-            write_file(ONEAPP_RAY_APPLICATION_DEST_PATH, ONEAPP_RAY_APPLICATION_DEFAULT, 0o775)
+            gen_model
         end
     end
 
     def generate_config_file
-        if !ONEAPP_RAY_CONFIG_FILE.empty?
-            msg :info, "Copying config to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
-
-            config_content = YAML.dump(ONEAPP_RAY_CONFIG_FILE)
-
-            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
-        elsif !ONEAPP_RAY_CONFIG_FILE64.empty?
+        if !ONEAPP_RAY_CONFIG_FILE64.empty?
             msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
 
-            config_content = YAML.dump(YAML.safe_load(Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)))
+            config = Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)
 
-            write_file(ONEAPP_RAY_CONFIGFILE_DEST_PATH, config_content)
+            config_content = YAML.dump(YAML.safe_load(config))
+
+            write_file(RAY_CONFIG_PATH, config_content)
         else
-            msg :info, "Generating config file in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+            msg :info, "Generating config file in #{RAY_CONFIG_PATH}..."
 
             gen_template_config
         end
     end
 
     def run_serve
-        msg :info, "Serving Ray deployments in #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
-        puts bash "serve deploy #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}"
+        msg :info, "Serving Ray deployments in #{RAY_CONFIG_PATH}..."
+        puts bash "#{PYTHON_VENV}; serve deploy #{RAY_CONFIG_PATH}"
+    end
+
+    def run_vllm
+        msg :info, "Serving vLLM application in #{RAY_APPLICATION_PATH}..."
+
+        pid = spawn(
+            { "HF_TOKEN" => ONEAPP_RAY_MODEL_TOKEN },
+            "/usr/bin/bash",
+            "-c",
+            "#{PYTHON_VENV}; vllm serve #{ONEAPP_RAY_MODEL_ID} --gpu-memory-utilization 0.8 #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
+            :pgroup => true
+        )
+
+        Process.detach(pid)
     end
 
     def listening?
@@ -143,6 +184,38 @@ module Service
         end
     end
 
+    def vllm_arguments
+        arguments = String.new
+
+        gpus = Service.gpu_count
+
+        if gpus > 0
+            arguments << " --tensor-parallel-size #{gpus}"
+        end
+
+        if quantization == 4
+            arguments << " --quantization bitsandbytes --load-format bitsandbytes"
+        end
+
+        arguments << " --max-model-len #{model_length}"
+
+        arguments << " --host 0.0.0.0 --port #{ONEAPP_RAY_API_PORT}"
+
+        arguments
+    end
+
+    def model_length
+        Integer(ONEAPP_RAY_MAX_NEW_TOKENS)
+    rescue StandardError
+        512
+    end
+
+    def quantization
+        Integer(ONEAPP_RAY_MODEL_QUANTIZATION)
+    rescue StandardError
+        0
+    end
+
     def self.gpu_count
         stdout, _stderr, status = Open3.capture3('nvidia-smi --query-gpu=count' \
                                                  ' --format=csv,noheader')
@@ -151,7 +224,7 @@ module Service
 
         stdout.strip.to_i
     rescue StandardError
-        return 0
+        0
     end
 
 end
