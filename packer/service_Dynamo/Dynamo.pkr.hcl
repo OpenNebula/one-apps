@@ -32,7 +32,7 @@ source "qemu" "Dynamo" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  disk_size        = 8192
+  disk_size        = 25600
 
   output_directory = var.output_dir
 
