@@ -65,11 +65,15 @@ module Service
 
     def start_dynamo
         msg :info, 'Starting Dynamo...'
-        puts bash <<~SCRIPT
-            source #{PYTHON_VENV}/bin/activate
-            HF_TOKEN=#{ONEAPP_DYNAMO_MODEL_TOKEN} \
-            #{dynamo_cmd}
-        SCRIPT
+        pid = spawn(
+            { "HF_TOKEN" => ONEAPP_DYNAMO_MODEL_TOKEN },
+            "/usr/bin/bash",
+            "-c",
+            "source #{PYTHON_VENV}/bin/activate; #{dynamo_cmd}",
+            :pgroup => true
+        )
+
+        Process.detach(pid)
     end
 
     def dynamo_cmd
