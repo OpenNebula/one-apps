@@ -66,49 +66,36 @@ build {
   ##############################################
 
   provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
     inline = [
-      "mkdir -p /etc/one-appliance/service.d",
-      "chmod 0750 /etc/one-appliance",
-      "mkdir -p /opt/one-appliance/bin",
-      "chmod -R 0755 /opt/one-appliance/"
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=   -d /etc/one-appliance/{,service.d/,lib/}",
+      "install -o 0 -g 0 -m u=rwx,g=rx,o=rx -d /opt/one-appliance/{,bin/}",
     ]
   }
 
-  # Script Required by a further step
+  # Scripts Required by a further step
   provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-90.sh"
-    destination = "/etc/one-appliance/net-90"
-  }
-
-  # Script Required by a further step
-  provisioner "file" {
-    source      = "appliances/legacy/scripts/context_service_net-99.sh"
-    destination = "/etc/one-appliance/net-99"
+    sources = [
+      "appliances/scripts/net-90-service-appliance",
+      "appliances/scripts/net-99-report-ready",
+    ]
+    destination = "/etc/one-appliance/"
   }
 
   # Contains the appliance service management tool
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#appliance-life-cycle
   provisioner "file" {
-    source      = "appliances/legacy/service"
+    source      = "appliances/service.sh"
     destination = "/etc/one-appliance/service"
   }
 
   # Bash library for easier custom implementation in bash logic
   provisioner "file" {
-    source      = "appliances/legacy/lib/common.sh"
-    destination = "/etc/one-appliance/service.d/common.sh"
-  }
-
-  # Bash library for easier custom implementation in bash logic
-  provisioner "file" {
-    source      = "appliances/legacy/lib/functions.sh"
-    destination = "/etc/one-appliance/service.d/functions.sh"
-  }
-
-  # required by common.sh
-  provisioner "file" {
-    source      = "appliances/legacy/lib/context-helper.py"
-    destination = "/opt/one-appliance/bin/context-helper"
+    sources = [
+      "appliances/lib/common.sh",
+      "appliances/lib/functions.sh",
+    ]
+    destination = "/etc/one-appliance/lib/"
   }
 
   # The newer ruby logic libraries can be used instead of bash.
@@ -137,18 +124,14 @@ build {
   # Setup appliance: Execute install step                               #
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#installation #
   #######################################################################
-  provisioner "shell" {
-    inline = [
-      "find /opt/one-appliance/ -type f -exec chmod 0640 '{}' \\;",
-      "chmod 0755 /opt/one-appliance/bin/*",
-      "chmod 0740 /etc/one-appliance/service",
-      "chmod 0640 /etc/one-appliance/service.d/*",
-      "/etc/one-appliance/service install"
-    ]
-  }
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
+  }
+
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline         = ["/etc/one-appliance/service install && sync"]
   }
 
   # Remove machine ID from the VM and get it ready for continuous cloud use
