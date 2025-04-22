@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # -------------------------------------------------------------------------- #
-# Copyright 2002-2022, OpenNebula Project, OpenNebula Systems                #
+# Copyright 2002-2025, OpenNebula Project, OpenNebula Systems                #
 #                                                                            #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may    #
 # not use this file except in compliance with the License. You may obtain    #
@@ -29,7 +29,7 @@ require 'pp'
 module CloudClient
 
     # OpenNebula version
-    VERSION = '6.6.1'
+    VERSION = '6.10.0'
 
     # #########################################################################
     # Default location for the authentication file
@@ -359,7 +359,8 @@ module OneGate
             'DEPLOYING_NETS'          => 11,
             'UNDEPLOYING_NETS'        => 12,
             'FAILED_DEPLOYING_NETS'   => 13,
-            'FAILED_UNDEPLOYING_NETS' => 14
+            'FAILED_UNDEPLOYING_NETS' => 14,
+            'HOLD'                    => 15
         }
 
         STATE_STR = [
@@ -377,7 +378,8 @@ module OneGate
             'DEPLOYING_NETS',
             'UNDEPLOYING_NETS',
             'FAILED_DEPLOYING_NETS',
-            'FAILED_UNDEPLOYING_NETS'
+            'FAILED_UNDEPLOYING_NETS',
+            'HOLD'
         ]
 
         # Returns the string representation of the service state
@@ -448,6 +450,8 @@ module OneGate
             @user_agent = "OpenNebula #{CloudClient::VERSION} " <<
                 "(#{opts[:user_agent]||"Ruby"})"
 
+            @req_content_type = opts[:req_content_type] || "application/json"
+
             @host = nil
             @port = nil
 
@@ -505,6 +509,7 @@ module OneGate
             req['User-Agent'] = @user_agent
             req['X-ONEGATE-TOKEN'] = @token
             req['X-ONEGATE-VMID'] = @vmid
+            req['Content-Type'] = @req_content_type
 
             res = CloudClient::http_start(@uri, @timeout) do |http|
                 http.request(req)
@@ -558,32 +563,26 @@ module OneGate
 
     def self.help_str
         return <<-EOT
-Available commands
-    $ onegate vm show [VMID] [--json]
+## COMMANDS
 
-    $ onegate vm update [VMID] --data KEY=VALUE\\nKEY2=VALUE2
-
-    $ onegate vm update [VMID] --erase KEY
-
-    $ onegate vm ACTION VMID
-        $ onegate resume [VMID]
-        $ onegate stop [VMID]
-        $ onegate suspend [VMID]
-        $ onegate terminate [VMID] [--hard]
-        $ onegate reboot [VMID] [--hard]
-        $ onegate poweroff [VMID] [--hard]
-        $ onegate resched [VMID]
-        $ onegate unresched [VMID]
-        $ onegate hold [VMID]
-        $ onegate release [VMID]
-
-    $ onegate service show [--json][--extended]
-
-    $ onegate service scale --role ROLE --cardinality CARDINALITY
-
-    $ onegate vrouter show [--json]
-
-    $ onegate vnet show VNETID [--json][--extended]
+    * onegate vm show [VMID] [--json]
+    * onegate vm update [VMID] --data KEY=VALUE\\nKEY2=VALUE2
+    * onegate vm update [VMID] --erase KEY
+    * onegate vm ACTION VMID
+        * onegate resume [VMID]
+        * onegate stop [VMID]
+        * onegate suspend [VMID]
+        * onegate terminate [VMID] [--hard]
+        * onegate reboot [VMID] [--hard]
+        * onegate poweroff [VMID] [--hard]
+        * onegate resched [VMID]
+        * onegate unresched [VMID]
+        * onegate hold [VMID]
+        * onegate release [VMID]
+    * onegate service show [--json][--extended]
+    * onegate service scale --role ROLE --cardinality CARDINALITY
+    * onegate vrouter show [--json]
+    * onegate vnet show VNETID [--json][--extended]
 EOT
     end
 end
@@ -815,3 +814,4 @@ else
     STDERR.puts OneGate.help_str
     exit -1
 end
+
