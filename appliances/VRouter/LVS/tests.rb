@@ -353,6 +353,7 @@ RSpec.describe self do
                             "ONEGATE_LB0_SERVER_PORT": "6969",
                             "ONEGATE_LB0_SERVER_WEIGHT": "2",
 
+                            "ONEGATE_LB1_ID": "NOT-86",
                             "ONEGATE_LB1_IP": "10.2.11.86",
                             "ONEGATE_LB1_PORT": "8686",
 
@@ -374,6 +375,7 @@ RSpec.describe self do
                             "ONEGATE_LB0_SERVER_PORT": "6969",
                             "ONEGATE_LB0_SERVER_WEIGHT": "1",
 
+                            "ONEGATE_LB1_ID": "86",
                             "ONEGATE_LB1_IP": "10.2.11.86",
                             "ONEGATE_LB1_PORT": "8686",
 
@@ -436,13 +438,6 @@ RSpec.describe self do
                 lb_kind DR
                 protocol TCP
 
-                real_server 10.2.11.201 8686 {
-                    weight 2
-                    TCP_CHECK {
-                        connect_timeout 3
-                        connect_port 8686
-                    }
-                }
                 real_server 10.2.11.200 8686 {
                     weight 1
                     TCP_CHECK {
@@ -476,6 +471,13 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '5'
         ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
 
+        ENV['ONEAPP_VNF_LB1_IP'] = '10.2.11.86'
+        ENV['ONEAPP_VNF_LB1_PORT'] = '4321'
+        ENV['ONEAPP_VNF_LB1_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB1_METHOD'] = 'DR'
+        ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '5'
+        ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
+
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
               "VM": {
@@ -491,11 +493,20 @@ RSpec.describe self do
                   "LOGO": "images/logos/linux.png",
                   "LXD_SECURITY_PRIVILEGED": "true",
                   "MEMORY_UNIT_COST": "MB",
+
                   "ONEGATE_LB0_IP": "10.2.11.86",
                   "ONEGATE_LB0_PORT": "5432",
                   "ONEGATE_LB0_SERVER_HOST": "10.2.11.202",
                   "ONEGATE_LB0_SERVER_PORT": "2345",
                   "ONEGATE_LB0_SERVER_WEIGHT": "1",
+
+                  "ONEGATE_LB1_ID": "86",
+                  "ONEGATE_LB1_IP": "10.2.11.86",
+                  "ONEGATE_LB1_PORT": "4321",
+                  "ONEGATE_LB1_SERVER_HOST": "10.2.11.202",
+                  "ONEGATE_LB1_SERVER_PORT": "1234",
+                  "ONEGATE_LB1_SERVER_WEIGHT": "1",
+
                   "ROLE_NAME": "server",
                   "SERVICE_ID": "23"
                 },
@@ -534,11 +545,20 @@ RSpec.describe self do
                   "LOGO": "images/logos/linux.png",
                   "LXD_SECURITY_PRIVILEGED": "true",
                   "MEMORY_UNIT_COST": "MB",
+
                   "ONEGATE_LB0_IP": "10.2.11.86",
                   "ONEGATE_LB0_PORT": "5432",
                   "ONEGATE_LB0_SERVER_HOST": "10.2.11.203",
                   "ONEGATE_LB0_SERVER_PORT": "2345",
                   "ONEGATE_LB0_SERVER_WEIGHT": "2",
+
+                  "ONEGATE_LB1_ID": "123",
+                  "ONEGATE_LB1_IP": "10.2.11.86",
+                  "ONEGATE_LB1_PORT": "4321",
+                  "ONEGATE_LB1_SERVER_HOST": "10.2.11.203",
+                  "ONEGATE_LB1_SERVER_PORT": "1234",
+                  "ONEGATE_LB1_SERVER_WEIGHT": "2",
+
                   "ROLE_NAME": "server",
                   "SERVICE_ID": "23"
                 },
@@ -566,6 +586,7 @@ RSpec.describe self do
         load './main.rb'; include Service::LVS
 
         Service::LVS.const_set :VROUTER_ID, nil
+        Service::LVS.const_set :SERVICE_ID, '123'
 
         allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::LVS).to receive(:addrs_to_nics).and_return({
@@ -593,6 +614,20 @@ RSpec.describe self do
                     TCP_CHECK {
                         connect_timeout 3
                         connect_port 2345
+                    }
+                }
+            }
+            virtual_server 10.2.11.86 4321 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind DR
+                protocol TCP
+
+                real_server 10.2.11.203 1234 {
+                    weight 2
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 1234
                     }
                 }
             }

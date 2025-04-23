@@ -189,6 +189,7 @@ RSpec.describe self do
                             "ONEGATE_HAPROXY_LB0_SERVER_PORT": "1234",
                             "ONEGATE_HAPROXY_LB0_SERVER_WEIGHT": "1",
 
+                            "ONEGATE_HAPROXY_LB1_ID": "NOT-86",
                             "ONEGATE_HAPROXY_LB1_IP": "10.2.11.86",
                             "ONEGATE_HAPROXY_LB1_PORT": "8686",
                             "ONEGATE_HAPROXY_LB1_SERVER_HOST": "10.2.11.201",
@@ -208,6 +209,7 @@ RSpec.describe self do
                             "ONEGATE_HAPROXY_LB0_SERVER_PORT": "1234",
                             "ONEGATE_HAPROXY_LB0_SERVER_WEIGHT": "1",
 
+                            "ONEGATE_HAPROXY_LB1_ID": "86",
                             "ONEGATE_HAPROXY_LB1_IP": "10.2.11.86",
                             "ONEGATE_HAPROXY_LB1_PORT": "8686",
                             "ONEGATE_HAPROXY_LB1_SERVER_HOST": "10.2.11.200",
@@ -257,7 +259,6 @@ RSpec.describe self do
                 mode tcp
                 balance roundrobin
                 option tcp-check
-                server lb1_10.2.11.201_4321 10.2.11.201:4321 check observe layer4 error-limit 50 on-error mark-down
                 server lb1_10.2.11.200_4321 10.2.11.200:4321 check observe layer4 error-limit 50 on-error mark-down
         DYNAMIC
 
@@ -280,6 +281,9 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB0_IP'] = '10.2.11.86'
         ENV['ONEAPP_VNF_HAPROXY_LB0_PORT'] = '5432'
 
+        ENV['ONEAPP_VNF_HAPROXY_LB1_IP'] = '10.2.11.86'
+        ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '4321'
+
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
               "VM": {
@@ -295,10 +299,18 @@ RSpec.describe self do
                   "LOGO": "images/logos/linux.png",
                   "LXD_SECURITY_PRIVILEGED": "true",
                   "MEMORY_UNIT_COST": "MB",
+
                   "ONEGATE_HAPROXY_LB0_IP": "10.2.11.86",
                   "ONEGATE_HAPROXY_LB0_PORT": "5432",
                   "ONEGATE_HAPROXY_LB0_SERVER_HOST": "10.2.11.202",
                   "ONEGATE_HAPROXY_LB0_SERVER_PORT": "2345",
+
+                  "ONEGATE_HAPROXY_LB1_ID": "86",
+                  "ONEGATE_HAPROXY_LB1_IP": "10.2.11.86",
+                  "ONEGATE_HAPROXY_LB1_PORT": "4321",
+                  "ONEGATE_HAPROXY_LB1_SERVER_HOST": "10.2.11.202",
+                  "ONEGATE_HAPROXY_LB1_SERVER_PORT": "1234",
+
                   "ROLE_NAME": "server",
                   "SERVICE_ID": "23"
                 },
@@ -337,10 +349,18 @@ RSpec.describe self do
                   "LOGO": "images/logos/linux.png",
                   "LXD_SECURITY_PRIVILEGED": "true",
                   "MEMORY_UNIT_COST": "MB",
+
                   "ONEGATE_HAPROXY_LB0_IP": "10.2.11.86",
                   "ONEGATE_HAPROXY_LB0_PORT": "5432",
                   "ONEGATE_HAPROXY_LB0_SERVER_HOST": "10.2.11.203",
                   "ONEGATE_HAPROXY_LB0_SERVER_PORT": "2345",
+
+                  "ONEGATE_HAPROXY_LB1_ID": "123",
+                  "ONEGATE_HAPROXY_LB1_IP": "10.2.11.86",
+                  "ONEGATE_HAPROXY_LB1_PORT": "4321",
+                  "ONEGATE_HAPROXY_LB1_SERVER_HOST": "10.2.11.203",
+                  "ONEGATE_HAPROXY_LB1_SERVER_PORT": "1234",
+
                   "ROLE_NAME": "server",
                   "SERVICE_ID": "23"
                 },
@@ -368,6 +388,7 @@ RSpec.describe self do
         load './main.rb'; include Service::HAProxy
 
         Service::HAProxy.const_set :VROUTER_ID, nil
+        Service::HAProxy.const_set :SERVICE_ID, '123'
 
         allow(Service::HAProxy).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
         allow(Service::HAProxy).to receive(:addrs_to_nics).and_return({
@@ -388,6 +409,17 @@ RSpec.describe self do
                 option tcp-check
                 server lb0_10.2.11.202_2345 10.2.11.202:2345 check observe layer4 error-limit 50 on-error mark-down
                 server lb0_10.2.11.203_2345 10.2.11.203:2345 check observe layer4 error-limit 50 on-error mark-down
+
+            frontend lb1_4321
+                mode tcp
+                bind 10.2.11.86:4321
+                default_backend lb1_4321
+
+            backend lb1_4321
+                mode tcp
+                balance roundrobin
+                option tcp-check
+                server lb1_10.2.11.203_1234 10.2.11.203:1234 check observe layer4 error-limit 50 on-error mark-down
         DYNAMIC
 
         Dir.mktmpdir do |dir|
