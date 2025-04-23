@@ -8,6 +8,7 @@ module HAProxy
     extend self
 
     VROUTER_ID = env :VROUTER_ID, nil
+    SERVICE_ID = env :SERVICE_ID, nil
 
     def extract_backends(objects = {})
         @ave ||= [detect_addrs, detect_vips].then do |a, v|
@@ -16,8 +17,8 @@ module HAProxy
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_HAPROXY_LB')
 
-        dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB')
-                                  : backends.from_vnets(objects, prefix: 'ONEGATE_HAPROXY_LB')
+        dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB', id: SERVICE_ID)
+                                  : backends.from_vnets(objects, prefix: 'ONEGATE_HAPROXY_LB', id: VROUTER_ID)
 
         # Replace all "<ETHx_IPy>", "<ETHx_VIPy>" and "<ETHx_EPy>" placeholders where possible.
         static  = backends.resolve  static, *@ave

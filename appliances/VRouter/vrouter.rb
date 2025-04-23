@@ -445,10 +445,10 @@ def backends
         end
     end
 
-    def parse_dynamic(objects, prefix)
+    def parse_dynamic(objects, prefix, id: nil)
         objects.each_with_object({}) do |(name, v), acc|
             case name
-            when /^#{prefix}(\d+)_(IP|PORT)$/
+            when /^#{prefix}(\d+)_(ID|IP|PORT)$/
                 lb_idx, opt = $1.to_i, $2
                 key = lb_idx
                 acc[:options] ||= {}
@@ -461,6 +461,15 @@ def backends
                 acc[:by_index][key] ||= {}
                 acc[:by_index][key][opt.downcase.to_sym] = v
             end
+        end.then do |doc|
+            if !id.to_s.empty?
+                included = doc[:options].each_with_object(Set.new) do |(lb_idx, v), acc|
+                    acc << lb_idx if v[:id].to_s.empty? || v[:id] == id
+                end
+                doc[:options] = doc[:options].slice *included
+                doc[:by_index] = doc[:by_index].slice *included
+            end
+            doc
         end.then do |doc|
             doc[:by_index]&.each do |lb_idx, v|
                 key1 = [lb_idx, doc[:options][lb_idx][:ip], doc[:options][lb_idx][:port]]
@@ -484,7 +493,7 @@ def backends
         parse_static(ENV.keys, prefix, allow_nil_ports: allow_nil_ports)
     end
 
-    def from_vnets(vnets, prefix: 'ONEGATE_LB') # also 'ONEGATE_HAPROXY_LB'
+    def from_vnets(vnets, prefix: 'ONEGATE_LB', id: nil) # also 'ONEGATE_HAPROXY_LB'
         vnets.each_with_object({}) do |vnet, acc|
             next if (ars = vnet.dig('VNET', 'AR_POOL', 'AR')).nil?
 
@@ -494,17 +503,17 @@ def backends
                 leases.each do |lease|
                     next if lease['BACKEND'] != 'YES'
 
-                    hashmap.combine! acc, parse_dynamic(lease, prefix)
+                    hashmap.combine! acc, parse_dynamic(lease, prefix, id: id)
                 end
             end
         end
     end
 
-    def from_vms(vms, prefix: 'ONEGATE_LB') # also 'ONEGATE_HAPROXY_LB'
+    def from_vms(vms, prefix: 'ONEGATE_LB', id: nil) # also 'ONEGATE_HAPROXY_LB'
         vms.each_with_object({}) do |vm, acc|
             next if (user_template = vm.dig('VM', 'USER_TEMPLATE')).nil?
 
-            hashmap.combine! acc, parse_dynamic(user_template, prefix)
+            hashmap.combine! acc, parse_dynamic(user_template, prefix, id: id)
         end
     end
 
