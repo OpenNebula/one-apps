@@ -464,13 +464,12 @@ def backends
                 acc[:by_index][key][opt.downcase.to_sym] = v
             end
         end.then do |doc|
-            if !id.to_s.empty?
-                included = doc[:options].each_with_object(Set.new) do |(lb_idx, v), acc|
-                    acc << lb_idx if v[:id].to_s.empty? || v[:id] == id
-                end
-                doc[:options] = doc[:options].slice *included
-                doc[:by_index] = doc[:by_index].slice *included
-            end
+            doc[:options]&.each do |lb_idx, v|
+                next if v[:id].to_s.empty? || v[:id] == id
+
+                doc[:options]&.delete(lb_idx)
+                doc[:by_index]&.delete(lb_idx)
+            end unless id.to_s.empty?
             doc
         end.then do |doc|
             doc[:by_index]&.each do |lb_idx, v|
