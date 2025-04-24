@@ -19,7 +19,6 @@ class OneGate
         @uri   = URI.parse(ENV['ONEGATE_ENDPOINT'])
         @vmid  = ENV['VMID']
         @token = ENV['TOKENTXT']
-        @req_content_type = 'application/json'
 
         @http             = Net::HTTP.new(@uri.host, @uri.port)
         @http.use_ssl     = @uri.scheme == 'https'
@@ -66,7 +65,6 @@ class OneGate
 
         req['X-ONEGATE-VMID']  = @vmid
         req['X-ONEGATE-TOKEN'] = @token
-        req['Content-Type'] = @req_content_type
 
         expect_json ? JSON.parse(@http.request(req).body) : @http.request(req).body
     rescue StandardError => e
