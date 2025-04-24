@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # -------------------------------------------------------------------------- #
-# Copyright 2002-2022, OpenNebula Project, OpenNebula Systems                #
+# Copyright 2002-2025, OpenNebula Project, OpenNebula Systems                #
 #                                                                            #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may    #
 # not use this file except in compliance with the License. You may obtain    #
@@ -29,7 +29,7 @@ require 'pp'
 module CloudClient
 
     # OpenNebula version
-    VERSION = '6.6.1'
+    VERSION = '6.10.0'
 
     # #########################################################################
     # Default location for the authentication file
@@ -359,7 +359,8 @@ module OneGate
             'DEPLOYING_NETS'          => 11,
             'UNDEPLOYING_NETS'        => 12,
             'FAILED_DEPLOYING_NETS'   => 13,
-            'FAILED_UNDEPLOYING_NETS' => 14
+            'FAILED_UNDEPLOYING_NETS' => 14,
+            'HOLD'                    => 15
         }
 
         STATE_STR = [
@@ -377,7 +378,8 @@ module OneGate
             'DEPLOYING_NETS',
             'UNDEPLOYING_NETS',
             'FAILED_DEPLOYING_NETS',
-            'FAILED_UNDEPLOYING_NETS'
+            'FAILED_UNDEPLOYING_NETS',
+            'HOLD'
         ]
 
         # Returns the string representation of the service state
@@ -558,32 +560,26 @@ module OneGate
 
     def self.help_str
         return <<-EOT
-Available commands
-    $ onegate vm show [VMID] [--json]
+## COMMANDS
 
-    $ onegate vm update [VMID] --data KEY=VALUE\\nKEY2=VALUE2
-
-    $ onegate vm update [VMID] --erase KEY
-
-    $ onegate vm ACTION VMID
-        $ onegate resume [VMID]
-        $ onegate stop [VMID]
-        $ onegate suspend [VMID]
-        $ onegate terminate [VMID] [--hard]
-        $ onegate reboot [VMID] [--hard]
-        $ onegate poweroff [VMID] [--hard]
-        $ onegate resched [VMID]
-        $ onegate unresched [VMID]
-        $ onegate hold [VMID]
-        $ onegate release [VMID]
-
-    $ onegate service show [--json][--extended]
-
-    $ onegate service scale --role ROLE --cardinality CARDINALITY
-
-    $ onegate vrouter show [--json]
-
-    $ onegate vnet show VNETID [--json][--extended]
+    * onegate vm show [VMID] [--json]
+    * onegate vm update [VMID] --data KEY=VALUE\\nKEY2=VALUE2
+    * onegate vm update [VMID] --erase KEY
+    * onegate vm ACTION VMID
+        * onegate resume [VMID]
+        * onegate stop [VMID]
+        * onegate suspend [VMID]
+        * onegate terminate [VMID] [--hard]
+        * onegate reboot [VMID] [--hard]
+        * onegate poweroff [VMID] [--hard]
+        * onegate resched [VMID]
+        * onegate unresched [VMID]
+        * onegate hold [VMID]
+        * onegate release [VMID]
+    * onegate service show [--json][--extended]
+    * onegate service scale --role ROLE --cardinality CARDINALITY
+    * onegate vrouter show [--json]
+    * onegate vnet show VNETID [--json][--extended]
 EOT
     end
 end
@@ -595,6 +591,7 @@ options = {}
 OptionParser.new do |opts|
   opts.on("-d", "--data DATA", "Data to be included in the VM") do |data|
     options[:data] = data
+    options[:type] = 1
   end
 
   opts.on("-e", "--erase DATA", "Data to be removed from the VM") do |data|
@@ -647,16 +644,12 @@ when "vm"
             OneGate::VirtualMachine.print(json_hash)
         end
     when "update"
-        if !options[:data] && !options[:erase]
+        if !options[:data] && !options[:type]
             STDERR.puts 'You have to provide the data as a param (--data, --erase)'
             exit -1
         end
 
-        if options[:type]
-            data = URI.encode_www_form(options)
-        else
-            data = options[:data]
-        end
+        data = URI.encode_www_form(options)
 
         if ARGV[2]
             response = client.put("/vms/" + ARGV[2], data)
