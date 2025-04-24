@@ -21,15 +21,28 @@ if [[ -x '/etc/one-appliance/service' ]]; then
     fi
 fi
 
-if ! command -v onegate ; then
-    echo "ERROR: No way to signal READY=YES (onegate binary not found)" >&2
-    exit 1
-fi > /dev/null # this will not drop the error message which goes to stderr
+###
 
-if onegate vm update --data READY=YES; then
-    echo "Reported READY"
-    exit
+if which onegate >/dev/null 2>&1; then
+    if onegate vm update --data READY=YES; then
+        exit
+    fi
 fi
 
-echo "ERROR: Failed to report READY" >&2
-exit 1
+if which curl >/dev/null 2>&1; then
+    if curl -X PUT "$ONEGATE_ENDPOINT/vm" \
+            --header "X-ONEGATE-TOKEN: $TOKENTXT" \
+            --header "X-ONEGATE-VMID: $VMID" \
+            -d READY=YES; then
+        exit
+    fi
+fi
+
+if which wget >/dev/null 2>&1; then
+    if wget --method PUT "$ONEGATE_ENDPOINT/vm" \
+            --header "X-ONEGATE-TOKEN: $TOKENTXT" \
+            --header "X-ONEGATE-VMID: $VMID" \
+            --body-data READY=YES; then
+        exit
+    fi
+fi
