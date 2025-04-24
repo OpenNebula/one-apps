@@ -53,8 +53,9 @@ class OneGate
 
     def vm_update(data, vmid = nil, erase: false, keep_alive: false)
         path     = vmid.nil? ? '/vm' : "/vms/#{vmid}"
+        type     = erase ? 2 : 1 # 1 = update, 2 = delete_element -> https://github.com/OpenNebula/one-ee/blob/7299692415b6bdf9acb6e7789ec241e1b93adb59/src/onegate/onegate-server.rb#L589-L593
         req      = Net::HTTP::Put.new(path)
-        req.body = erase ? URI.encode_www_form('type' => 2, 'data' => data) : data
+        req.body = URI.encode_www_form('type' => type, 'data' => data)
         do_request req, keep_alive, expect_json: false
     end
 
