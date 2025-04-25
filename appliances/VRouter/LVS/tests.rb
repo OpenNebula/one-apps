@@ -39,11 +39,14 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SERVER1_HOST'] = '10.2.200.20'
         ENV['ONEAPP_VNF_LB1_SERVER1_PORT'] = '54321'
 
+        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = ''
+
         load './main.rb'; include Service::LVS
 
         expect(Service::LVS::ONEAPP_VNF_LB_ENABLED).to be true
         expect(Service::LVS::ONEAPP_VNF_LB_REFRESH_RATE).to eq '30'
         expect(Service::LVS::ONEAPP_VNF_LB_FWMARK_OFFSET).to eq '10000'
+        expect(Service::LVS::ONEAPP_VNF_ONEGATE_LB_API).to eq 'auto'
 
         Service::LVS.const_set :VROUTER_ID, '86'
 
@@ -108,11 +111,14 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SERVER1_ULIMIT'] = '100'
         ENV['ONEAPP_VNF_LB1_SERVER1_LLIMIT'] = '0'
 
+        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'vrouter'
+
         load './main.rb'; include Service::LVS
 
         expect(Service::LVS::ONEAPP_VNF_LB_ENABLED).to be true
         expect(Service::LVS::ONEAPP_VNF_LB_REFRESH_RATE).to eq '45'
         expect(Service::LVS::ONEAPP_VNF_LB_FWMARK_OFFSET).to eq '12345'
+        expect(Service::LVS::ONEAPP_VNF_ONEGATE_LB_API).to eq 'vrouter'
 
         Service::LVS.const_set :VROUTER_ID, '86'
 
@@ -313,6 +319,9 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '5'
         ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
 
+        # Internally forced to 'VROUTER' since not in OneFlow
+        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'service'
+
         (vnets ||= []) << JSON.parse(<<~'VNET0')
             {
               "VNET": {
@@ -478,6 +487,8 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '5'
         ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
 
+        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'auto'
+
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
               "VM": {
@@ -585,7 +596,7 @@ RSpec.describe self do
 
         load './main.rb'; include Service::LVS
 
-        Service::LVS.const_set :VROUTER_ID, nil
+        Service::LVS.const_set :VROUTER_ID, '86'
         Service::LVS.const_set :SERVICE_ID, '123'
 
         allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
@@ -640,4 +651,94 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
     end
+
+  it 'should render lvs.cfg using VR API (dynamic/OneFlow)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_ONEGATE_ENABLED'] = 'YES'
+
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VNF_LB3_IP'] = '10.2.11.86'
+        ENV['ONEAPP_VNF_LB3_PORT'] = '7969'
+        ENV['ONEAPP_VNF_LB3_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB3_METHOD'] = 'DR'
+        ENV['ONEAPP_VNF_LB3_TIMEOUT'] = '5'
+        ENV['ONEAPP_VNF_LB3_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB3_SERVER0_HOST'] = '10.2.11.300'
+        ENV['ONEAPP_VNF_LB3_SERVER0_PORT'] = '7969'
+
+        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'vrouter'
+
+        (vnets ||= []) << JSON.parse(<<~'VNET0')
+            {
+              "VNET": {
+                "ID": "0",
+                "AR_POOL": {
+                  "AR": [
+                    {
+                      "AR_ID": "0",
+                      "LEASES": {
+                        "LEASE": [
+                          {
+                            "IP": "10.2.11.300",
+                            "MAC": "02:00:0a:02:0b:c8",
+                            "VM": "167",
+                            "NIC_NAME": "NIC0",
+                            "BACKEND": "YES",
+
+                            "ONEGATE_LB3_IP": "10.2.11.86",
+                            "ONEGATE_LB3_PORT": "7969",
+
+                            "ONEGATE_LB3_SERVER_HOST": "10.2.11.300",
+                            "ONEGATE_LB3_SERVER_PORT": "7969",
+                            "ONEGATE_LB3_SERVER_WEIGHT": "1"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+        VNET0
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '87'
+        Service::LVS.const_set :SERVICE_ID, '124'
+
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({
+            '10.2.11.86' => ['eth0']
+        })
+
+        clear_vars Service::LVS
+
+        output = <<~'DYNAMIC'
+            virtual_server 10.2.11.86 7969 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind DR
+                protocol TCP
+
+                real_server 10.2.11.300 7969 {
+                    weight 1
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 7969
+                    }
+                }
+            }
+        DYNAMIC
+
+        Dir.mktmpdir do |dir|
+            lvs_vars = Service::LVS.extract_backends vnets
+            Service::LVS.render_lvs_conf lvs_vars, basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+  end
 end

@@ -16,6 +16,8 @@ module HAProxy
 
     ONEAPP_VNF_HAPROXY_INTERFACES = env :ONEAPP_VNF_HAPROXY_INTERFACES, '' # nil -> none, empty -> all
 
+    ONEAPP_VNF_ONEGATE_LB_API = env :ONEAPP_VNF_ONEGATE_LB_API, 'auto'
+
     def install(initdir: '/etc/init.d')
         msg :info, 'HAProxy::install'
 
