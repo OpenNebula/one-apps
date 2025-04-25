@@ -53,8 +53,9 @@ class OneGate
 
     def vm_update(data, vmid = nil, erase: false, keep_alive: false)
         path     = vmid.nil? ? '/vm' : "/vms/#{vmid}"
+        type     = erase ? 2 : 1 # 1 = update, 2 = delete_element -> https://github.com/OpenNebula/one-ee/blob/7299692415b6bdf9acb6e7789ec241e1b93adb59/src/onegate/onegate-server.rb#L589-L593
         req      = Net::HTTP::Put.new(path)
-        req.body = erase ? URI.encode_www_form('type' => 2, 'data' => data) : data
+        req.body = URI.encode_www_form('type' => type, 'data' => data)
         do_request req, keep_alive, expect_json: false
     end
 
@@ -445,10 +446,10 @@ def backends
         end
     end
 
-    def parse_dynamic(objects, prefix)
+    def parse_dynamic(objects, prefix, id: nil)
         objects.each_with_object({}) do |(name, v), acc|
             case name
-            when /^#{prefix}(\d+)_(IP|PORT)$/
+            when /^#{prefix}(\d+)_(ID|IP|PORT)$/
                 lb_idx, opt = $1.to_i, $2
                 key = lb_idx
                 acc[:options] ||= {}
@@ -461,6 +462,14 @@ def backends
                 acc[:by_index][key] ||= {}
                 acc[:by_index][key][opt.downcase.to_sym] = v
             end
+        end.then do |doc|
+            doc[:options]&.each do |lb_idx, v|
+                next if v[:id].to_s.empty? || v[:id] == id
+
+                doc[:options]&.delete(lb_idx)
+                doc[:by_index]&.delete(lb_idx)
+            end unless id.to_s.empty?
+            doc
         end.then do |doc|
             doc[:by_index]&.each do |lb_idx, v|
                 key1 = [lb_idx, doc[:options][lb_idx][:ip], doc[:options][lb_idx][:port]]
@@ -484,7 +493,7 @@ def backends
         parse_static(ENV.keys, prefix, allow_nil_ports: allow_nil_ports)
     end
 
-    def from_vnets(vnets, prefix: 'ONEGATE_LB') # also 'ONEGATE_HAPROXY_LB'
+    def from_vnets(vnets, prefix: 'ONEGATE_LB', id: nil) # also 'ONEGATE_HAPROXY_LB'
         vnets.each_with_object({}) do |vnet, acc|
             next if (ars = vnet.dig('VNET', 'AR_POOL', 'AR')).nil?
 
@@ -494,17 +503,17 @@ def backends
                 leases.each do |lease|
                     next if lease['BACKEND'] != 'YES'
 
-                    hashmap.combine! acc, parse_dynamic(lease, prefix)
+                    hashmap.combine! acc, parse_dynamic(lease, prefix, id: id)
                 end
             end
         end
     end
 
-    def from_vms(vms, prefix: 'ONEGATE_LB') # also 'ONEGATE_HAPROXY_LB'
+    def from_vms(vms, prefix: 'ONEGATE_LB', id: nil) # also 'ONEGATE_HAPROXY_LB'
         vms.each_with_object({}) do |vm, acc|
             next if (user_template = vm.dig('VM', 'USER_TEMPLATE')).nil?
 
-            hashmap.combine! acc, parse_dynamic(user_template, prefix)
+            hashmap.combine! acc, parse_dynamic(user_template, prefix, id: id)
         end
     end
 

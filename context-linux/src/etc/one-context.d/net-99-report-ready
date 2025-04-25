@@ -32,43 +32,13 @@ fi
 
 ###
 
-if command -v curl ; then
-    _command=curl
-elif command -v wget && ! wget --help 2>&1 | grep -q BusyBox; then
-    _command=wget
-elif command -v onegate ; then
-    _command=onegate
-else
-    echo "ERROR: No way to signal READY=YES (no usable binary)" >&2
+if ! command -v onegate ; then
+    echo "ERROR: No way to signal READY=YES (onegate binary not found)" >&2
     exit 1
 fi > /dev/null # this will not drop the error message which goes to stderr
 
 report_ready() {
-    case "$_command" in
-        curl)
-            curl -X "PUT" "${ONEGATE_ENDPOINT}/vm" \
-                --header "X-ONEGATE-TOKEN: $TOKENTXT" \
-                --header "X-ONEGATE-VMID: $VMID" \
-                --max-time 10 \
-                --insecure \
-                -d "READY=YES"
-            ;;
-        wget)
-            wget --method=PUT "${ONEGATE_ENDPOINT}/vm" \
-                --body-data="READY=YES" \
-                --header "X-ONEGATE-TOKEN: $TOKENTXT" \
-                --header "X-ONEGATE-VMID: $VMID" \
-                --timeout=10 \
-                --no-check-certificate
-            ;;
-        onegate)
-            if command -v timeout >/dev/null; then
-                timeout 10 onegate vm update --data "READY=YES"
-            else
-                onegate vm update --data "READY=YES"
-            fi
-            ;;
-    esac
+    onegate vm update --data "READY=YES"
 }
 
 is_base64() {
