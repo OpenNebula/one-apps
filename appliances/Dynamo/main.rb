@@ -82,17 +82,17 @@ module Service
         cmd << " out=#{ONEAPP_DYNAMO_ENGINE_NAME}"
         cmd << " --http-port #{ONEAPP_DYNAMO_API_PORT}"
         cmd << " #{ONEAPP_DYNAMO_MODEL_ID}"
-        cmd << " --extra-engine-args #{DYNAMO_EXTRA_ARGS_FILE_PATH}" if (ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON || ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON_BASE64)
+        cmd << " --extra-engine-args #{DYNAMO_EXTRA_ARGS_FILE_PATH}" if (ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON || ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON_BASE64)
         cmd
     end
 
     def generate_engine_extra_args_file
         # Prioritize JSON_BASE64 over JSON
-        if ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON_BASE64
-            decoded_json = Base64.decode64(ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON_BASE64)
+        if ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON_BASE64
+            decoded_json = Base64.decode64(ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON_BASE64)
             File.write(DYNAMO_EXTRA_ARGS_FILE_PATH, decoded_json)
-        elsif ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON
-            File.write(DYNAMO_EXTRA_ARGS_FILE_PATH, ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON)
+        elsif ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON
+            File.write(DYNAMO_EXTRA_ARGS_FILE_PATH, ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON)
         end
     end
 
