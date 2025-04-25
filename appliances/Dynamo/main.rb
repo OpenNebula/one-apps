@@ -79,7 +79,7 @@ module Service
     def dynamo_cmd
         cmd = +"dynamo run"
         cmd << " in=http"
-        cmd << " out=#{ONEAPP_DYNAMO_ENGINE}"
+        cmd << " out=#{ONEAPP_DYNAMO_ENGINE_NAME}"
         cmd << " --http-port #{ONEAPP_DYNAMO_API_PORT}"
         cmd << " #{ONEAPP_DYNAMO_MODEL_ID}"
         cmd << " --extra-engine-args #{DYNAMO_EXTRA_ARGS_FILE_PATH}" if (ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON || ONEAPP_DYNAMO_MODEL_EXTRA_ARGS_JSON_BASE64)
