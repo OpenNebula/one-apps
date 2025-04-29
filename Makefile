@@ -49,6 +49,7 @@ packer-service_OneKEa: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKEa.qcow2
 packer-service_Ray: packer-ubuntu2404 $(DIR_EXPORT)/service_Ray.qcow2
 	@$(INFO) "Packer service_Ray done"
 
+packer-service_Dynamo: PKR_VAR_nvidia_driver_path := $(NVIDIA_DRIVER_PATH)
 packer-service_Dynamo: packer-ubuntu2404 $(DIR_EXPORT)/service_Dynamo.qcow2
 	@$(INFO) "Packer service_Dynamo done"
 
