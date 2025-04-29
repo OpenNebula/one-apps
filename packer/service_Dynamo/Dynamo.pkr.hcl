@@ -36,7 +36,8 @@ source "qemu" "Dynamo" {
 
   output_directory = var.output_dir
 
-  qemuargs = [["-serial", "stdio"],
+  qemuargs = [
+    ["-serial", "stdio"],
     ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
     # MAC addr needs to mach ETH0_MAC from context iso
@@ -130,7 +131,12 @@ build {
 
   # Delete local temporary driver file after provisioning it
   provisioner "shell-local" {
-    inline = ["if [ -n \"$DRIVERS_TMP_PATH\" ]; then rm -f \"$DRIVERS_TMP_PATH\"; fi"]
+    inline = [<<EOF
+        if [ -n "$DRIVERS_TMP_PATH" ]; then
+            rm -f "$DRIVERS_TMP_PATH";
+        fi
+    EOF
+    ]
     environment_vars = [
       "DRIVERS_TMP_PATH=${local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : ""}",
     ]
@@ -143,7 +149,15 @@ build {
   # if necessary, install and delete the nvidia driver
   provisioner "shell" {
     inline_shebang = "/bin/bash"
-    inline         = ["if [ -n \"$DRIVER_PATH\" ]; then apt-get update --fix-missing; dpkg -i \"$DRIVER_PATH\"; apt --fix-broken install --yes; rm -f \"$DRIVER_PATH\"; fi"]
+    inline = [<<EOF
+        if [ -n "$DRIVER_PATH" ]; then
+            apt-get update --fix-missing;
+            dpkg -i "$DRIVER_PATH";
+            apt --fix-broken install --yes;
+            rm -f \"$DRIVER_PATH\";
+        fi
+    EOF
+    ]
     environment_vars = [
       "DRIVER_PATH=${local.install_nvidia_driver ? local.nvidia_driver_remote_dest_path : ""}"
     ]

@@ -29,7 +29,7 @@ download_drivers() {
     if command -v wget > /dev/null 2>&1; then
         wget -P "$_dest" "$_url"
     elif command -v curl > /dev/null 2>&1; then
-        curl -sO --output-dir "$_dest" "$_url"
+        curl -fsO --output-dir "$_dest" "$_url"
     else
         echo "Error: No wget or curl binaries installed, unable to download drivers."
         return 1
@@ -50,9 +50,7 @@ if [ -z "$DRIVERS_TMP_DEST_DIR" ]; then
     exit
 fi
 
-if [ ! -d "$DRIVERS_TMP_DEST_DIR" ]; then
-    mkdir -p "$DRIVERS_TMP_DEST_DIR"
-fi
+mkdir -p "$DRIVERS_TMP_DEST_DIR"
 
 if is_url "$DRIVERS_PATH"; then
     download_drivers "$DRIVERS_PATH" "$DRIVERS_TMP_DEST_DIR"
