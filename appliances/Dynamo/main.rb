@@ -58,8 +58,7 @@ module Service
             DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-dev python3-pip python3-venv libucx0
             python3 -m venv #{PYTHON_VENV}
             source #{PYTHON_VENV}/bin/activate
-            pip install ai-dynamo[all]
-            pip install nixl
+            pip install ai-dynamo[all]==#{ONEAPP_DYNAMO_RELEASE_VERSION}
         SCRIPT
     end
 
