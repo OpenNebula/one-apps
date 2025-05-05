@@ -72,18 +72,15 @@ build {
     destination = "/etc/one-appliance/"
   }
   provisioner "file" {
-    sources = [
-      "appliances/lib/common.sh",
-      "appliances/lib/functions.sh",
-    ]
+    sources     = ["appliances/lib/helpers.rb"]
     destination = "/etc/one-appliance/lib/"
   }
   provisioner "file" {
-    source      = "appliances/service.sh"
+    source      = "appliances/service.rb"
     destination = "/etc/one-appliance/service"
   }
   provisioner "file" {
-    sources     = ["appliances/Capi/appliance.sh"]
+    sources     = ["appliances/Capi"]
     destination = "/etc/one-appliance/service.d/"
   }
 
