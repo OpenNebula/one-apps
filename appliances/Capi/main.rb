@@ -31,7 +31,7 @@ module Capi
 
     DEPENDS_ON = %w[]
 
-    def install
+    def install(manifests_dir: MANIFESTS_DIR)
         msg :info, 'Capi::install'
 
         msg :info, "Install K3s: #{CAPI_K3S_VERSION}"
@@ -56,7 +56,7 @@ module Capi
         systemctl enable --now k3s.service
         SCRIPT
 
-        msg :info, "Install/Upgrade Cert Manager: #{CAPI_CERT_MANAGER_VERSION}"
+        msg :info, "Install Cert Manager: #{CAPI_CERT_MANAGER_VERSION}"
         (manifests = []) << <<~MANIFEST
         apiVersion: helm.cattle.io/v1
         kind: HelmChart
@@ -83,7 +83,7 @@ module Capi
         MANIFEST
         file "#{manifests_dir}/cert-manager.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
-        msg :info, "Install/Upgrade Rancher: #{CAPI_RANCHER_VERSION}"
+        msg :info, "Install Rancher: #{CAPI_RANCHER_VERSION}"
         (manifests = []) << <<~MANIFEST
         apiVersion: helm.cattle.io/v1
         kind: HelmChart
@@ -125,65 +125,57 @@ module Capi
         spec:
           value: false
         MANIFEST
-        manifests << <<~MANIFEST
-        apiVersion: traefik.io/v1alpha1
-        kind: Middleware
-        metadata:
-          name: rancher-headers
-          namespace: cattle-system
-        spec:
-          headers:
-            customRequestHeaders:
-              X-Forwarded-Proto: https
-        MANIFEST
         if CAPI_RANCHER_HOSTNAME.nil?
             manifests << <<~MANIFEST
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
+            apiVersion: traefik.containo.us/v1alpha1
+            kind: IngressRoute
             metadata:
-              name: rancher-ingress
+              name: rancher-ingress-web
               namespace: cattle-system
-              annotations:
-                traefik.ingress.kubernetes.io/router.middlewares: cattle-system-rancher-headers@kubernetescrd
             spec:
-              rules:
-                - http:
-                    paths:
-                      - path: /
-                        pathType: Prefix
-                        backend:
-                          service:
-                            name: rancher
-                            port: { number: 80 }
+              entryPoints: [websecure, web]
+              routes:
+                - kind: Rule
+                  match: PathPrefix(`/`)
+                  services:
+                    - name: rancher
+                      port: 80
             MANIFEST
         else
             manifests << <<~MANIFEST
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
+            apiVersion: cert-manager.io/v1
+            kind: Certificate
             metadata:
-              name: rancher-ingress
+              name: rancher-cert
               namespace: cattle-system
-              annotations:
-                cert-manager.io/cluster-issuer: default-issuer
             spec:
+              secretName: rancher-cert
+              issuerRef:
+                kind: ClusterIssuer
+                name: default-issuer
+              dnsNames: ['#{CAPI_RANCHER_HOSTNAME}']
+            MANIFEST
+            manifests << <<~MANIFEST
+            apiVersion: traefik.containo.us/v1alpha1
+            kind: IngressRoute
+            metadata:
+              name: rancher-ingress-web
+              namespace: cattle-system
+            spec:
+              entryPoints: [websecure, web]
+              routes:
+                - kind: Rule
+                  match: Host(`#{CAPI_RANCHER_HOSTNAME}`) && PathPrefix(`/`)
+                  services:
+                    - name: rancher
+                      port: 80
               tls:
-                - hosts: ['#{CAPI_RANCHER_HOSTNAME}']
-                  secretName: rancher-cert
-              rules:
-                - host: '#{CAPI_RANCHER_HOSTNAME}'
-                  http:
-                    paths:
-                      - path: /
-                        pathType: Prefix
-                        backend:
-                          service:
-                            name: rancher
-                            port: { number: 80 }
+                secretName: rancher-cert
             MANIFEST
         end
         file "#{manifests_dir}/rancher.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
-        msg :info, "Install/Upgrade Turtles: #{CAPI_TURTLES_VERSION}"
+        msg :info, "Install Turtles: #{CAPI_TURTLES_VERSION}"
         (manifests = []) << <<~MANIFEST
         apiVersion: helm.cattle.io/v1
         kind: HelmChart
@@ -202,7 +194,7 @@ module Capi
         MANIFEST
         file "#{manifests_dir}/rancher-turtles.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
-        msg :info, "Install/Upgrade Capone: #{CAPI_CAPONE_VERSION}"
+        msg :info, "Install Capone: #{CAPI_CAPONE_VERSION}"
         (manifests = []) << <<~MANIFEST
         apiVersion: v1
         kind: Namespace
@@ -227,97 +219,26 @@ module Capi
           version: '#{CAPI_CAPONE_VERSION}'
         MANIFEST
         file "#{manifests_dir}/capone.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
-
-        msg :info, "Install/Upgrade Gitea: #{CAPI_GITEA_VERSION}"
-        (manifests = []) << <<~MANIFEST
-        apiVersion: helm.cattle.io/v1
-        kind: HelmChart
-        metadata:
-          name: gitea
-          namespace: kube-system
-        spec:
-          targetNamespace: gitea
-          createNamespace: true
-          repo: 'https://dl.gitea.com/charts'
-          chart: gitea
-          version: '#{CAPI_GITEA_VERSION}'
-          valuesContent: |-
-            postgresql-ha: { enabled: false }
-            redis-cluster: { enabled: false }
-            postgresql:    { enabled: true }
-            redis:         { enabled: true }
-            gitea:
-              admin:
-                username: admin
-                password: '#{CAPI_GITEA_PASSWORD}'
-              config:
-                server:
-                  DOMAIN: '#{CAPI_GITEA_DOMAIN || ETH0_IP}'
-                  ROOT_URL: '#{CAPI_GITEA_ROOT_URL}'
-            ingress:
-              enabled: false
-        MANIFEST
-        manifests << <<~MANIFEST
-        apiVersion: traefik.io/v1alpha1
-        kind: Middleware
-        metadata:
-          name: gitea-stripprefix
-          namespace: gitea
-        spec:
-          stripPrefix:
-            prefixes: [/gitea]
-        MANIFEST
-        if CAPI_GITEA_DOMAIN.nil?
-            manifests << <<~MANIFEST
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
-            metadata:
-              name: gitea-ingress
-              namespace: gitea
-              annotations:
-                traefik.ingress.kubernetes.io/router.middlewares: gitea-gitea-stripprefix@kubernetescrd
-            spec:
-              rules:
-                - http:
-                    paths:
-                      - path: /gitea
-                        pathType: Prefix
-                        backend:
-                          service:
-                            name: gitea-http
-                            port: { number: 3000 }
-            MANIFEST
-        else
-            manifests << <<~MANIFEST
-            apiVersion: networking.k8s.io/v1
-            kind: Ingress
-            metadata:
-              name: gitea-ingress
-              namespace: gitea
-              annotations:
-                cert-manager.io/cluster-issuer: default-issuer
-                traefik.ingress.kubernetes.io/router.middlewares: gitea-gitea-stripprefix@kubernetescrd
-            spec:
-              tls:
-                - hosts: ['#{CAPI_GITEA_DOMAIN}']
-                  secretName: gitea-cert
-              rules:
-                - host: '#{CAPI_GITEA_DOMAIN}'
-                  http:
-                    paths:
-                      - path: /gitea
-                        pathType: Prefix
-                        backend:
-                          service:
-                            name: gitea-http
-                            port: { number: 3000 }
-            MANIFEST
-        end
-        file "#{manifests_dir}/gitea.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
     end
 
     def bootstrap
         msg :info, 'Capi::bootstrap'
+
+        msg :info, 'Wait for Rancher'
+        60.downto(0).each do |retry_num|
+            puts bash <<~SCRIPT
+            curl -fsSkL https://#{CAPI_RANCHER_HOSTNAME || ETH0_IP}/healthz
+            SCRIPT
+            break !retry_num.zero?
+        rescue RuntimeError
+            sleep 10
+        end.then do |ok|
+            if !ok
+                msg :error, 'Rancher not ready'
+                next
+            end
+        rescue RuntimeError
+        end
 
         msg :info, 'Mark namespaces to be auto-imported'
         puts bash <<~SCRIPT
