@@ -17,6 +17,11 @@ PYTHON_VENV   = 'source /root/ray_env/bin/activate'
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_RAY_MODULES = 'default,serve'
+ONEAPP_RAY_RELEASE_VERSION = env :ONEAPP_RAY_RELEASE_VERSION,'2.45.0'
+ONEAPP_RAY_JINJA2_VERSION = env :ONEAPP_RAY_JINJA2_VERSION, '3.1.6'
+ONEAPP_RAY_VLLM_VERSION = env :ONEAPP_RAY_VLLM_VERSION, '0.8.5'
+ONEAPP_RAY_FLASK_VERSION = env :ONEAPP_RAY_FLASK_VERSION,'3.1.0'
+
 ONEAPP_RAY_PORT    = env :ONEAPP_RAY_PORT, '6379'
 
 # ------------------------------------------------------------------------------
@@ -85,7 +90,7 @@ RAY_API_ROUTE = '/chat'
 #  ONEAPP_RAY_MODEL_QUANTIZATION 0,4,8 Use quantization for the LLM weights.
 #  (8bits only supported by Ray, 0 = No quantization)
 #
-#  ONEAPP_RAY_MAX_NEW_TOKENS TODO
+#  ONEAPP_RAY_MODEL_MAX_NEW_TOKENS Model context length for prompt and output.
 #
 #  The following model parameters are only for Ray deployments without OpenAI:
 #
@@ -97,7 +102,7 @@ ONEAPP_RAY_MODEL_ID    = env :ONEAPP_RAY_MODEL_ID, 'meta-llama/Llama-3.2-1B-Inst
 ONEAPP_RAY_MODEL_TOKEN = env :ONEAPP_RAY_MODEL_TOKEN, ''
 
 ONEAPP_RAY_MODEL_QUANTIZATION = env :ONEAPP_RAY_MODEL_QUANTIZATION, 0
-ONEAPP_RAY_MAX_NEW_TOKENS     = env :ONEAPP_RAY_MAX_NEW_TOKENS, 512
+ONEAPP_RAY_MODEL_MAX_NEW_TOKENS     = env :ONEAPP_RAY_MODEL_MAX_NEW_TOKENS, 1024
 
 ONEAPP_RAY_MODEL_TEMPERATURE = env :ONEAPP_RAY_MODEL_TEMPERATURE, '0.1'
 ONEAPP_RAY_MODEL_PROMPT      = env :ONEAPP_RAY_MODEL_PROMPT, \

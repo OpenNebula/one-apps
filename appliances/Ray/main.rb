@@ -97,7 +97,10 @@ module Service
             cd /root
             python3 -m venv ray_env
             source ray_env/bin/activate
-            pip3 install ray[#{ONEAPP_RAY_MODULES}] jinja2==3.1.4 vllm flask
+            pip3 install ray[#{ONEAPP_RAY_MODULES}]==#{ONEAPP_RAY_RELEASE_VERSION} \
+                jinja2==#{ONEAPP_RAY_JINJA2_VERSION} \
+                vllm==#{ONEAPP_RAY_VLLM_VERSION} \
+                flask==#{ONEAPP_RAY_FLASK_VERSION}
         SCRIPT
     end
 
@@ -126,7 +129,7 @@ module Service
 
     def generate_config_file
         if !ONEAPP_RAY_CONFIG_FILE64.empty?
-            msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+            msg :info, "Copying config64 to #{RAY_CONFIG_PATH}..."
 
             config = Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)
 
@@ -205,7 +208,7 @@ module Service
     end
 
     def model_length
-        Integer(ONEAPP_RAY_MAX_NEW_TOKENS)
+        Integer(ONEAPP_RAY_MODEL_MAX_NEW_TOKENS)
     rescue StandardError
         512
     end
