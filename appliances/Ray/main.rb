@@ -129,7 +129,7 @@ module Service
 
     def generate_config_file
         if !ONEAPP_RAY_CONFIG_FILE64.empty?
-            msg :info, "Copying config64 to #{ONEAPP_RAY_CONFIGFILE_DEST_PATH}..."
+            msg :info, "Copying config64 to #{RAY_CONFIG_PATH}..."
 
             config = Base64.decode64(ONEAPP_RAY_CONFIG_FILE64)
 
@@ -208,7 +208,7 @@ module Service
     end
 
     def model_length
-        Integer(ONEAPP_RAY_MAX_NEW_TOKENS)
+        Integer(ONEAPP_RAY_MODEL_MAX_NEW_TOKENS)
     rescue StandardError
         512
     end
