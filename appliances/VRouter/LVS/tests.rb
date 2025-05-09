@@ -39,14 +39,14 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SERVER1_HOST'] = '10.2.200.20'
         ENV['ONEAPP_VNF_LB1_SERVER1_PORT'] = '54321'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = ''
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = ''
 
         load './main.rb'; include Service::LVS
 
         expect(Service::LVS::ONEAPP_VNF_LB_ENABLED).to be true
         expect(Service::LVS::ONEAPP_VNF_LB_REFRESH_RATE).to eq '30'
         expect(Service::LVS::ONEAPP_VNF_LB_FWMARK_OFFSET).to eq '10000'
-        expect(Service::LVS::ONEAPP_VNF_ONEGATE_LB_API).to eq 'auto'
+        expect(Service::LVS::ONEAPP_VNF_LB_ONEGATE_API).to eq 'auto'
 
         Service::LVS.const_set :VROUTER_ID, '86'
 
@@ -111,14 +111,14 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SERVER1_ULIMIT'] = '100'
         ENV['ONEAPP_VNF_LB1_SERVER1_LLIMIT'] = '0'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'vrouter'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'vrouter'
 
         load './main.rb'; include Service::LVS
 
         expect(Service::LVS::ONEAPP_VNF_LB_ENABLED).to be true
         expect(Service::LVS::ONEAPP_VNF_LB_REFRESH_RATE).to eq '45'
         expect(Service::LVS::ONEAPP_VNF_LB_FWMARK_OFFSET).to eq '12345'
-        expect(Service::LVS::ONEAPP_VNF_ONEGATE_LB_API).to eq 'vrouter'
+        expect(Service::LVS::ONEAPP_VNF_LB_ONEGATE_API).to eq 'vrouter'
 
         Service::LVS.const_set :VROUTER_ID, '86'
 
@@ -320,7 +320,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
 
         # Internally forced to 'VROUTER' since not in OneFlow
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'service'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'service'
 
         (vnets ||= []) << JSON.parse(<<~'VNET0')
             {
@@ -487,7 +487,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '5'
         ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'auto'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'auto'
 
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
@@ -670,7 +670,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB3_SERVER0_HOST'] = '10.2.11.300'
         ENV['ONEAPP_VNF_LB3_SERVER0_PORT'] = '7969'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'vrouter'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'vrouter'
 
         (vnets ||= []) << JSON.parse(<<~'VNET0')
             {

@@ -38,13 +38,13 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB1_SERVER1_HOST'] = '10.2.200.20'
         ENV['ONEAPP_VNF_HAPROXY_LB1_SERVER1_PORT'] = '54321'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = ''
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = ''
 
         load './main.rb'; include Service::HAProxy
 
         expect(Service::HAProxy::ONEAPP_VNF_HAPROXY_ENABLED).to be true
         expect(Service::HAProxy::ONEAPP_VNF_HAPROXY_REFRESH_RATE).to eq '30'
-        expect(Service::HAProxy::ONEAPP_VNF_ONEGATE_LB_API).to eq 'auto'
+        expect(Service::HAProxy::ONEAPP_VNF_LB_ONEGATE_API).to eq 'auto'
 
         Service::HAProxy.const_set :VROUTER_ID, '86'
 
@@ -157,7 +157,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '8686'
 
         # Internally forced to 'VROUTER' since not in OneFlow
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'service'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'service'
 
         (vnets ||= []) << JSON.parse(<<~'VNET0')
             {
@@ -290,7 +290,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB1_IP'] = '10.2.11.86'
         ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '4321'
 
-        ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'auto'
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'auto'
 
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
@@ -452,7 +452,7 @@ RSpec.describe self do
       ENV['ONEAPP_VNF_HAPROXY_LB0_SERVER0_HOST'] = '10.2.11.200'
       ENV['ONEAPP_VNF_HAPROXY_LB0_SERVER0_PORT'] = '1234'
 
-      ENV['ONEAPP_VNF_ONEGATE_LB_API'] = 'vrouter'
+      ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'vrouter'
 
       (vnets ||= []) << JSON.parse(<<~'VNET0')
           {

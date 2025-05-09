@@ -17,7 +17,7 @@ module LVS
 
     ONEAPP_VNF_LB_INTERFACES = env :ONEAPP_VNF_LB_INTERFACES, '' # nil -> none, empty -> all
 
-    ONEAPP_VNF_ONEGATE_LB_API = env :ONEAPP_VNF_ONEGATE_LB_API, 'auto'
+    ONEAPP_VNF_LB_ONEGATE_API = env :ONEAPP_VNF_LB_ONEGATE_API, 'auto'
 
     def install(initdir: '/etc/init.d')
         msg :info, 'LVS::install'

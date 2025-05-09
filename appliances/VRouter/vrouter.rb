@@ -410,7 +410,7 @@ end
 def oneflow_api?(service_id)
     return false if service_id.nil?
 
-    api = env('ONEAPP_VNF_ONEGATE_LB_API', nil)&.downcase
+    api = env('ONEAPP_VNF_LB_ONEGATE_API', nil)&.downcase
     return api != 'vrouter'
 end
 
