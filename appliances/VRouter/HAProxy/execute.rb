@@ -17,7 +17,7 @@ module HAProxy
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_HAPROXY_LB')
 
-        dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB', id: SERVICE_ID)
+        dynamic = oneflow_api?(SERVICE_ID) ? backends.from_vms(objects, prefix: 'ONEGATE_HAPROXY_LB', id: SERVICE_ID)
                                   : backends.from_vnets(objects, prefix: 'ONEGATE_HAPROXY_LB', id: VROUTER_ID)
 
         # Replace all "<ETHx_IPy>", "<ETHx_VIPy>" and "<ETHx_EPy>" placeholders where possible.
