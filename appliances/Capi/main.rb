@@ -218,6 +218,14 @@ module Capi
           type: infrastructure
           version: '#{CAPI_CAPONE_VERSION}'
         MANIFEST
+        manifests << <<~MANIFEST
+        apiVersion: catalog.cattle.io/v1
+        kind: ClusterRepo
+        metadata:
+          name: capone
+        spec:
+          url: https://opennebula.github.io/cluster-api-provider-opennebula/charts/
+        MANIFEST
         file "#{manifests_dir}/capone.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
     end
 
