@@ -407,11 +407,9 @@ def get_service_vms # OneFlow
     end
 end
 
-def oneflow_api?(service_id)
-    return false if service_id.nil?
-
-    api = env('ONEAPP_VNF_LB_ONEGATE_API', nil)&.downcase
-    return api != 'vrouter'
+def oneflow_api?
+    return false if env(:SERVICE_ID, nil).nil?
+    return env(:ONEAPP_VNF_LB_ONEGATE_API, nil)&.downcase != 'vrouter'
 end
 
 def backends

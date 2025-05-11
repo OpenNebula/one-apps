@@ -291,6 +291,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '4321'
 
         ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'auto'
+        ENV['SERVICE_ID'] = '123'
 
         (vms ||= []) << JSON.parse(<<~'VM0')
             {

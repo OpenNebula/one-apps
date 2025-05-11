@@ -488,6 +488,7 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
 
         ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'auto'
+        ENV['SERVICE_ID'] = '123'
 
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
