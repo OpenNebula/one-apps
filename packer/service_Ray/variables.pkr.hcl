@@ -20,3 +20,8 @@ variable "version" {
   type    = string
   default = ""
 }
+
+variable "nvidia_driver_path" {
+  type    = string
+  default = ""
+}
