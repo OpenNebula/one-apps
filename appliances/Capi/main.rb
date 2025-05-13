@@ -73,14 +73,6 @@ module Capi
             crds:
               enabled: true
         MANIFEST
-        manifests << <<~MANIFEST
-        apiVersion: cert-manager.io/v1
-        kind: ClusterIssuer
-        metadata:
-          name: default-issuer
-        spec:
-          selfSigned: {}
-        MANIFEST
         file "#{manifests_dir}/cert-manager.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
         msg :info, "Install Rancher: #{CAPI_RANCHER_VERSION}"
@@ -98,10 +90,8 @@ module Capi
           version: '#{CAPI_RANCHER_VERSION}'
           valuesContent: |-
             replicas: 1
+            hostname: '#{CAPI_RANCHER_HOSTNAME || (ETH0_IP + '.sslip.io')}'
             bootstrapPassword: '#{CAPI_RANCHER_PASSWORD}'
-            ingress:
-              enabled: false
-            tls: external
         MANIFEST
         manifests << <<~MANIFEST
         apiVersion: management.cattle.io/v3
@@ -119,60 +109,19 @@ module Capi
         MANIFEST
         manifests << <<~MANIFEST
         apiVersion: management.cattle.io/v3
+        kind: Setting
+        metadata:
+          name: server-url
+        value: https://#{CAPI_RANCHER_HOSTNAME || (ETH0_IP + '.sslip.io')}
+        MANIFEST
+        manifests << <<~MANIFEST
+        apiVersion: management.cattle.io/v3
         kind: Feature
         metadata:
           name: embedded-cluster-api
         spec:
           value: false
         MANIFEST
-        if CAPI_RANCHER_HOSTNAME.nil?
-            manifests << <<~MANIFEST
-            apiVersion: traefik.containo.us/v1alpha1
-            kind: IngressRoute
-            metadata:
-              name: rancher-ingress-web
-              namespace: cattle-system
-            spec:
-              entryPoints: [websecure, web]
-              routes:
-                - kind: Rule
-                  match: PathPrefix(`/`)
-                  services:
-                    - name: rancher
-                      port: 80
-            MANIFEST
-        else
-            manifests << <<~MANIFEST
-            apiVersion: cert-manager.io/v1
-            kind: Certificate
-            metadata:
-              name: rancher-cert
-              namespace: cattle-system
-            spec:
-              secretName: rancher-cert
-              issuerRef:
-                kind: ClusterIssuer
-                name: default-issuer
-              dnsNames: ['#{CAPI_RANCHER_HOSTNAME}']
-            MANIFEST
-            manifests << <<~MANIFEST
-            apiVersion: traefik.containo.us/v1alpha1
-            kind: IngressRoute
-            metadata:
-              name: rancher-ingress-web
-              namespace: cattle-system
-            spec:
-              entryPoints: [websecure, web]
-              routes:
-                - kind: Rule
-                  match: Host(`#{CAPI_RANCHER_HOSTNAME}`) && PathPrefix(`/`)
-                  services:
-                    - name: rancher
-                      port: 80
-              tls:
-                secretName: rancher-cert
-            MANIFEST
-        end
         file "#{manifests_dir}/rancher.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
         msg :info, "Install Turtles: #{CAPI_TURTLES_VERSION}"
@@ -227,6 +176,41 @@ module Capi
           url: https://opennebula.github.io/cluster-api-provider-opennebula/charts/
         MANIFEST
         file "#{manifests_dir}/capone.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
+
+        msg :info, "Install Kubeadm"
+        (manifests = []) << <<~MANIFEST
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: capi-kubeadm-bootstrap-system
+        MANIFEST
+        manifests << <<~MANIFEST
+        apiVersion: turtles-capi.cattle.io/v1alpha1
+        kind: CAPIProvider
+        metadata:
+          name: kubeadm-bootstrap
+          namespace: capi-kubeadm-bootstrap-system
+        spec:
+          name: kubeadm
+          type: bootstrap
+        MANIFEST
+        manifests << <<~MANIFEST
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: capi-kubeadm-control-plane-system
+        MANIFEST
+        manifests << <<~MANIFEST
+        apiVersion: turtles-capi.cattle.io/v1alpha1
+        kind: CAPIProvider
+        metadata:
+          name: kubeadm-control-plane
+          namespace: capi-kubeadm-control-plane-system
+        spec:
+          name: kubeadm
+          type: controlPlane
+        MANIFEST
+        file "#{manifests_dir}/kubeadm.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
     end
 
     def bootstrap
@@ -235,7 +219,7 @@ module Capi
         msg :info, 'Wait for Rancher'
         60.downto(0).each do |retry_num|
             puts bash <<~SCRIPT
-            curl -fsSkL https://#{CAPI_RANCHER_HOSTNAME || ETH0_IP}/healthz
+            curl -fsSkL https://#{CAPI_RANCHER_HOSTNAME || (ETH0_IP + '.sslip.io')}/healthz
             SCRIPT
             break !retry_num.zero?
         rescue RuntimeError
