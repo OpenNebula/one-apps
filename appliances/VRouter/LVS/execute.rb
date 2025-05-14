@@ -17,7 +17,7 @@ module LVS
 
         static = backends.from_env(prefix: 'ONEAPP_VNF_LB', allow_nil_ports: true)
 
-        dynamic = VROUTER_ID.nil? ? backends.from_vms(objects, prefix: 'ONEGATE_LB', id: SERVICE_ID)
+        dynamic = oneflow_api? ? backends.from_vms(objects, prefix: 'ONEGATE_LB', id: SERVICE_ID)
                                   : backends.from_vnets(objects, prefix: 'ONEGATE_LB', id: VROUTER_ID)
 
         # Replace all "<ETHx_IPy>", "<ETHx_VIPy>" and "<ETHx_EPy>" placeholders where possible.
