@@ -48,12 +48,12 @@ bnb_config = {
 @serve.ingress(app)
 class ChatBot:
     def __init__(
-            self, 
-            model_id: str, 
+            self,
+            model_id: str,
             token: str,
             quantization: int=0):
         # Load model and tokenizer
-        self.model_id = model_id 
+        self.model_id = model_id
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id, token=token)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -81,9 +81,9 @@ class ChatBot:
         return self.tokenizer.decode(output[0], skip_special_tokens=True)
 
     def _generate_chat_completions(
-            self, 
-            messages: List[ChatMessage], 
-            temperature: float, 
+            self,
+            messages: List[ChatMessage],
+            temperature: float,
             max_tokens: int) -> dict:
         """Generates chat completions using the Hugging Face model."""
         # Apply chat template and tokenize
@@ -146,6 +146,6 @@ class ChatBot:
 
 def app_builder(args: Dict[str, str]) -> Application:
     return ChatBot.bind(
-        args["model_id"], 
-        args['token'],
+        args["model_id"],
+        args.get('token', None),
         args['quantization'])
