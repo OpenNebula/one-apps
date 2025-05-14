@@ -54,6 +54,9 @@ packer-service_Dynamo: PKR_VAR_nvidia_driver_path := $(NVIDIA_DRIVER_PATH)
 packer-service_Dynamo: packer-ubuntu2404 $(DIR_EXPORT)/service_Dynamo.qcow2
 	@$(INFO) "Packer service_Dynamo done"
 
+packer-service_Capi: packer-ubuntu2204 $(DIR_EXPORT)/service_Capi.qcow2
+	@$(INFO) "Packer service_Capi done"
+
 # run packer build for given distro or service
 $(DIR_EXPORT)/service_OneKE_storage.qcow2:
 	qemu-img create -f qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2 10G
