@@ -148,12 +148,17 @@ def gen_template_config
 
     return if template_path.empty?
 
+    instantiate_template(template_path, RAY_CONFIG_PATH)
+end
+
+def instantiate_template(template_path, output_path)
     template = File.read(template_path)
 
-    erb    = ERB.new(template)
+    # trim
+    erb    = ERB.new(template, nil , '-')
     result = erb.result(binding)
 
-    write_file(RAY_CONFIG_PATH, result)
+    write_file(output_path, result)
 end
 
 def gen_model

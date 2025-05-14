@@ -15,10 +15,10 @@ app = FastAPI()
 @serve.ingress(app)
 class ChatBot:
     def __init__(
-            self, 
-            model_id: str, 
-            token:str, 
-            temperature: float, 
+            self,
+            model_id: str,
+            token:str,
+            temperature: float,
             system_prompt: str,
             max_new_tokens: int,
             quantization: int=0):
@@ -38,21 +38,21 @@ class ChatBot:
         # Load model
         if quantization > 0:
             self.model = LLM(
-                model=model_id, gpu_memory_utilization=0.8, 
+                model=model_id, gpu_memory_utilization=0.8,
                 tensor_parallel_size=torch.cuda.device_count(),
                 quantization="bitsandbytes", load_format="bitsandbytes",
                 dtype=torch.bfloat16)
         else:
             self.model = LLM(
-                model=model_id, gpu_memory_utilization=0.8, 
+                model=model_id, gpu_memory_utilization=0.8,
                 tensor_parallel_size=torch.cuda.device_count(),
                 dtype=torch.bfloat16)
-            
+
         # Identify model params
         self.temperature = temperature
         self.system_prompt = system_prompt
         self.max_new_tokens = max_new_tokens
-        
+
     @app.post("/chat")
     async def chat(
         self, text: str) -> str:
@@ -82,9 +82,9 @@ class ChatBot:
 
 def app_builder(args: Dict[str, str]) -> Application:
     return ChatBot.bind(
-        args["model_id"], 
-        args['token'], 
-        args['temperature'], 
+        args["model_id"],
+        args.get('token', None),
+        args['temperature'],
         args['system_prompt'],
         args['max_new_tokens'],
         args['quantization'])
