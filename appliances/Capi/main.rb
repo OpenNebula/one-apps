@@ -124,6 +124,7 @@ module Capi
         MANIFEST
         file "#{manifests_dir}/rancher.yaml", manifests.join("\n---\n"), mode: 'u=rw,go=r', overwrite: true
 
+        check_rancher_health
         msg :info, "Install Turtles: #{CAPI_TURTLES_VERSION}"
         (manifests = []) << <<~MANIFEST
         apiVersion: helm.cattle.io/v1
@@ -217,25 +218,31 @@ module Capi
         msg :info, 'Capi::bootstrap'
 
         msg :info, 'Wait for Rancher'
-        60.downto(0).each do |retry_num|
-            puts bash <<~SCRIPT
-            curl -fsSkL https://#{CAPI_RANCHER_HOSTNAME || (ETH0_IP + '.sslip.io')}/healthz
-            SCRIPT
-            break !retry_num.zero?
-        rescue RuntimeError
-            sleep 10
-        end.then do |ok|
-            if !ok
-                msg :error, 'Rancher not ready'
-                next
-            end
-        rescue RuntimeError
-        end
+        check_rancher_health
 
         msg :info, 'Mark namespaces to be auto-imported'
         puts bash <<~SCRIPT
         kubectl label namespace default cluster-api.cattle.io/rancher-auto-import=true
         SCRIPT
+    end
+
+    def check_rancher_health
+      60.downto(0).each do |retry_num|
+        begin
+          puts bash <<~SCRIPT
+            curl -fsSkL https://#{CAPI_RANCHER_HOSTNAME || (ETH0_IP + '.sslip.io')}/healthz
+          SCRIPT
+          break !retry_num.zero?
+        rescue RuntimeError
+          sleep 10
+        end
+      end.then do |ok|
+        if !ok
+          msg :error, 'Rancher not ready'
+          next
+        end
+      rescue RuntimeError
+      end
     end
 end
 end
