@@ -22,6 +22,7 @@ module Service
         def install
             msg :info, 'Dynamo::install'
             install_dependencies
+            install_web_dependencies
             msg :info, 'Installation completed successfully'
         end
 
@@ -29,6 +30,11 @@ module Service
             msg :info, 'Dynamo::configure'
             generate_engine_extra_args_file
             start_dynamo
+
+            if ONEAPP_DYNAMO_API_WEB
+                generate_web_config
+                start_web_app
+            end
             msg :info, 'Configuration completed successfully'
         end
 
@@ -43,6 +49,11 @@ module Service
                 url = "http://#{ip}:#{ONEAPP_DYNAMO_API_PORT}#{DYNAMO_API_ROUTE}"
 
                 bash "onegate vm update --data \"ONEAPP_DYNAMO_CHATBOT_URL=#{url}\""
+
+                if ONEAPP_DYNAMO_API_WEB
+                    url = "http://#{ip}:#{DYNAMO_WEB_APP_PORT}"
+                    bash "onegate vm update --data \"ONEAPP_DYNAMO_CHATBOT_WEB=#{url}\""
+                end
 
                 msg :info, 'Bootstrap completed successfully'
             rescue StandardError => e
@@ -62,6 +73,14 @@ module Service
         SCRIPT
     end
 
+    def install_web_dependencies
+        puts bash <<~SCRIPT
+            source #{PYTHON_VENV}/bin/activate
+            cd /etc/one-appliance/service.d/Dynamo/client
+            pip install -r requirements.txt
+        SCRIPT
+    end
+
     def start_dynamo
         msg :info, 'Starting Dynamo...'
         pid = spawn(
@@ -73,6 +92,20 @@ module Service
         )
 
         Process.detach(pid)
+    end
+
+    def start_web_app
+        msg :info, 'Starting Dynamo Web App...'
+        web_app = 'web_client.py'
+        pid = spawn(
+            {},
+            "/usr/bin/bash",
+            "-c",
+            "source #{PYTHON_VENV}/bin/activate; cd #{DYNAMO_WEB_APP_DIR}; python3 #{web_app} #{DYNAMO_WEB_APP_PORT}",
+            :pgroup => true
+        )
+        Process.detach(pid)
+        msg :info, "Dynamo web app running at http://localhost:#{DYNAMO_WEB_APP_PORT}"
     end
 
     def dynamo_cmd
@@ -93,6 +126,16 @@ module Service
         elsif ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON
             File.write(DYNAMO_EXTRA_ARGS_FILE_PATH, ONEAPP_DYNAMO_ENGINE_EXTRA_ARGS_JSON)
         end
+    end
+
+    def generate_web_config
+        model_without_prefix = ONEAPP_DYNAMO_MODEL_ID.split('/', 2).last
+        config = <<~CONFIG
+        base_url: "http://localhost:#{ONEAPP_DYNAMO_API_PORT}/#{DYNAMO_API_ROUTE}"
+        model: "#{model_without_prefix}"
+        CONFIG
+
+        File.write(File.join(DYNAMO_WEB_APP_DIR, 'config.yaml'), config)
     end
 
     def listening?
