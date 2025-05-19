@@ -11,6 +11,8 @@ PYTHON_VENV = "/root/dynamo_venv"
 DYNAMO_API_ROUTE  = '/v1/chat/completions'
 DYNAMO_LISTEN_HOST = '0.0.0.0'
 DYNAMO_EXTRA_ARGS_FILE_PATH = '/tmp/engine_extra_args.json'
+DYNAMO_WEB_APP_PORT = 5000
+DYNAMO_WEB_APP_DIR = '/etc/one-appliance/service.d/Dynamo/client'
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_DYNAMO_RELEASE_VERSION = env :ONEAPP_DYNAMO_RELEASE_VERSION, '0.1.1'
@@ -21,8 +23,12 @@ ONEAPP_DYNAMO_RELEASE_VERSION = env :ONEAPP_DYNAMO_RELEASE_VERSION, '0.1.1'
 # Dynamo API Parameters
 # ------------------------------------------------------------------------------
 #  ONEAPP_DYNAMO_API_PORT: Port where the Dynamo API will be exposed
+#
+#  ONEAPP_DYNAMO_API_WEB <YES|NO>: deploy web application for interacting with
+#   the model (default: NO).
 # ------------------------------------------------------------------------------
 ONEAPP_DYNAMO_API_PORT   = env :ONEAPP_DYNAMO_API_PORT, '8000'
+ONEAPP_DYNAMO_API_WEB    = env :ONEAPP_DYNAMO_API_WEB, 'YES'
 
 # ------------------------------------------------------------------------------
 # Model Parameters

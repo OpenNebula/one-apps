@@ -28,10 +28,12 @@ applications:
       - bitsandbytes==0.45.0
   args:
     model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
+<% if ONEAPP_RAY_MODEL_TOKEN && !ONEAPP_RAY_MODEL_TOKEN.empty? -%>
     token: "<%= ONEAPP_RAY_MODEL_TOKEN %>"
+<% end -%>
     temperature: <%= ONEAPP_RAY_MODEL_TEMPERATURE %>
     system_prompt: "<%= ONEAPP_RAY_MODEL_PROMPT %>"
-    max_new_tokens: <%= ONEAPP_RAY_MAX_NEW_TOKENS %>
+    max_new_tokens: <%= ONEAPP_RAY_MODEL_MAX_NEW_TOKENS %>
     quantization: <%= quantization %>
   deployments:
   - name: ChatBot

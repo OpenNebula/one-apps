@@ -407,6 +407,11 @@ def get_service_vms # OneFlow
     end
 end
 
+def oneflow_api?
+    return false if env(:SERVICE_ID, nil).nil?
+    return env(:ONEAPP_VNF_LB_ONEGATE_API, nil)&.downcase != 'vrouter'
+end
+
 def backends
     def parse_static(names, prefix, allow_nil_ports: false)
         names.each_with_object({}) do |name, acc|

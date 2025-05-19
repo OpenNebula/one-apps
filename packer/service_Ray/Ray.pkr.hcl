@@ -36,7 +36,8 @@ source "qemu" "Ray" {
 
   output_directory = var.output_dir
 
-  qemuargs = [["-serial", "stdio"],
+  qemuargs = [
+    ["-serial", "stdio"],
     ["-cpu", "host"],
     ["-cdrom", "${var.input_dir}/${var.appliance_name}-context.iso"],
     # MAC addr needs to mach ETH0_MAC from context iso
@@ -48,6 +49,14 @@ source "qemu" "Ray" {
   ssh_wait_timeout = "900s"
   shutdown_command = "poweroff"
   vm_name          = "${var.appliance_name}"
+}
+
+locals {
+  install_nvidia_driver          = var.nvidia_driver_path != "" ? true : false
+  nvidia_driver_local_tmp_dir    = "/tmp"
+  nvidia_driver_local_tmp_path   = "${local.nvidia_driver_local_tmp_dir}/${basename(var.nvidia_driver_path)}"
+  nvidia_driver_remote_dest_dir  = "/tmp"
+  nvidia_driver_remote_dest_path = "${local.nvidia_driver_remote_dest_dir}/${basename(var.nvidia_driver_path)}"
 }
 
 # Once the VM launches the following logic will be executed inside it to customize what happens inside
@@ -93,18 +102,46 @@ build {
   }
 
   provisioner "file" {
-    sources     = [ "appliances/Ray" ]
+    sources     = ["appliances/Ray"]
     destination = "/etc/one-appliance/service.d/"
   }
-
-#  provisioner "file" {
-#    sources = ["${var.input_dir}/nvidia-linux-grid-535_535.216.01_amd64.deb"]
-#    destination = "/var/tmp/nvidia-linux-grid-535_535.216.01_amd64.deb"
-#  }
 
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
+
+  # Download or copy nvidia driver to local temporary directory before copying it
+  provisioner "shell-local" {
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    environment_vars = [
+      "DRIVERS_PATH=${var.nvidia_driver_path}",
+      "DRIVERS_TMP_DEST_DIR=${local.nvidia_driver_local_tmp_dir}",
+    ]
+    scripts = ["${var.input_dir}/get_nvidia_driver.sh"]
+  }
+
+  # With `generated=true` we avoid checking the file existence on prebuild validation
+  # as we are dinamically generating (copying or downloading) the drivers files.
+  # More info: https://developer.hashicorp.com/packer/docs/provisioners/file#generated
+  provisioner "file" {
+    source      = local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : "/dev/null"
+    destination = local.install_nvidia_driver ? local.nvidia_driver_remote_dest_path : "/dev/null"
+    generated   = true
+  }
+
+  # Delete local temporary driver file after provisioning it
+  provisioner "shell-local" {
+    inline = [<<EOF
+        if [ -n "$DRIVERS_TMP_PATH" ]; then
+            rm -f "$DRIVERS_TMP_PATH";
+        fi
+    EOF
+    ]
+    environment_vars = [
+      "DRIVERS_TMP_PATH=${local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : ""}",
+    ]
+  }
+
 
   #This is necessary for allowing serve to detect the python modules
   # probably we can do it in a better way
@@ -120,10 +157,22 @@ build {
   # Setup appliance: Execute install step                               #
   # https://github.com/OpenNebula/one-apps/wiki/apps_intro#installation #
   #######################################################################
-#  provisioner "shell" {
-#    inline_shebang = "/bin/bash"
-#    inline         = ["apt-get update --fix-missing; dpkg -i /var/tmp/nvidia-linux-grid-535_535.216.01_amd64.deb; apt --fix-broken install --yes" ]
-#  }
+  # if necessary, install and delete the nvidia driver
+  provisioner "shell" {
+    inline_shebang = "/bin/bash"
+    inline = [<<EOF
+        if [ -n "$DRIVER_PATH" ]; then
+            apt-get update --fix-missing;
+            dpkg -i "$DRIVER_PATH";
+            apt --fix-broken install --yes;
+            rm -f \"$DRIVER_PATH\";
+        fi
+    EOF
+    ]
+    environment_vars = [
+      "DRIVER_PATH=${local.install_nvidia_driver ? local.nvidia_driver_remote_dest_path : ""}"
+    ]
+  }
 
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"

@@ -1,6 +1,6 @@
 variable "appliance_name" {
   type    = string
-  default = "Ray"
+  default = "Capi"
 }
 
 variable "input_dir" {
@@ -17,11 +17,6 @@ variable "headless" {
 }
 
 variable "version" {
-  type    = string
-  default = ""
-}
-
-variable "nvidia_driver_path" {
   type    = string
   default = ""
 }

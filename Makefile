@@ -46,12 +46,16 @@ packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKEa.qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2
 	@$(INFO) "Packer service_OneKEa done"
 
+packer-service_Ray: PKR_VAR_nvidia_driver_path := $(NVIDIA_DRIVER_PATH)
 packer-service_Ray: packer-ubuntu2404 $(DIR_EXPORT)/service_Ray.qcow2
 	@$(INFO) "Packer service_Ray done"
 
 packer-service_Dynamo: PKR_VAR_nvidia_driver_path := $(NVIDIA_DRIVER_PATH)
 packer-service_Dynamo: packer-ubuntu2404 $(DIR_EXPORT)/service_Dynamo.qcow2
 	@$(INFO) "Packer service_Dynamo done"
+
+packer-service_Capi: packer-ubuntu2204 $(DIR_EXPORT)/service_Capi.qcow2
+	@$(INFO) "Packer service_Capi done"
 
 # run packer build for given distro or service
 $(DIR_EXPORT)/service_OneKE_storage.qcow2:

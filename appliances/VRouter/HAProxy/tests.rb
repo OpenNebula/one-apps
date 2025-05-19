@@ -38,10 +38,13 @@ RSpec.describe self do
         ENV['ONEAPP_VNF_HAPROXY_LB1_SERVER1_HOST'] = '10.2.200.20'
         ENV['ONEAPP_VNF_HAPROXY_LB1_SERVER1_PORT'] = '54321'
 
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = ''
+
         load './main.rb'; include Service::HAProxy
 
         expect(Service::HAProxy::ONEAPP_VNF_HAPROXY_ENABLED).to be true
         expect(Service::HAProxy::ONEAPP_VNF_HAPROXY_REFRESH_RATE).to eq '30'
+        expect(Service::HAProxy::ONEAPP_VNF_LB_ONEGATE_API).to eq 'auto'
 
         Service::HAProxy.const_set :VROUTER_ID, '86'
 
@@ -152,6 +155,9 @@ RSpec.describe self do
 
         ENV['ONEAPP_VNF_HAPROXY_LB1_IP'] = '10.2.11.86'
         ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '8686'
+
+        # Internally forced to 'VROUTER' since not in OneFlow
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'service'
 
         (vnets ||= []) << JSON.parse(<<~'VNET0')
             {
@@ -283,6 +289,9 @@ RSpec.describe self do
 
         ENV['ONEAPP_VNF_HAPROXY_LB1_IP'] = '10.2.11.86'
         ENV['ONEAPP_VNF_HAPROXY_LB1_PORT'] = '4321'
+
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'auto'
+        ENV['SERVICE_ID'] = '123'
 
         (vms ||= []) << JSON.parse(<<~'VM0')
             {
@@ -429,4 +438,100 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
     end
+
+  it 'should render servers.cfg using VR API (dynamic/OneFlow)' do
+      clear_env
+
+      ENV['ONEAPP_VNF_HAPROXY_ENABLED'] = 'YES'
+      ENV['ONEAPP_VNF_HAPROXY_ONEGATE_ENABLED'] = 'YES'
+
+      ENV['ONEAPP_VNF_HAPROXY_REFRESH_RATE'] = ''
+
+      ENV['ONEAPP_VNF_HAPROXY_LB0_IP'] = '10.2.11.86'
+      ENV['ONEAPP_VNF_HAPROXY_LB0_PORT'] = '6969'
+
+      ENV['ONEAPP_VNF_HAPROXY_LB0_SERVER0_HOST'] = '10.2.11.200'
+      ENV['ONEAPP_VNF_HAPROXY_LB0_SERVER0_PORT'] = '1234'
+
+      ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'vrouter'
+
+      (vnets ||= []) << JSON.parse(<<~'VNET0')
+          {
+            "VNET": {
+              "ID": "0",
+              "AR_POOL": {
+                "AR": [
+                  {
+                    "AR_ID": "0",
+                    "LEASES": {
+                      "LEASE": [
+                        {
+                          "IP": "10.2.11.201",
+                          "MAC": "02:00:0a:02:0b:ca",
+                          "VM": "167",
+                          "NIC_NAME": "NIC0",
+                          "BACKEND": "YES",
+
+                          "ONEGATE_HAPROXY_LB0_IP": "10.2.11.86",
+                          "ONEGATE_HAPROXY_LB0_PORT": "6969",
+                          "ONEGATE_HAPROXY_LB0_SERVER_HOST": "10.2.11.201",
+                          "ONEGATE_HAPROXY_LB0_SERVER_PORT": "1234",
+                          "ONEGATE_HAPROXY_LB0_SERVER_WEIGHT": "1"
+                        },
+                        {
+                          "IP": "10.2.11.200",
+                          "MAC": "02:00:0a:02:0b:c8",
+                          "VM": "167",
+                          "NIC_NAME": "NIC0",
+                          "BACKEND": "YES",
+
+                          "ONEGATE_HAPROXY_LB0_IP": "10.2.11.86",
+                          "ONEGATE_HAPROXY_LB0_PORT": "6969",
+                          "ONEGATE_HAPROXY_LB0_SERVER_HOST": "10.2.11.200",
+                          "ONEGATE_HAPROXY_LB0_SERVER_PORT": "1234",
+                          "ONEGATE_HAPROXY_LB0_SERVER_WEIGHT": "1"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+      VNET0
+
+      load './main.rb'; include Service::HAProxy
+
+      Service::HAProxy.const_set :VROUTER_ID, '87'
+      Service::HAProxy.const_set :SERVICE_ID, '124'
+
+      allow(Service::HAProxy).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+      allow(Service::HAProxy).to receive(:addrs_to_nics).and_return({
+          '10.2.11.86' => ['eth0']
+      })
+
+      clear_vars Service::HAProxy
+
+      output = <<~'DYNAMIC'
+          frontend lb0_6969
+              mode tcp
+              bind 10.2.11.86:6969
+              default_backend lb0_6969
+
+          backend lb0_6969
+              mode tcp
+              balance roundrobin
+              option tcp-check
+              server lb0_10.2.11.200_1234 10.2.11.200:1234 check observe layer4 error-limit 50 on-error mark-down
+              server lb0_10.2.11.201_1234 10.2.11.201:1234 check observe layer4 error-limit 50 on-error mark-down
+      DYNAMIC
+
+      Dir.mktmpdir do |dir|
+          haproxy_vars = Service::HAProxy.extract_backends vnets
+          Service::HAProxy.render_servers_cfg haproxy_vars, basedir: dir
+          result = File.read "#{dir}/servers.cfg"
+          puts "#{output.strip}"
+          expect(result.strip).to eq output.strip
+      end
+  end
 end
