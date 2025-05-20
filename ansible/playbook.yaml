@@ -1,0 +1,26 @@
+- name: Install OS packages
+  ansible.builtin.package:
+    name: "{{ _packages[ansible_os_family] }}"
+    update_cache: true
+  vars:
+    _packages:
+      Debian: [bash, cloud-utils, genisoimage, libguestfs0, libguestfs-tools, make, nginx, qemu-utils, rpm, rsync, ruby, qemu, qemu-system-x86]
+  register: package
+  until: package is success
+  retries: 3
+  delay: 10
+
+- name: Install packer binary
+  ansible.builtin.unarchive:
+    src: "https://releases.hashicorp.com/packer/{{ _version }}/packer_{{ _version }}_linux_amd64.zip"
+    dest: /usr/local/bin/
+    remote_src: true
+    creates: /usr/local/bin/packer
+  vars:
+    _version: 1.12.0
+
+- name: Install ruby gems
+  ansible.builtin.shell:
+    cmd: gem install --no-document backports fpm
+    executable: /bin/bash
+    creates: /usr/local/bin/fpm
