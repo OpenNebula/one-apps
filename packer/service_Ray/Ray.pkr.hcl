@@ -21,10 +21,15 @@ source "qemu" "Ray" {
   memory      = 4096
   accelerator = "kvm"
 
-  iso_url      = "export/ubuntu2404.qcow2"
+  iso_url      = lookup(lookup(var.arch_parameter_map, var.arch, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless
+
+  firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
+  use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
+  machine_type = lookup(lookup(var.arch_vars, var.arch, {}), "machine_type", "")
+  qemu_binary  = lookup(lookup(var.arch_vars, var.arch, {}), "qemu_binary", "")
 
   disk_image       = true
   disk_cache       = "unsafe"
