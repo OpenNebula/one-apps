@@ -9,11 +9,14 @@ end
 require 'erb'
 require 'yaml'
 require 'fileutils'
+require 'etc'
 
 BASE_PATH     = '/etc/one-appliance/service.d/Ray'
 VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
 WEB_PATH      = '/etc/one-appliance/service.d/Ray/client'
 PYTHON_VENV   = 'source /root/ray_env/bin/activate'
+
+
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_RAY_MODULES = 'default,serve'
@@ -21,6 +24,9 @@ ONEAPP_RAY_RELEASE_VERSION = env :ONEAPP_RAY_RELEASE_VERSION,'2.45.0'
 ONEAPP_RAY_JINJA2_VERSION = env :ONEAPP_RAY_JINJA2_VERSION, '3.1.6'
 ONEAPP_RAY_VLLM_VERSION = env :ONEAPP_RAY_VLLM_VERSION, '0.8.5'
 ONEAPP_RAY_FLASK_VERSION = env :ONEAPP_RAY_FLASK_VERSION,'3.1.0'
+# looks that bitsandbytes ended compatibility with arm64 in 0.42.0
+BITSANDBYTES_DEFAULT_VERSION = RbConfig::CONFIG['host_cpu'] =~ /arm64|aarch64/ ? '0.42.0' : '0.45.0'
+ONEAPP_RAY_BITSANDBYTES_VERSION = env :ONEAPP_RAY_BITSANDBYTES_VERSION, BITSANDBYTES_DEFAULT_VERSION
 
 ONEAPP_RAY_PORT    = env :ONEAPP_RAY_PORT, '6379'
 
@@ -112,7 +118,8 @@ ONEAPP_RAY_MODEL_PROMPT      = env :ONEAPP_RAY_MODEL_PROMPT, \
 # Not exposed parameters, this should be computed from VCPU
 # ------------------------------------------------------------------------------
 ONEAPP_RAY_CHATBOT_REPLICAS = env :ONEAPP_RAY_CHATBOT_REPLICAS, '1'
-ONEAPP_RAY_CHATBOT_CPUS     = env :ONEAPP_RAY_CHATBOT_CPUS, '5.0'
+DEFAULT_RAY_CHATBOT_CPUS = Etc.nprocessors # gets the number of logical processors
+ONEAPP_RAY_CHATBOT_CPUS     = env :ONEAPP_RAY_CHATBOT_CPUS, DEFAULT_RAY_CHATBOT_CPUS
 
 def route
     if ONEAPP_RAY_API_OPENAI
