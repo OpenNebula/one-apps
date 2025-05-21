@@ -25,7 +25,7 @@ applications:
       - torch==2.5.1
       - torchvision
       - accelerate
-      - bitsandbytes==0.45.0
+      - bitsandbytes==<%= ONEAPP_RAY_BITSANDBYTES_VERSION %>
   args:
     model_id: "<%= ONEAPP_RAY_MODEL_ID %>"
 <% if ONEAPP_RAY_MODEL_TOKEN && !ONEAPP_RAY_MODEL_TOKEN.empty? -%>

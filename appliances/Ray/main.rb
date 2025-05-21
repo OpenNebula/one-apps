@@ -10,6 +10,7 @@ require_relative 'config'
 
 require 'socket'
 require 'open3'
+require 'rbconfig'
 
 # Base module for OpenNebula services
 module Service
@@ -23,6 +24,9 @@ module Service
 
         def install
             msg :info, 'Ray::install'
+            if RbConfig::CONFIG['host_cpu'] =~ /arm64|aarch64/
+                install_aarch64_dependencies
+            end
             install_dependencies
             msg :info, 'Installation completed successfully'
         end
@@ -87,6 +91,16 @@ module Service
             end
         end
 
+    end
+
+    def install_aarch64_dependencies
+        #dependencies for building vllm in aarch64: https://docs.vllm.ai/en/latest/getting_started/installation/cpu.html?device=arm
+        puts bash <<~SCRIPT
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y gcc-12 g++-12 libnuma-dev
+            update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+        SCRIPT
     end
 
     def install_dependencies
