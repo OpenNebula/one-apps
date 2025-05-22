@@ -45,7 +45,7 @@ Copyright 2002-2025, OpenNebula Project, OpenNebula Systems
 
 The Linux contextualization package has benefited immensely from incredible contributions by numerous developers. We extend our thanks to: [Th0masL](https://github.com/Th0masL), [baby-gnu](https://github.com/baby-gnu), [Moin](https://github.com/5u623l20), [Remy Zandwijk](https://github.com/rpmzandwijk), [Sergio Milanese](https://github.com/openmilanese), Alexandre Derumier, Andrei Kvapil, Deyan Chepishev, and Daniel Dehennin.
 
-The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula).
+The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula). Later, [Lukáš Fázik](https://github.com/lukasfazik) significantly improved Windows context packages and added Packer build support in one-apps, streamlining the image automation.
 
 ## Acknowledgements
 
