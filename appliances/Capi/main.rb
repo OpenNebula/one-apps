@@ -162,7 +162,7 @@ module Capi
             clusterTopology: true
             machinePool: true
           fetchConfig:
-            url: 'https://github.com/OpenNebula/cluster-api-provider-opennebula/releases/download/#{CAPI_CAPONE_VERSION}/infrastructure-components.yaml'
+            url: '#{CAPI_CAPONE_FETCH_URL}'
           name: opennebula
           type: infrastructure
           version: '#{CAPI_CAPONE_VERSION}'
