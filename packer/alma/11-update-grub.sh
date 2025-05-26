@@ -55,4 +55,7 @@ grub2-mkconfig -o /boot/grub2/grub.cfg
 
 sync
 
+# Avoid  reboot vs. packer-ssh-reconnect race
+systemctl stop sshd
+
 reboot

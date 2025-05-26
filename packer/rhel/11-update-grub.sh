@@ -53,6 +53,12 @@ dracut --force "$INITRAMFS_IMG" "$INITRAMFS_VER"
 
 grub2-mkconfig -o /boot/grub2/grub.cfg
 
+# force relinux relabel
+fixfiles -F onboot
+
 sync
+
+# Avoid  reboot vs. packer-ssh-reconnect race
+systemctl stop sshd
 
 reboot

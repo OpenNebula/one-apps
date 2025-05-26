@@ -10,7 +10,7 @@ systemctl disable kdump.service
 # Remove old kernels.
 dnf remove -y $(dnf repoquery --installonly --latest-limit=-1 -q)
 
-dnf remove -y linux-firmware
+dnf remove -y linux-firmware insights-client
 
 dnf clean -y all
 
