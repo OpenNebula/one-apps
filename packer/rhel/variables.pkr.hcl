@@ -44,5 +44,10 @@ variable "rhel" {
       iso_url      = ""
       iso_checksum = ""
     }
+
+    "10" = {
+      iso_url      = ""
+      iso_checksum = ""
+    }
   }
 }

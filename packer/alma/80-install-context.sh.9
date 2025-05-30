@@ -13,10 +13,6 @@ dnf install -y "$LATEST" haveged
 
 systemctl enable haveged
 
-# >>> Apply only on one-context >= 6.1 >>>
-if ! rpm -q --queryformat '%{VERSION}' one-context | grep -E '^([1-5]\.|6\.0\.)'; then
-    dnf install -y --setopt=install_weak_deps=False NetworkManager systemd-networkd
-fi
-# <<< Apply only on one-context >= 6.1 <<<
+dnf install -y --setopt=install_weak_deps=False NetworkManager systemd-networkd
 
 sync
