@@ -49,4 +49,4 @@ The Windows contextualization package is largely based upon the work by André M
 
 ## Acknowledgements
 
-Some of the appliances included in this repository have been made possible through the funding of the following innovation project: [ONEedge5G](https://opennebula.io/innovation/oneedge5g/).
+Some of the appliances included in this repository have been made possible through the funding of the following innovation projects: [ONEnextgen](http://onenextgen.eu/) and [ONEedge5G](https://opennebula.io/innovation/oneedge5g/).
