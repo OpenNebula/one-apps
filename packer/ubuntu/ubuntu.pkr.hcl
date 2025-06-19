@@ -15,6 +15,7 @@ locals {
   disk_size = lookup({
     "2204oneke"         = 3072
     "2204oneke.aarch64" = 3072
+    "2204"              = 4096
   }, var.version, 0)
 }
 
