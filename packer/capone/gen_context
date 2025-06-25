@@ -1,0 +1,33 @@
+#!/bin/bash
+set -eux -o pipefail
+
+SCRIPT=$(cat <<'MAINEND'
+gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
+BEGIN { update = "PasswordAuthentication yes" }
+/^[#\s]*PasswordAuthentication\s/ { $0 = update; found = 1 }
+{ print }
+ENDFILE { if (!found) print update }
+EOF
+
+gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
+BEGIN { update = "PermitRootLogin yes" }
+/^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
+{ print }
+ENDFILE { if (!found) print update }
+EOF
+
+systemctl reload sshd
+
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
+MAINEND
+)
+
+cat<<EOF
+ETH0_METHOD='dhcp'
+NETWORK='YES'
+SET_HOSTNAME='capone'
+PASSWORD='opennebula'
+ETH0_MAC='00:11:22:33:44:55'
+NETCFG_TYPE='nm'
+START_SCRIPT_BASE64="$(echo "$SCRIPT" | base64 -w0)"
+EOF

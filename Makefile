@@ -41,6 +41,9 @@ packer-service_MinIO: packer-ubuntu2204 $(DIR_EXPORT)/service_MinIO.qcow2
 packer-service_OneKE: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKE.qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2
 	@$(INFO) "Packer service_OneKE done"
 
+packer-capone: packer-ubuntu2204oneke $(DIR_EXPORT)/capone.qcow2
+	@$(INFO) "Packer capone done"
+
 # airgapped version
 packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKEa.qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2
