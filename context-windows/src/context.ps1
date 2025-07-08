@@ -164,6 +164,11 @@ function Wait-ForContext {
         # Terminate the wait-loop only when context.sh is found and changed
         if (![string]::IsNullOrEmpty($contextPaths.contextPath) -and (Test-Path $contextPaths.contextPath)) {
 
+            # Trigger partition resize regardless of context changing
+            $context = Get-ContextData $contextPaths.contextPath
+            Resize-PartitionSet $context
+            Remove-Variable context
+
             # Context must differ
             if (Test-ContextChanged $contextPaths.contextPath $Checksum) {
                 Break
@@ -1555,7 +1560,6 @@ do {
     $context = Get-ContextData $contextPaths.contextScriptPath
 
     # Execute the contextualization actions
-    Resize-PartitionSet $context
     Set-TimeZone $context
     Add-LocalUser $context
     Enable-RemoteDesktop
