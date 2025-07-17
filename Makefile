@@ -68,6 +68,9 @@ packer-service_Dynamo.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_D
 packer-service_Capi: packer-ubuntu2204 $(DIR_EXPORT)/service_Capi.qcow2
 	@$(INFO) "Packer service_Capi done"
 
+packer-service_Capi.aarch64: packer-ubuntu2204.aarch64 $(DIR_EXPORT)/service_Capi.aarch64.qcow2
+	@$(INFO) "Packer service_Capi.aarch64 done"
+
 # run packer build for given distro or service
 $(DIR_EXPORT)/service_OneKE_storage.qcow2:
 	qemu-img create -f qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2 10G
