@@ -652,7 +652,7 @@ when "vm"
             exit -1
         end
 
-        data = URI.encode_www_form(options)
+        data = options.to_json
 
         if ARGV[2]
             response = client.put("/vms/" + ARGV[2], data)
