@@ -7,9 +7,12 @@
 : "${KUBEVIP_CLOUD_PROVIDER_VERSION:=0.0.11}"
 : "${KUBEVIP_VERSION:=0.8.9}"
 : "${FLANNEL_VERSION:=0.26.3}"
+: "${ALT_ARCH:=}"
 
 exec 1>&2
 set -eux -o pipefail
+
+[[ -n "$ALT_ARCH" ]]
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -28,21 +31,21 @@ EOF
 
 install -m u=rwx,go=rx -d /etc/systemd/system/kubelet.service.d/
 
-curl -fsSL "https://get.helm.sh/helm-v$HELM_VERSION-linux-amd64.tar.gz" \
+curl -fsSL "https://get.helm.sh/helm-v$HELM_VERSION-linux-$ALT_ARCH.tar.gz" \
 | tar -xz -f- -C /usr/local/bin/ --strip-components=1 --no-same-owner \
-  linux-amd64/helm
+  "linux-$ALT_ARCH/helm"
 
-curl -fsSL "https://github.com/kubernetes-sigs/cri-tools/releases/download/v$CRICTL_VERSION/crictl-v$CRICTL_VERSION-linux-amd64.tar.gz" \
+curl -fsSL "https://github.com/kubernetes-sigs/cri-tools/releases/download/v$CRICTL_VERSION/crictl-v$CRICTL_VERSION-linux-$ALT_ARCH.tar.gz" \
 | tar -xz -f- -C /usr/local/bin/ --no-same-owner \
   crictl
 
-curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubectl" \
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/$ALT_ARCH/kubectl" \
 | install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubectl
 
-curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubeadm" \
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/$ALT_ARCH/kubeadm" \
 | install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubeadm
 
-curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/amd64/kubelet" \
+curl -fsSL "https://dl.k8s.io/release/v$KUBERNETES_VERSION/bin/linux/$ALT_ARCH/kubelet" \
 | install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/kubelet
 
 ln -s /usr/local/bin/kubelet /usr/bin/kubelet # so no modifications are needed in kubelet.service
