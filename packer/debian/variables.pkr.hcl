@@ -44,5 +44,15 @@ variable "debian" {
       iso_url      = "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-generic-arm64.qcow2"
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"
     }
+
+    "13" = {
+      iso_url      = "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-generic-amd64.qcow2"
+      iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"
+    }
+
+    "13.aarch64" = {
+      iso_url      = "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-generic-arm64.qcow2"
+      iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"
+    }
   }
 }
