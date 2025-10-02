@@ -3,16 +3,19 @@
 : "${CNI_PLUGINS_VERSION:=1.6.2}"
 : "${CONTAINERD_VERSION:=1.7.25}"
 : "${RUNC_VERSION:=1.2.4}"
+: "${ALT_ARCH:=}"
 
 exec 1>&2
 set -eux -o pipefail
 
+[[ -n $ALT_ARCH ]]
+
 install -m u=rwx,go=rx -d /etc/containerd/ /opt/cni/{,bin/}
 
-curl -fsSL "https://github.com/opencontainers/runc/releases/download/v$RUNC_VERSION/runc.amd64" \
+curl -fsSL "https://github.com/opencontainers/runc/releases/download/v$RUNC_VERSION/runc.$ALT_ARCH" \
 | install -m u=rwx,go=rx /dev/fd/0 /usr/local/bin/runc
 
-curl -fsSL "https://github.com/containernetworking/plugins/releases/download/v$CNI_PLUGINS_VERSION/cni-plugins-linux-amd64-v$CNI_PLUGINS_VERSION.tgz" \
+curl -fsSL "https://github.com/containernetworking/plugins/releases/download/v$CNI_PLUGINS_VERSION/cni-plugins-linux-$ALT_ARCH-v$CNI_PLUGINS_VERSION.tgz" \
 | tar -xz -f- -C /opt/cni/bin/ --no-same-owner \
   ./bandwidth \
   ./bridge \
@@ -33,7 +36,7 @@ curl -fsSL "https://github.com/containernetworking/plugins/releases/download/v$C
   ./vlan \
   ./vrf
 
-curl -fsSL "https://github.com/containerd/containerd/releases/download/v$CONTAINERD_VERSION/containerd-static-$CONTAINERD_VERSION-linux-amd64.tar.gz" \
+curl -fsSL "https://github.com/containerd/containerd/releases/download/v$CONTAINERD_VERSION/containerd-static-$CONTAINERD_VERSION-linux-$ALT_ARCH.tar.gz" \
 | tar -xz -f- -C /usr/local/bin/ --strip-components=1 --no-same-owner \
   bin/containerd \
   bin/containerd-shim-runc-v2 \
