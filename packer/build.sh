@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -e
 
 DISTRO_NAME=$1                           # e.g. debian
 DISTRO_VER=${2%\.*}                      # e.g. 11 // cut off arch suffix

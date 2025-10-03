@@ -31,30 +31,10 @@ module Service
         def configure
             msg :info, 'Vllm::configure'
 
-            load_application_file
-
-            generate_config_file
-
-            web_app = if ONEAPP_VLLM_API_OPENAI
-                          'web_client_openai.py'
-                      else
-                          'web_client.py'
-                      end
-
             run_vllm
 
             if ONEAPP_VLLM_API_WEB
-                gen_web_config
-
-                pid = spawn(
-                    {},
-                    "/usr/bin/bash",
-                    "-c",
-                    "#{PYTHON_VENV}; cd #{WEB_PATH}; python3 #{web_app}",
-                    :pgroup => true
-                )
-
-                Process.detach(pid)
+                run_api_web
             end
 
             msg :info, 'Configuration completed successfully'
@@ -68,7 +48,7 @@ module Service
                 msg :info, 'Updating VM with inference endpoint'
 
                 ip  = env('ETH0_IP', '0.0.0.0')
-                url = "http://#{ip}:#{ONEAPP_VLLM_API_PORT}#{route}"
+                url = "http://#{ip}:#{ONEAPP_VLLM_API_PORT}#{VLLM_API_ROUTE}"
 
                 bash "onegate vm update --data \"ONEAPP_VLLM_CHATBOT_API=#{url}\""
 
@@ -99,6 +79,8 @@ module Service
 
         install_gpu_dependencies
         install_llvm_gpu
+
+        install_web_dependencies
     end
 
     def install_common_dependencies
@@ -125,7 +107,8 @@ module Service
         puts bash <<~SCRIPT
             cd /root
             uv venv vllm_cpu --python 3.12 --seed
-            #{source_python_venv_str}
+
+            source #{PYTHON_VENV_CPU_PATH}/bin/activate
 
             git clone --branch v#{ONEAPP_VLLM_RELEASE_VERSION} https://github.com/vllm-project/vllm.git vllm_source
             cd vllm_source
@@ -149,47 +132,65 @@ module Service
     def build_llvm_cpu
         puts bash <<~SCRIPT
             cd /root
-            uv venv vllm_cpu --python 3.12 --seed
-            #{source_python_venv_str}
+            uv venv #{PYTHON_VENV_CPU_PATH} --python 3.12 --seed
+
+            source #{PYTHON_VENV_CPU_PATH}/bin/activate
 
             git clone --branch v#{ONEAPP_VLLM_RELEASE_VERSION} https://github.com/vllm-project/vllm.git vllm_source
             cd vllm_source
 
             uv pip install -r requirements/cpu-build.txt --torch-backend cpu --index-strategy unsafe-best-match
-            uv pip install -r requirements/cpu.txt --torch-backend cpu
+            uv pip install -r requirements/cpu.txt --torch-backend cpu --index-strategy unsafe-best-match
 
             VLLM_TARGET_DEVICE=cpu uv pip install . --no-build-isolation
         SCRIPT
     end
 
     def install_gpu_dependencies
+        # return if drivers were already provided in the base image
+        return if INSTALL_DRIVERS != 'true'
+
         # Installing 570 branch drivers as they are available with CUDA 12.8
         # which are necessary for running on NVIDIA Blackwell GPUs
         # https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html#pre-built-wheels
         puts bash <<~SCRIPT
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            apt install ubuntu-drivers-common -y
-            ubuntu-drivers install --gpgpu nvidia:570-server
-            apt install nvidia-utils-570-server -y
-            modprobe nvidia
+            apt install nvidia-driver-570-server nvidia-utils-570-server -y
         SCRIPT
     end
 
     def install_llvm_gpu
         puts bash <<~SCRIPT
             cd /root
-            uv venv vllm_gpu --python 3.12 --seed
-            #{source_python_venv_str}
+            uv venv #{PYTHON_VENV_GPU_PATH} --python 3.12 --seed
 
+            source #{PYTHON_VENV_GPU_PATH}/bin/activate
             uv pip install vllm==#{ONEAPP_VLLM_RELEASE_VERSION} --torch-backend=auto
+        SCRIPT
+    end
+
+
+    def install_web_dependencies
+        puts bash <<~SCRIPT
+            cd /root
+            uv venv #{PYTHON_VENV_WEB_PATH} --python 3.12 --seed
+
+            source #{PYTHON_VENV_WEB_PATH}/bin/activate
+            pip install flask pyyaml openai
         SCRIPT
     end
 
 
     def source_python_venv_str
         gpus = Service.gpu_count
-        gpus > 0 ? "source #{PYTHON_VENV_GPU_PATH}/bin/activate" : "source #{PYTHON_VENV_CPU_PATH}/bin/activate"
+        if gpus > 0
+            msg :info, "GPU(s) detected: #{gpus}, using GPU Python environment"
+            return "source #{PYTHON_VENV_GPU_PATH}/bin/activate"
+        else
+            msg :info, "No GPU detected, using CPU Python environment"
+            return "source #{PYTHON_VENV_CPU_PATH}/bin/activate"
+        end
     end
 
     def run_vllm
@@ -200,6 +201,22 @@ module Service
             "/usr/bin/bash",
             "-c",
             "#{source_python_venv_str}; vllm serve #{ONEAPP_VLLM_MODEL_ID} --gpu-memory-utilization 0.8 #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
+            :pgroup => true
+        )
+
+        Process.detach(pid)
+    end
+
+    def run_api_web
+        msg :info, "Starting web application..."
+
+        gen_web_config
+
+        pid = spawn(
+            {},
+            "/usr/bin/bash",
+            "-c",
+            "source #{PYTHON_VENV_WEB_PATH}/bin/activate; cd #{WEB_PATH}; python3 web_client_openai.py",
             :pgroup => true
         )
 
@@ -266,9 +283,13 @@ module Service
     def self.gpu_count
         stdout, _stderr, status = Open3.capture3('nvidia-smi --query-gpu=count' \
                                                  ' --format=csv,noheader')
-        return 0 unless status.success?
+        unless status.success?
+            msg :warn, "nvidia-smi command failed, assuming 0 GPUs"
+            return 0
+        end
         stdout.strip.to_i
-    rescue StandardError
+    rescue StandardError => e
+        msg :warn, "Error detecting GPU count: #{e.message}"
         0
     end
 
