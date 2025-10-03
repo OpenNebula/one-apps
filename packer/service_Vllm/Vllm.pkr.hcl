@@ -68,7 +68,7 @@ locals {
 # Essentially, a bunch of scripts are pulled from ./appliances and placed inside the Guest OS
 # There are shared libraries for ruby and bash. Bash is used in this example
 build {
-  sources = ["source.qemRay"]
+  sources = ["source.qemu.Vllm"]
 
   # revert insecure ssh options done by context start_script
   provisioner "shell" {
@@ -182,6 +182,10 @@ build {
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+    environment_vars = [
+        # Set false if the drivers were installed in the previous step
+        "INSTALL_DRIVERS=${local.install_nvidia_driver ? "false" : "true"}",
+    ]
   }
 
   # Remove machine ID from the VM and get it ready for continuous cloud use
