@@ -6,10 +6,8 @@ rescue LoadError
     require_relative '../lib/helpers'
 end
 
-require 'erb'
 require 'yaml'
 require 'fileutils'
-require 'etc'
 
 BASE_PATH     = '/etc/one-appliance/service.d/Vllm'
 VLLM_LOG_FILE = '/var/log/one-appliance/vllm.log'
@@ -22,7 +20,7 @@ VLLM_API_ROUTE='/v1'
 
 # These variables are not exposed to the user and only used during install
 ONEAPP_VLLM_RELEASE_VERSION = env :ONEAPP_VLLM_RELEASE_VERSION, '0.10.2'
-ONEAPP_VLLM_CUDA_VERSION   = env :ONEAPP_VLLM_CUDA_VERSION, '128'
+ONEAPP_VLLM_CUDA_VERSION   = env :ONEAPP_VLLM_CUDA_VERSION, '129'
 INSTALL_DRIVERS            = env :INSTALL_DRIVERS, 'true'
 
 # ------------------------------------------------------------------------------
@@ -39,26 +37,32 @@ ONEAPP_VLLM_API_WEB    = env :ONEAPP_VLLM_API_WEB, 'YES'
 # ------------------------------------------------------------------------------
 # Model Parameters
 # ------------------------------------------------------------------------------
-#  ONEAPP_VLLM_MODEL_ID: Name of the model in Hugging Face
+#  ONEAPP_VLLM_MODEL_ID: Name of the model in Hugging Face.
 #
-#  ONEAPP_VLLM_MODEL_TOKEN: HF API token
+#  ONEAPP_VLLM_MODEL_TOKEN: Hugging Face API token.
 #
 #  ONEAPP_VLLM_MODEL_QUANTIZATION 0,4,8 Use quantization for the LLM weights.
 #  (8bits only supported by Ray, 0 = No quantization)
 #
-#  ONEAPP_VLLM_MODEL_MAX_NEW_TOKENS Model context length for prompt and output.
+#  ONEAPP_VLLM_MODEL_MAX_LENGTH Model context length for prompt and output.
+#  Defaults to "1024".
 #
-#  The following model parameters are only for Ray deployments without OpenAI:
+#  ONEAPP_VLLM_ENFORCE_EAGER <YES|NO> Whether to always use eager-mode
+#  PyTorch in vllm.
 #
-#  ONEAPP_VLLM_MODEL_TEMPERATURE
+#  ONEAPP_VLLM_SLEEP_MODE <YES|NO> Whether to enable sleep mode when GPU is used.
 #
-#  ONEAPP_VLLM_MODEL_PROMPT
+#  ONEAPP_VLLM_GPU_MEMORY_UTILIZATION Float (0.0, 1.0] Fraction of GPU memory to use.
+#  Defaults to "0.9".
 # ------------------------------------------------------------------------------
 ONEAPP_VLLM_MODEL_ID    = env :ONEAPP_VLLM_MODEL_ID, 'Qwen/Qwen2.5-1.5B-Instruct'
 ONEAPP_VLLM_MODEL_TOKEN = env :ONEAPP_VLLM_MODEL_TOKEN, ''
 
-ONEAPP_VLLM_MODEL_QUANTIZATION = env :ONEAPP_VLLM_MODEL_QUANTIZATION, 0
-ONEAPP_VLLM_MODEL_MAX_NEW_TOKENS     = env :ONEAPP_VLLM_MODEL_MAX_NEW_TOKENS, 1024
+ONEAPP_VLLM_MODEL_QUANTIZATION      = env :ONEAPP_VLLM_MODEL_QUANTIZATION, 0
+ONEAPP_VLLM_MODEL_MAX_LENGTH        = env :ONEAPP_VLLM_MODEL_MAX_LENGTH, 1024
+ONEAPP_VLLM_ENFORCE_EAGER           = env :ONEAPP_VLLM_ENFORCE_EAGER, 'NO'
+ONEAPP_VLLM_SLEEP_MODE              = env :ONEAPP_VLLM_SLEEP_MODE, 'NO'
+ONEAPP_VLLM_GPU_MEMORY_UTILIZATION  = env :ONEAPP_VLLM_GPU_MEMORY_UTILIZATION, 0.9
 
 def gen_web_config
     config = <<~CONFIG

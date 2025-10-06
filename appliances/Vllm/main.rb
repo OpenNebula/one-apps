@@ -33,7 +33,7 @@ module Service
 
             run_vllm
 
-            if ONEAPP_VLLM_API_WEB
+            if ONEAPP_VLLM_API_WEB == 'YES'
                 run_api_web
             end
 
@@ -52,7 +52,7 @@ module Service
 
                 bash "onegate vm update --data \"ONEAPP_VLLM_CHATBOT_API=#{url}\""
 
-                if ONEAPP_VLLM_API_WEB
+                if ONEAPP_VLLM_API_WEB == 'YES'
                     url = "http://#{ip}:5000"
                     bash "onegate vm update --data \"ONEAPP_VLLM_CHATBOT_WEB=#{url}\""
                 end
@@ -69,16 +69,17 @@ module Service
 
         install_common_dependencies
 
+        install_gpu_dependencies
+
         if RbConfig::CONFIG['host_cpu'] =~ /arm64|aarch64/
             install_cpu_aarch64_dependencies
             build_llvm_cpu_aarch64
+            install_llvm_gpu_aarch64
         else
             install_cpu_dependencies
             build_llvm_cpu
+            install_llvm_gpu
         end
-
-        install_gpu_dependencies
-        install_llvm_gpu
 
         install_web_dependencies
     end
@@ -166,7 +167,27 @@ module Service
             uv venv #{PYTHON_VENV_GPU_PATH} --python 3.12 --seed
 
             source #{PYTHON_VENV_GPU_PATH}/bin/activate
-            uv pip install vllm==#{ONEAPP_VLLM_RELEASE_VERSION} --torch-backend=auto
+
+            export VLLM_VERSION=#{ONEAPP_VLLM_RELEASE_VERSION}
+            export CUDA_VERSION=#{ONEAPP_VLLM_CUDA_VERSION}
+            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux1_x86_64.whl  \
+                --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
+                --index-strategy unsafe-best-match
+        SCRIPT
+    end
+
+    def install_llvm_gpu_aarch64
+        puts bash <<~SCRIPT
+            cd /root
+            uv venv #{PYTHON_VENV_GPU_PATH} --python 3.12 --seed
+
+            source #{PYTHON_VENV_GPU_PATH}/bin/activate
+
+            export VLLM_VERSION=#{ONEAPP_VLLM_RELEASE_VERSION}
+            export CUDA_VERSION=#{ONEAPP_VLLM_CUDA_VERSION}
+            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux2014_aarch64.whl  \
+                --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
+                --index-strategy unsafe-best-match
         SCRIPT
     end
 
@@ -200,7 +221,7 @@ module Service
             { "HF_TOKEN" => ONEAPP_VLLM_MODEL_TOKEN },
             "/usr/bin/bash",
             "-c",
-            "#{source_python_venv_str}; vllm serve #{ONEAPP_VLLM_MODEL_ID} --gpu-memory-utilization 0.8 #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
+            "#{source_python_venv_str}; vllm serve #{ONEAPP_VLLM_MODEL_ID}  #{vllm_arguments} 2>&1 >> #{VLLM_LOG_FILE}",
             :pgroup => true
         )
 
@@ -255,10 +276,18 @@ module Service
 
         if gpus > 0
             arguments << " --tensor-parallel-size #{gpus}"
+            arguments << " --gpu-memory-utilization #{gpu_memory_utilization}"
+            if ONEAPP_VLLM_SLEEP_MODE == 'YES'
+                arguments << " --enable-sleep-mode"
+            end
         end
 
         if quantization == 4
             arguments << " --quantization bitsandbytes --load-format bitsandbytes"
+        end
+
+        if ONEAPP_VLLM_ENFORCE_EAGER == 'YES'
+            arguments << " --enforce-eager"
         end
 
         arguments << " --max-model-len #{model_length}"
@@ -268,10 +297,18 @@ module Service
         arguments
     end
 
-    def model_length
-        Integer(ONEAPP_VLLM_MODEL_MAX_NEW_TOKENS)
+    def gpu_memory_utilization
+        mem = Float(ONEAPP_VLLM_GPU_MEMORY_UTILIZATION)
+        # If the value is out of the allowed range (0.0, 1.0], default to 0.9 for safe GPU memory utilization
+        return 0.9 if mem > 1.0 || mem <= 0.0
     rescue StandardError
-        512
+        0.9
+    end
+
+    def model_length
+        Integer(ONEAPP_VLLM_MODEL_MAX_LENGTH)
+    rescue StandardError
+        1024
     end
 
     def quantization
