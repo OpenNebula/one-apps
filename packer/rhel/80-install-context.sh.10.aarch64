@@ -2,7 +2,7 @@
 
 # Download and install the latest one-context package.
 
-: "${CTXEXT:=el9.noarch.rpm}"
+: "${CTXEXT:=el10.noarch.rpm}"
 
 exec 1>&2
 set -eux -o pipefail
