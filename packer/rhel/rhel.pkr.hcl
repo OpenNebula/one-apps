@@ -18,8 +18,8 @@ source "qemu" "rhel" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = lookup(lookup(var.rhel, var.version, {}), "iso_url", "")
-  iso_checksum = lookup(lookup(var.rhel, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.rhel, "${var.version}.${var.arch}", {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.rhel, "${var.version}.${var.arch}", {}), "iso_checksum", "")
 
   firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
   use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
@@ -65,8 +65,8 @@ build {
 
     # execute *.sh + *.sh.<version> from input_dir
     scripts = sort(concat(
-      [for s in fileset(".", "*.sh") : "${var.input_dir}/${s}"],
-      [for s in fileset(".", "*.sh.${var.version}") : "${var.input_dir}/${s}"]
+      [for s in fileset(".", "**.sh") : "${var.input_dir}/${s}"],
+      [for s in fileset(".", "**.sh.${var.version}") : "${var.input_dir}/${s}"]
     ))
 
     environment_vars = [

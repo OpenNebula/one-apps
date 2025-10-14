@@ -4,8 +4,8 @@ source "qemu" "freebsd" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = lookup(lookup(var.freebsd, var.version, {}), "iso_url", "")
-  iso_checksum = lookup(lookup(var.freebsd, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.freebsd, "${var.version}.${var.arch}", {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.freebsd, "${var.version}.${var.arch}", {}), "iso_checksum", "")
 
   headless = var.headless
 

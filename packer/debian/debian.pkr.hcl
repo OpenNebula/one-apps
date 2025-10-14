@@ -18,8 +18,8 @@ source "qemu" "debian" {
   memory      = 2048
   accelerator = "kvm"
 
-  iso_url      = lookup(lookup(var.debian, var.version, {}), "iso_url", "")
-  iso_checksum = lookup(lookup(var.debian, var.version, {}), "iso_checksum", "")
+  iso_url      = lookup(lookup(var.debian, "${var.version}.${var.arch}", {}), "iso_url", "")
+  iso_checksum = lookup(lookup(var.debian, "${var.version}.${var.arch}", {}), "iso_checksum", "")
 
   firmware     = lookup(lookup(var.arch_vars, var.arch, {}), "firmware", "")
   use_pflash   = lookup(lookup(var.arch_vars, var.arch, {}), "use_pflash", "")
@@ -47,35 +47,4 @@ source "qemu" "debian" {
   ssh_timeout      = "600s"
   shutdown_command = "poweroff"
   vm_name          = "${var.appliance_name}"
-}
-
-build {
-  sources = ["source.qemu.debian"]
-
-  provisioner "shell" { inline = ["mkdir /context"] }
-
-  provisioner "file" {
-    source      = "context-linux/out/"
-    destination = "/context"
-  }
-
-  provisioner "shell" {
-    execute_command = "sudo -iu root {{.Vars}} bash {{.Path}}"
-
-    # execute *.sh + *.sh.<version> from input_dir
-    scripts = sort(concat(
-      [for s in fileset(".", "*.sh") : "${var.input_dir}/${s}"],
-      [for s in fileset(".", "*.sh.${var.version}") : "${var.input_dir}/${s}"]
-    ))
-    expect_disconnect = true
-  }
-
-  post-processor "shell-local" {
-    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
-    environment_vars = [
-      "OUTPUT_DIR=${var.output_dir}",
-      "APPLIANCE_NAME=${var.appliance_name}",
-    ]
-    scripts = ["packer/postprocess.sh"]
-  }
 }

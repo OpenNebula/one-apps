@@ -50,27 +50,3 @@ source "qemu" "capone" {
   shutdown_command = "poweroff"
   vm_name          = "${var.appliance_name}"
 }
-
-build {
-  sources = ["source.qemu.capone"]
-
-  provisioner "shell" {
-    execute_command = "sudo -iu root {{.Vars}} bash {{.Path}}"
-
-    # execute *.sh + *.sh.<version> from input_dir
-    scripts = sort(concat(
-      [for s in fileset(".", "*.sh") : "${var.input_dir}/${s}"],
-      [for s in fileset(".", "*.sh.${var.version}") : "${var.input_dir}/${s}"]
-    ))
-    expect_disconnect = true
-  }
-
-  post-processor "shell-local" {
-    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
-    environment_vars = [
-      "OUTPUT_DIR=${var.output_dir}",
-      "APPLIANCE_NAME=${var.appliance_name}",
-    ]
-    scripts = ["packer/postprocess.sh"]
-  }
-}
