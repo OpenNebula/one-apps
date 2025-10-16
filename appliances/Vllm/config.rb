@@ -18,6 +18,8 @@ PYTHON_VENV_WEB_PATH   = '/root/vllm_web_env'
 
 VLLM_API_ROUTE='/v1'
 
+DEFAULT_GPU_MEMORY_UTILIZATION = "0.9"
+
 # These variables are not exposed to the user and only used during install
 ONEAPP_VLLM_RELEASE_VERSION = env :ONEAPP_VLLM_RELEASE_VERSION, '0.10.2'
 ONEAPP_VLLM_CUDA_VERSION   = env :ONEAPP_VLLM_CUDA_VERSION, '129'
@@ -41,8 +43,8 @@ ONEAPP_VLLM_API_WEB    = env :ONEAPP_VLLM_API_WEB, 'YES'
 #
 #  ONEAPP_VLLM_MODEL_TOKEN: Hugging Face API token.
 #
-#  ONEAPP_VLLM_MODEL_QUANTIZATION 0,4,8 Use quantization for the LLM weights.
-#  (8bits only supported by Ray, 0 = No quantization)
+#  ONEAPP_VLLM_MODEL_QUANTIZATION 0,4 Use quantization for the LLM weights.
+#  (0 = No quantization)
 #
 #  ONEAPP_VLLM_MODEL_MAX_LENGTH Model context length for prompt and output.
 #  Defaults to "1024".
@@ -62,7 +64,7 @@ ONEAPP_VLLM_MODEL_QUANTIZATION      = env :ONEAPP_VLLM_MODEL_QUANTIZATION, 0
 ONEAPP_VLLM_MODEL_MAX_LENGTH        = env :ONEAPP_VLLM_MODEL_MAX_LENGTH, 1024
 ONEAPP_VLLM_ENFORCE_EAGER           = env :ONEAPP_VLLM_ENFORCE_EAGER, 'NO'
 ONEAPP_VLLM_SLEEP_MODE              = env :ONEAPP_VLLM_SLEEP_MODE, 'NO'
-ONEAPP_VLLM_GPU_MEMORY_UTILIZATION  = env :ONEAPP_VLLM_GPU_MEMORY_UTILIZATION, 0.9
+ONEAPP_VLLM_GPU_MEMORY_UTILIZATION  = env :ONEAPP_VLLM_GPU_MEMORY_UTILIZATION, DEFAULT_GPU_MEMORY_UTILIZATION
 
 def gen_web_config
     config = <<~CONFIG

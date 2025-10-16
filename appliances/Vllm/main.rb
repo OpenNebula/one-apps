@@ -299,10 +299,10 @@ module Service
 
     def gpu_memory_utilization
         mem = Float(ONEAPP_VLLM_GPU_MEMORY_UTILIZATION)
-        # If the value is out of the allowed range (0.0, 1.0], default to 0.9 for safe GPU memory utilization
-        return 0.9 if mem > 1.0 || mem <= 0.0
-    rescue StandardError
-        0.9
+        return (mem > 1.0 || mem <= 0.0) ? DEFAULT_GPU_MEMORY_UTILIZATION : mem
+    rescue StandardError => e
+        msg :warn, "Error parsing GPU memory utilization: #{e.message}. Defaulting to #{DEFAULT_GPU_MEMORY_UTILIZATION}."
+        DEFAULT_GPU_MEMORY_UTILIZATION
     end
 
     def model_length
