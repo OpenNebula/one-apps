@@ -180,7 +180,7 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-}
         TYPE=${TYPE:-apk}
         TAGS=${TAGS:-linux apk one}
-        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-json bind-tools openssh qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-json-schema bind-tools openssh qemu-guest-agent gawk virt-what}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-}  #not respected
         CONFLICTS=${CONFLICTS:-one-context-ec2}
