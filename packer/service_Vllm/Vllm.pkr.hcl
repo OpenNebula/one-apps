@@ -122,7 +122,7 @@ build {
       "DRIVERS_PATH=${var.nvidia_driver_path}",
       "DRIVERS_TMP_DEST_DIR=${local.nvidia_driver_local_tmp_dir}",
     ]
-    scripts = ["${var.input_dir}/get_nvidia_driver.sh"]
+    scripts = ["${var.input_dir}/90-custom-scripts/get_nvidia_driver.sh"]
   }
 
   # With `generated=true` we avoid checking the file existence on prebuild validation
