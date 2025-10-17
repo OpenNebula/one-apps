@@ -16,5 +16,6 @@ context-linux/*.rpm
 context-linux/*.deb
 context-linux/.vagrant*/
 context-linux/*~bak
+bin/
 .vscode
 .DS_Store
