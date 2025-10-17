@@ -1,20 +1,3 @@
-SELF := $(patsubst %/,%,$(dir $(abspath $(firstword $(MAKEFILE_LIST)))))
-BIN_DIR := $(SELF)/bin
-PATH := $(BIN_DIR):$(PATH)
-
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
-
-# Detect architecture
-ARCH := $(subst aarch64,arm64,$(shell uname -m))
-ARCH := $(subst x86_64,amd64,$(ARCH))
-
-PACKER_VERSION ?= 1.10.0
-
-PACKER := $(BIN_DIR)/packer
-
 .SECONDEXPANSION:
 
 # load variables and makefile config
@@ -95,7 +78,7 @@ $(DIR_EXPORT)/service_OneKE_storage.qcow2:
 
 $(DIR_EXPORT)/%.qcow2: PREREQ_linux   := $(LINUX_CONTEXT_PACKAGES_FULL)
 $(DIR_EXPORT)/%.qcow2: PREREQ_windows := $(WINDOWS_CONTEXT_PACKAGES_FULL)
-$(DIR_EXPORT)/%.qcow2: $(PACKER) $$(PREREQ_$$(or $$(findstring windows,$$*),linux))
+$(DIR_EXPORT)/%.qcow2: $$(PREREQ_$$(or $$(findstring windows,$$*),linux))
 	$(eval DISTRO_NAME := $(shell echo $* | sed 's/[0-9\.].*//'))
 	$(eval DISTRO_VER  := $(shell echo $* | sed 's/^.[^0-9\.]*\(.*\)/\1/'))
 	packer/build.sh '$(DISTRO_NAME)' '$(DISTRO_VER)' $@
@@ -124,7 +107,6 @@ clean:
 	-if [ -d '$(DIR_EXPORT)' ]; then rm -rf $(DIR_EXPORT)/*; fi
 	-rm -rf context-linux/out/*
 	-rm -rf context-windows/out/*
-	-rm -rf $(BIN_DIR)/*
 
 help:
 	@echo 'Usage examples:'
@@ -155,16 +137,3 @@ help:
 
 version:
 	@echo $(VERSION)-$(RELEASE) > version
-
-# Dependencies
-
-.PHONY: packer
-packer: $(PACKER)
-$(PACKER):
-	@[ -f $@-v$(PACKER_VERSION) ] || \
-	{ curl -fsSL https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_${ARCH}.zip -o $(BIN_DIR)/packer.zip; \
-	unzip -p $(BIN_DIR)/packer.zip packer | install -m u=rwx,go= -o $(USER) -D /dev/fd/0 $@-v$(PACKER_VERSION); \
-	rm -f $(BIN_DIR)/packer.zip; }
-	@ln -sf $@-v$(PACKER_VERSION) $@
-
-
