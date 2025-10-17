@@ -33,7 +33,7 @@ module Service
 
             run_vllm
 
-            if ONEAPP_VLLM_API_WEB == 'YES'
+            if ONEAPP_VLLM_API_WEB
                 run_api_web
             end
 
@@ -52,7 +52,7 @@ module Service
 
                 bash "onegate vm update --data \"ONEAPP_VLLM_CHATBOT_API=#{url}\""
 
-                if ONEAPP_VLLM_API_WEB == 'YES'
+                if ONEAPP_VLLM_API_WEB
                     url = "http://#{ip}:5000"
                     bash "onegate vm update --data \"ONEAPP_VLLM_CHATBOT_WEB=#{url}\""
                 end
@@ -277,7 +277,7 @@ module Service
         if gpus > 0
             arguments << " --tensor-parallel-size #{gpus}"
             arguments << " --gpu-memory-utilization #{gpu_memory_utilization}"
-            if ONEAPP_VLLM_SLEEP_MODE == 'YES'
+            if ONEAPP_VLLM_SLEEP_MODE
                 arguments << " --enable-sleep-mode"
             end
         end
@@ -286,7 +286,7 @@ module Service
             arguments << " --quantization bitsandbytes --load-format bitsandbytes"
         end
 
-        if ONEAPP_VLLM_ENFORCE_EAGER == 'YES'
+        if ONEAPP_VLLM_ENFORCE_EAGER
             arguments << " --enforce-eager"
         end
 
