@@ -1,26 +1,3 @@
-variable "appliance_name" {
-  type    = string
-  default = "rhel"
-}
-
-variable "version" {
-  type    = string
-  default = "8"
-}
-
-variable "input_dir" {
-  type = string
-}
-
-variable "output_dir" {
-  type = string
-}
-
-variable "headless" {
-  type    = bool
-  default = false
-}
-
 variable "rhel_user" {
   type    = string
   default = false
@@ -35,17 +12,32 @@ variable "rhel" {
   type = map(map(string))
 
   default = {
-    "8" = {
+    "8.x86_64" = {
       iso_url      = ""
       iso_checksum = ""
     }
 
-    "9" = {
+    "8.aarch64" = {
       iso_url      = ""
       iso_checksum = ""
     }
 
-    "10" = {
+    "9.x86_64" = {
+      iso_url      = ""
+      iso_checksum = ""
+    }
+
+    "9.aarch64" = {
+      iso_url      = ""
+      iso_checksum = ""
+    }
+
+    "10.x86_64" = {
+      iso_url      = ""
+      iso_checksum = ""
+    }
+
+    "10.aarch64" = {
       iso_url      = ""
       iso_checksum = ""
     }

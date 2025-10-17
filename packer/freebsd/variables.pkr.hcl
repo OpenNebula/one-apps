@@ -1,36 +1,13 @@
-variable "appliance_name" {
-  type    = string
-  default = "freebsd"
-}
-
-variable "version" {
-  type    = string
-  default = "13"
-}
-
-variable "input_dir" {
-  type = string
-}
-
-variable "output_dir" {
-  type = string
-}
-
-variable "headless" {
-  type    = bool
-  default = false
-}
-
 variable "freebsd" {
   type = map(map(string))
 
   default = {
-    "13" = {
+    "13.x86_64" = {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.5/FreeBSD-13.5-RELEASE-amd64-disc1.iso"
       iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/13.5/CHECKSUM.SHA256-FreeBSD-13.5-RELEASE-amd64"
     }
 
-    "14" = {
+    "14.x86_64" = {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/FreeBSD-14.2-RELEASE-amd64-disc1.iso"
       iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/CHECKSUM.SHA256-FreeBSD-14.2-RELEASE-amd64"
     }

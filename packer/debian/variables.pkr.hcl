@@ -1,31 +1,8 @@
-variable "appliance_name" {
-  type    = string
-  default = "debian"
-}
-
-variable "version" {
-  type    = string
-  default = "10"
-}
-
-variable "input_dir" {
-  type = string
-}
-
-variable "output_dir" {
-  type = string
-}
-
-variable "headless" {
-  type    = bool
-  default = false
-}
-
 variable "debian" {
   type = map(map(string))
 
   default = {
-    "11" = {
+    "11.x86_64" = {
       iso_url      = "https://cdimage.debian.org/cdimage/cloud/bullseye/latest/debian-11-genericcloud-amd64.qcow2"
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/bullseye/latest/SHA512SUMS"
     }
@@ -35,7 +12,7 @@ variable "debian" {
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/bullseye/latest/SHA512SUMS"
     }
 
-    "12" = {
+    "12.x86_64" = {
       iso_url      = "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"
     }
@@ -45,7 +22,7 @@ variable "debian" {
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"
     }
 
-    "13" = {
+    "13.x86_64" = {
       iso_url      = "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
 
       iso_checksum = "file:https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"
