@@ -84,7 +84,8 @@ fi
 # Debian based distros
 if [ -d /etc/network ]; then
     # Prepare network files
-    cp /etc/network/interfaces "/etc/network/interfaces.$(date '+%s')"
+    # previous "date '+%s '" breaks postinstall script in FreeBSD, perahps due to fpm
+    cp /etc/network/interfaces "/etc/network/interfaces.$(awk 'BEGIN{srand(); print srand()}')"
     rm -rf /etc/network/interfaces.d
 
     cat > /etc/network/interfaces <<EOT
