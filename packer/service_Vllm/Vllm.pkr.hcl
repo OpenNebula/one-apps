@@ -150,7 +150,11 @@ build {
   #benchmark script symbolic link to root home
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
-    inline = ["ln -s /etc/one-appliance/service.d/Vllm/scripts/benchmark.sh /root/benchmark.sh"]
+    inline = [<<EOF
+        ln -s /etc/one-appliance/service.d/Vllm/scripts/benchmark.sh /root/benchmark.sh
+        chmod u+x /root/benchmark.sh
+    EOF
+    ]
   }
 
   #######################################################################
