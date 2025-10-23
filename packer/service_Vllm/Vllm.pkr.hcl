@@ -147,16 +147,11 @@ build {
     ]
   }
 
-
-  #This is necessary for allowing serve to detect the python modules
-  # probably we can do it in a better way
+  #benchmark script symbolic link to root home
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
-    inline = [
-      "echo 'export PYTHONPATH=/etc/one-appliance/service.d/Ray:$${PYTHONPATH:-}' >> /etc/profile"
-    ]
+    inline = ["ln -s /etc/one-appliance/service.d/Vllm/scripts/benchmark.sh /root/benchmark.sh"]
   }
-
 
   #######################################################################
   # Setup appliance: Execute install step                               #

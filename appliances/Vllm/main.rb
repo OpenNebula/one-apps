@@ -82,6 +82,7 @@ module Service
         end
 
         install_web_dependencies
+        install_llm_benchmark_tool
     end
 
     def install_common_dependencies
@@ -200,6 +201,16 @@ module Service
             source #{PYTHON_VENV_WEB_PATH}/bin/activate
             pip install flask pyyaml openai
         SCRIPT
+    end
+
+    def install_llm_benchmark_tool
+        [PYTHON_VENV_CPU_PATH, PYTHON_VENV_GPU_PATH].each do |venv|
+            puts bash <<~SCRIPT
+                source #{venv}/bin/activate
+                pip install guidellm
+                deactivate
+            SCRIPT
+        end
     end
 
 
