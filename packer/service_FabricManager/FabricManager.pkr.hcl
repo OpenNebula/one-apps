@@ -88,6 +88,11 @@ build {
     destination = "/etc/one-appliance/service.d/"
   }
 
+  provisioner "file" {
+    source      = "appliances/FabricManager/fabricManager-partition-tool"
+    destination = "/etc/one-appliance/fabricManager-partition-tool"
+  }
+
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }

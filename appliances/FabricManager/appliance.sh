@@ -84,9 +84,7 @@ ONE_SERVICE_RECONFIGURABLE=false
 # This version MUST match the dev package
 DRIVER_BRANCH="570"
 
-# URL of the Git repository containing the partition tool code + Makefile
-PARTITION_TOOL_REPO_URL="https://github.com/josepselga/NVIDIA-FabricManager-partition-tool.git"
-# Name of the final executable produced by 'make' in the repo
+# Name of the final executable produced by 'make'
 PARTITION_TOOL_EXE_NAME="partitioner" # Assumed name, change if needed
 # --- END EDIT ---
 
@@ -120,14 +118,14 @@ service_install()
     # Add NVIDIA repository
     install_nvidia_repo
 
-    # Install drivers, FM service, and build tools (git, make are in build-essential)
+    # Install drivers, FM service, and build tools (make are in build-essential)
     install_packages
 
     # Configure the FM service
     configure_fm_service
 
-    # Clone and build the partitioning tool
-    build_partition_tool_from_git
+    # Build and install the partitioning tool
+    build_partition_tool
 
     # service metadata
     create_one_service_metadata
@@ -189,13 +187,12 @@ install_packages()
 {
     msg info "Installing NVIDIA and build packages (Branch ${DRIVER_BRANCH})"
 
-    # Install drivers, fabric manager, the dev SDK, git, and build-essential (for make/g++)
+    # Install drivers, fabric manager, the dev SDK, and build-essential (for make/g++)
     if ! apt-get install -y \
         "nvidia-driver-${DRIVER_BRANCH}" \
         "nvidia-fabricmanager-${DRIVER_BRANCH}" \
         "nvidia-fabricmanager-dev-${DRIVER_BRANCH}" \
-        build-essential \
-        git; then
+        build-essential; then
         msg error "Failed to install required packages"
         exit 1
     fi
@@ -223,23 +220,30 @@ configure_fm_service()
     systemctl enable nvidia-fabricmanager.service
 }
 
-build_partition_tool_from_git()
+build_partition_tool()
 {
-    msg info "Cloning NVLink partition tool from ${PARTITION_TOOL_REPO_URL}"
+    local SCRIPT_DIR
+    SCRIPT_DIR="$(dirname "$0")"
+    local TOOL_SRC_DIR="${SCRIPT_DIR}/fabricManager-partition-tool"
 
-    if ! git clone "${PARTITION_TOOL_REPO_URL}" "${PARTITION_TOOL_BUILD_DIR}"; then
-        msg error "Failed to clone partition tool repository."
-        msg error "Please ensure 'PARTITION_TOOL_REPO_URL' is correct and the repo is accessible."
+    msg info "Building NVLink partition tool from local source: ${TOOL_SRC_DIR}"
+
+    if [ ! -d "${TOOL_SRC_DIR}" ]; then
+        msg error "Partition tool source directory not found at: ${TOOL_SRC_DIR}"
         exit 1
     fi
+
+    # Create build directory and copy source
+    mkdir -p "${PARTITION_TOOL_BUILD_DIR}"
+    cp -r "${TOOL_SRC_DIR}"/* "${PARTITION_TOOL_BUILD_DIR}/"
 
     msg info "Compiling tool in ${PARTITION_TOOL_BUILD_DIR}"
     cd "${PARTITION_TOOL_BUILD_DIR}"
 
-    # Assuming the repo has a standard Makefile that uses g++ and links against libnvfm
+    # Assuming the directory has a standard Makefile that uses g++ and links against libnvfm
     if ! make; then
         msg error "Failed to compile partition tool using 'make'."
-        msg error "Check the repository's Makefile and build dependencies (build-essential, nvidia-fabricmanager-dev-${DRIVER_BRANCH})."
+        msg error "Check the Makefile and build dependencies (build-essential, nvidia-fabricmanager-dev-${DRIVER_BRANCH})."
         cd /root
         rm -rf "${PARTITION_TOOL_BUILD_DIR}"
         exit 1
@@ -274,6 +278,5 @@ postinstall_cleanup()
     msg info "Delete cache and stored packages"
     apt-get autoclean -y
     apt-get autoremove -y
-    # Keep nvidia repo list, but clear others
     find /var/lib/apt/lists/ -type f ! -name '*nvidia*' -delete
 }
