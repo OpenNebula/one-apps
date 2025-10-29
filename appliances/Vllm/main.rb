@@ -108,7 +108,7 @@ module Service
     def build_llvm_cpu_aarch64
         puts bash <<~SCRIPT
             cd /root
-            uv venv vllm_cpu --python 3.12 --seed
+            uv venv #{PYTHON_VENV_CPU_PATH} --python 3.12 --seed
 
             source #{PYTHON_VENV_CPU_PATH}/bin/activate
 
