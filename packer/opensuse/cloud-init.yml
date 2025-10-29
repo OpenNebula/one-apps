@@ -12,8 +12,17 @@ disable_root: false
 ssh_pwauth: true
 
 runcmd:
+# used in opensuse 15
   - |
     gawk -i inplace -f- /etc/ssh/sshd_config <<'EOF'
+    BEGIN { update = "PermitRootLogin yes" }
+    /^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
+    { print }
+    ENDFILE { if (!found) print update }
+    EOF
+# used in opensuse 16
+  - |
+    gawk -i inplace -f- /etc/ssh/sshd_config.d/50-cloud-init.conf <<'EOF'
     BEGIN { update = "PermitRootLogin yes" }
     /^[#\s]*PermitRootLogin\s/ { $0 = update; found = 1 }
     { print }
