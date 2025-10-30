@@ -1,0 +1,225 @@
+/* Body Setup */
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+}
+
+/* Chat Container */
+.chat-container {
+    width: 750px;
+    max-width: 90%;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background-color: #eeeeee;
+}
+
+.header img {
+    height: 40px;
+}
+
+.header h1 {
+    font-size: 1.5rem;
+    color: rgb(0, 112, 153);
+    margin: 0;
+}
+
+/* Chat History (Main Content) */
+.chat-history {
+    padding: 20px;
+    height: 750px;  /* Increased height for the main chat area */
+    width: 100%;  /* Make sure it takes the full container width */
+    overflow-y: auto;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(0, 112, 153) transparent;
+}
+
+.message {
+    padding: 15px 20px;
+    margin-bottom: 5px;  /* Space for timestamp outside the bubble */
+    border-radius: 20px;
+    word-wrap: break-word;
+    position: relative;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Ensures that text starts on the left */
+    margin-bottom: 15px;
+}
+
+/* User Message */
+.user-message {
+    background-color: rgb(191 230 242);
+    color: black;
+    align-self: flex-start;
+}
+
+/* User Message Arrow */
+.user-message::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -15px;
+    border-width: 15px;
+    border-style: solid;
+    border-color: rgb(191 230 242) transparent transparent transparent;
+}
+
+/* Bot Message */
+.bot-message {
+    background-color: #eeeeee;
+    color: black;
+    align-self: flex-end;
+}
+
+/* Bot Message Arrow */
+.bot-message::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -15px;
+    border-width: 15px;
+    border-style: solid;
+    border-color: #eeeeee transparent transparent transparent;
+}
+
+/* Adjust the timestamp to be outside the bubble */
+.timestamp {
+    font-size: 0.8rem;
+    color: rgb(115 111 111);
+    margin-top: 5px;  /* Space between message and timestamp */
+    font-style: italic;
+    align-self: flex-start;  /* Left aligned for user messages */
+}
+
+.bot-message .timestamp {
+    align-self: flex-end;  /* Right aligned for bot messages */
+}
+
+/* Input Section */
+.input-container {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    width: 100%;  /* Ensure input area takes full width */
+    border-top: 1px solid #ddd;  /* Line separating the input area */
+}
+
+/* Input Field */
+.input-field {
+    flex: 1;
+    margin: 0;
+}
+
+.input-field:focus {
+    border-bottom: 1px solid rgb(0, 112, 153) !important;
+    box-shadow: 0 1px 0 0 rgb(0, 112, 153) !important;
+}
+
+/* Send Button */
+.send-btn {
+    margin-left: 10px;
+    background-color: white;
+    border: none;
+    color: rgb(0, 112, 153);
+    padding: 15px;  /* Increase padding to make the button larger */
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: none;
+    cursor: pointer;
+    width: 50px;  /* Set a fixed width */
+    height: 50px; /* Set a fixed height */
+}
+
+.send-btn i {
+    font-size: 28px;  /* Increase the icon size */
+}
+
+.send-btn:hover {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.send-btn:active {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.waiting-message {
+    color: #999;
+    font-style: italic;
+    display: flex;  /* Ensures children are displayed inline */
+    justify-content: flex-end;  /* Aligns to the right */
+    align-items: center;  /* Vertically centers the text and the loading circle */
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    max-width: 75%;
+    align-self: flex-end;  /* Aligns to the right of the chat */
+    background-color: transparent;  /* No background color */
+    white-space: nowrap; /* Prevents wrapping of the text and loading circle */
+    flex-direction: row;
+}
+
+.waiting-message .loading-circle {
+    width: 12px;
+    height: 12px;
+    border: 3px solid #999;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px; /* Adds space between the text and loading circle */
+}
+
+
+/* Hide timestamp for waiting message */
+.waiting-message .timestamp {
+    display: none;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Scrollbar Customization */
+.chat-history::-webkit-scrollbar {
+    width: 10px;
+}
+
+.chat-history::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-history::-webkit-scrollbar-thumb {
+    background-color: rgb(0, 112, 153);
+    border-radius: 10px;
+}
+
+.chat-history::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(0, 112, 153);
+}
