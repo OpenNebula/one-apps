@@ -181,11 +181,15 @@ module Service
                 end
 
                 msg :info, 'Move CAPI objects to Workload Cluster'
-                unless bash <<~SCRIPT
-                    export KUBECONFIG=#{KAAS_WKLD_KUBECONFIG_PATH}
-                    clusterctl -v=4 move \
-                    --from-directory=backup/
-                SCRIPT
+                success = begin_retry?(30, 10) do
+                    puts bash <<~SCRIPT
+                        clusterctl -v=4 move \
+                        --from-directory=backup/ \
+                        --to-kubeconfig #{KAAS_WKLD_KUBECONFIG_PATH}
+                    SCRIPT
+                end
+
+                unless success
                     msg :error, 'Failed to move CAPI objects to Workload Cluster'
                     onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
