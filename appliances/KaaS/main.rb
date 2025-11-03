@@ -87,24 +87,22 @@ module Service
             begin
                 if KAAS_CLUSTER_SPEC.nil? || KAAS_CLUSTER_SPEC.strip.empty?
                     msg :error, 'KAAS_CLUSTER_SPEC is empty or not provided'
-                    onegate_vm_update ['STATE=BOOTSTRAP_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=BOOTSTRAP_FAILURE"]
                     exit 1
                 end
 
                 msg :info, 'Start Management Cluster'
-                onegate_vm_update ['STATE=PROVISIONING_MGMT']
+                onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_MGMT"]
                 unless bash <<~SCRIPT
                     podman start kind-control-plane
                 SCRIPT
                     msg :error, 'Failed to start Management Cluster'
-                    onegate_vm_update ['STATE=PROVISIONING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_FAILURE"]
                     exit 1
                 end
 
-                onegate_vm_update ['STATE=PROVISIONING_MGMT_READY']
-
                 msg :info, 'Deploy Workload Cluster'
-                onegate_vm_update ['STATE=PROVISIONING_CP']
+                onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_CP"]
                 success = begin_retry?(30, 10) do
                     puts bash <<~SCRIPT
                         echo "#{KAAS_CLUSTER_SPEC}" | base64 -d | \
@@ -114,7 +112,7 @@ module Service
 
                 unless success
                     msg :error, 'Failed to deploy Workload Cluster'
-                    onegate_vm_update ['STATE=PROVISIONING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_FAILURE"]
                     exit 1
                 end
 
@@ -126,23 +124,21 @@ module Service
                         --timeout="$(( \
                         $(kubectl get RKE2ControlPlane #{KAAS_CLUSTER_NAME} \
                             -o jsonpath='{.spec.replicas}' \
-                            --kubeconfig #{KAAS_MGMT_KUBECONFIG_PATH}) * 10 \
+                            --kubeconfig #{KAAS_MGMT_KUBECONFIG_PATH}) * 15 \
                         ))m" \
                         --kubeconfig #{KAAS_MGMT_KUBECONFIG_PATH}
                 SCRIPT
                     msg :error, 'Workload Cluster is not ready'
-                    onegate_vm_update ['STATE=PROVISIONING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_FAILURE"]
                     exit 1
                 end
-
-                onegate_vm_update ['STATE=PROVISIONING_CP_READY']
 
                 msg :info, 'Create backup directory'
                 unless bash <<~SCRIPT
                     install -d backup
                 SCRIPT
                     msg :error, 'Failed to create backup directory'
-                    onegate_vm_update ['STATE=GATHERING_CONFIG_FAILED']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=GATHERING_CONFIG_FAILED"]
                     exit 1
                 end
 
@@ -157,11 +153,9 @@ module Service
 
                 unless success
                     msg :error, 'Failed to backup Management Cluster'
-                    onegate_vm_update ['STATE=PIVOTING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
-
-                onegate_vm_update ['STATE=BACKUP_MGMT_STATE_READY']
 
                 msg :info, 'Retrieve Workload Cluster Kubeconfig'
                 unless bash <<~SCRIPT
@@ -169,7 +163,7 @@ module Service
                     --kubeconfig #{KAAS_MGMT_KUBECONFIG_PATH} > #{KAAS_WKLD_KUBECONFIG_PATH}
                 SCRIPT
                     msg :error, 'Failed to retrieve Workload Cluster Kubeconfig'
-                    onegate_vm_update ['STATE=PIVOTING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
 
@@ -182,7 +176,7 @@ module Service
                     --kubeconfig #{KAAS_WKLD_KUBECONFIG_PATH}
                 SCRIPT
                     msg :error, 'Failed to initialize CAPI on Workload Cluster'
-                    onegate_vm_update ['STATE=PIVOTING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
 
@@ -193,14 +187,14 @@ module Service
                     --from-directory=backup/
                 SCRIPT
                     msg :error, 'Failed to move CAPI objects to Workload Cluster'
-                    onegate_vm_update ['STATE=PIVOTING_FAILURE']
+                    onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
 
-                onegate_vm_update ['STATE=MIGRATING_CP_READY']
+                onegate_vm_update ["#{KAAS_STATE_KEY}=READY"]
             rescue StandardError => e
                 msg :error, "Unexpected error: #{e.message}"
-                onegate_vm_update ['STATE=PROVISIONING_FAILURE']
+                onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_FAILURE"]
                 exit 1
             end
         end
