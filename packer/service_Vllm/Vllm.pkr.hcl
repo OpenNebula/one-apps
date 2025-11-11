@@ -16,7 +16,7 @@ build {
 
 # A Virtual Machine is created with qemu in order to run the setup from the ISO on the CD-ROM
 # Here are the details about the VM virtual hardware
-source "qemu" "Dynamo" {
+source "qemu" "Vllm" {
   cpus        = 2
   memory      = 4096
   accelerator = "kvm"
@@ -37,7 +37,7 @@ source "qemu" "Dynamo" {
   net_device       = "virtio-net"
   format           = "qcow2"
   disk_compression = false
-  disk_size        = 25600
+  disk_size        = 102400
 
   output_directory = var.output_dir
 
@@ -68,7 +68,7 @@ locals {
 # Essentially, a bunch of scripts are pulled from ./appliances and placed inside the Guest OS
 # There are shared libraries for ruby and bash. Bash is used in this example
 build {
-  sources = ["source.qemu.Dynamo"]
+  sources = ["source.qemu.Vllm"]
 
   # revert insecure ssh options done by context start_script
   provisioner "shell" {
@@ -107,7 +107,7 @@ build {
   }
 
   provisioner "file" {
-    sources     = ["appliances/Dynamo"]
+    sources     = ["appliances/Vllm"]
     destination = "/etc/one-appliance/service.d/"
   }
 
@@ -122,7 +122,7 @@ build {
       "DRIVERS_PATH=${var.nvidia_driver_path}",
       "DRIVERS_TMP_DEST_DIR=${local.nvidia_driver_local_tmp_dir}",
     ]
-    scripts = ["${var.input_dir}/get_nvidia_driver.sh"]
+    scripts = ["${var.input_dir}/90-custom-scripts/get_nvidia_driver.sh"]
   }
 
   # With `generated=true` we avoid checking the file existence on prebuild validation
@@ -144,6 +144,16 @@ build {
     ]
     environment_vars = [
       "DRIVERS_TMP_PATH=${local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : ""}",
+    ]
+  }
+
+  #benchmark script symbolic link to root home
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline = [<<EOF
+        ln -s /etc/one-appliance/service.d/Vllm/scripts/benchmark.sh /root/benchmark.sh
+        chmod u+x /root/benchmark.sh
+    EOF
     ]
   }
 
@@ -171,6 +181,10 @@ build {
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+    environment_vars = [
+        # Set false if the drivers were installed in the previous step
+        "INSTALL_DRIVERS=${local.install_nvidia_driver ? "false" : "true"}",
+    ]
   }
 
   # Remove machine ID from the VM and get it ready for continuous cloud use
