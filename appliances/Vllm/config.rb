@@ -33,7 +33,7 @@ INSTALL_DRIVERS            = env :INSTALL_DRIVERS, 'true'
 #  ONEAPP_VLLM_API_WEB <YES|NO> deploy web application to interact with the model
 #
 # ------------------------------------------------------------------------------
-ONEAPP_VLLM_API_PORT   = env :ONEAPP_RAY_API_PORT, '8000'
+ONEAPP_VLLM_API_PORT   = env :ONEAPP_VLLM_API_PORT, '8000'
 ONEAPP_VLLM_API_WEB    = env :ONEAPP_VLLM_API_WEB, 'YES'
 
 # ------------------------------------------------------------------------------
