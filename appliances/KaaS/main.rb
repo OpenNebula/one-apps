@@ -119,7 +119,7 @@ module Service
                 msg :info, 'Wait for Workload Cluster to be ready'
                 unless bash <<~SCRIPT
                     kubectl wait \
-                        --for=condition=Ready \
+                        --for=condition=ControlPlaneReady \
                         cluster/#{KAAS_CLUSTER_NAME} \
                         --timeout="$(( \
                         $(kubectl get RKE2ControlPlane #{KAAS_CLUSTER_NAME} \
@@ -194,8 +194,8 @@ module Service
                     onegate_vm_update ["#{KAAS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
-
-                onegate_vm_update ["#{KAAS_STATE_KEY}=READY"]
+                onegate_vm_update ["#{KAAS_STATE_KEY}=CP_PROVISIONED"]
+                onegate_vm_update ['READY=YES']
             rescue StandardError => e
                 msg :error, "Unexpected error: #{e.message}"
                 onegate_vm_update ["#{KAAS_STATE_KEY}=PROVISIONING_FAILURE"]
