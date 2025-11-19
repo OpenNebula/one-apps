@@ -1,4 +1,4 @@
-variable "KaaS" {
+variable "OneKS" {
   type = map(map(string))
 
   default = {
