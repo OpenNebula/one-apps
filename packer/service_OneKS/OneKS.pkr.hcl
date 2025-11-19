@@ -13,13 +13,13 @@ build {
 }
 
 # Build VM image
-source "qemu" "KaaS" {
+source "qemu" "OneKS" {
   cpus        = 2
   memory      = 2048
   accelerator = "kvm"
   cpu_model   = "host"
 
-  iso_url      = lookup(lookup(var.KaaS, var.arch, {}), "iso_url", "")
+  iso_url      = lookup(lookup(var.OneKS, var.arch, {}), "iso_url", "")
   iso_checksum = "none"
 
   headless = var.headless
@@ -56,7 +56,7 @@ source "qemu" "KaaS" {
 }
 
 build {
-  sources = ["source.qemu.KaaS"]
+  sources = ["source.qemu.OneKS"]
 
   # update & revert insecure ssh options done by context start_script
   provisioner "shell" {
@@ -90,7 +90,7 @@ build {
     destination = "/etc/one-appliance/service"
   }
   provisioner "file" {
-    sources     = ["appliances/KaaS"]
+    sources     = ["appliances/OneKS"]
     destination = "/etc/one-appliance/service.d/"
   }
 
