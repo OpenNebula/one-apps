@@ -19,10 +19,7 @@ set -o errexit -o pipefail
 ### Important notes ##################################################
 #
 # 1. This appliance requires a base OS image with cloud-init and wget.
-# 2. You MUST edit the 'PARTITION_TOOL_SRC' variable in the 'Globals'
-#    section below to point to the 'partitions.cpp' file in your
-#    internal GitLab repository.
-# 3. This appliance MUST be instantiated with a VM Template that
+# 2. This appliance MUST be instantiated with a VM Template that
 #    includes UEFI boot and Q35 machine settings .
 #
 ### Important notes ##################################################
@@ -44,7 +41,7 @@ ONE_SERVICE_SHORT_DESCRIPTION='Appliance with NVIDIA Fabric Manager for Shared N
 ONE_SERVICE_DESCRIPTION=$(cat <<EOF
 Appliance with pre-installed NVIDIA Fabric Manager service.
 
-This appliance is designed to be the "Shared NVSwitch Virtualization Model" service VM, as described in the IAAS-NVIDIA-GPUs-Passthru documentation .
+This appliance is designed to be the "Shared NVSwitch Virtualization Model" service VM, as described in the IAAS-NVIDIA-GPUs-Passthrough documentation .
 
 It comes with:
 - The required NVIDIA datacenter driver.
@@ -121,6 +118,9 @@ service_install()
     # Install drivers, FM service, and build tools (make are in build-essential)
     install_packages
 
+    # Install the boot manager script that adds resiliency
+    install_boot_manager
+
     # Configure the FM service
     configure_fm_service
 
@@ -140,9 +140,9 @@ service_install()
 
 service_configure()
 {
-    msg info "Starting NVIDIA Fabric Manager service"
+    msg info "Starting NVIDIA Fabric Manager service (managed by one-fm-boot-manager.sh)"
     if ! systemctl start nvidia-fabricmanager; then
-        msg error "Failed to start nvidia-fabricmanager service. Check VM logs."
+        msg error "Failed to start nvidia-fabricmanager service. Check VM logs and /var/log/syslog for 'one-fm-boot-manager' entries."
         exit 1
     fi
 
@@ -165,6 +165,24 @@ service_bootstrap()
 #
 # functions
 #
+
+install_boot_manager()
+{
+    local SCRIPT_DIR
+    SCRIPT_DIR="$(dirname "$0")"
+    local BOOT_MANAGER_SRC="${SCRIPT_DIR}/one-fm-boot-manager.sh"
+    local BOOT_MANAGER_DST="/usr/local/sbin/one-fm-boot-manager.sh"
+
+    msg info "Installing Fabric Manager boot manager script"
+
+    if [ ! -f "${BOOT_MANAGER_SRC}" ]; then
+        msg error "Boot manager script not found at: ${BOOT_MANAGER_SRC}"
+        exit 1
+    fi
+
+    cp "${BOOT_MANAGER_SRC}" "${BOOT_MANAGER_DST}"
+    chmod +x "${BOOT_MANAGER_DST}"
+}
 
 install_nvidia_repo()
 {
@@ -203,18 +221,31 @@ install_packages()
 configure_fm_service()
 {
     local FM_CONFIG_FILE="/usr/share/nvidia/nvswitch/fabricmanager.cfg"
-
+    
     msg info "Configuring Fabric Manager for Shared NVSwitch Mode"
 
-    # Set Fabric Manager mode to 1 (Shared NVSwitch multitenancy)
+    # Fabric Manager Operating Mode
+    # (1) Start FM in Shared NVSwitch multi-tenancy mode.
     sed -i 's/^\(FABRIC_MODE\)=.*/\1=1/' ${FM_CONFIG_FILE}
 
-    # Set persistent state file
-    # Ensure the directory exists and has correct permissions potentially needed by the service
-    mkdir -p /var/run/nvidia-fabricmanager
-    # Note: Service might manage permissions itself, but setting owner is safer. Check service docs if issues arise.
-    # chown nvidia-fabricmanager:nvidia-fabricmanager /var/run/nvidia-fabricmanager # Example, user/group might differ
-    sed -i 's|^\(STATE_FILE_NAME\)=.*|\1=/var/run/nvidia-fabricmanager/fabricmanager.state|' ${FM_CONFIG_FILE}
+    # Set persistent state files
+    mkdir -p /var/lib/nvidia-fabricmanager
+    touch /var/lib/nvidia-fabricmanager/active_partitions.state
+    
+    # STATE_FILE_NAME is used by nvidia-fabricmanager itself (metadata)
+    sed -i 's|^\(STATE_FILE_NAME\)=.*|\1=/var/lib/nvidia-fabricmanager/fabricmanager.state|' ${FM_CONFIG_FILE}
+
+    # Override the systemd to use boot manager script for resiliency
+    msg info "Overriding systemd service to use boot manager"
+    local OVERRIDE_DIR="/etc/systemd/system/nvidia-fabricmanager.service.d"
+    mkdir -p "${OVERRIDE_DIR}"
+    cat <<EOF > "${OVERRIDE_DIR}/override.conf"
+[Service]
+ExecStart=
+ExecStart=/usr/local/sbin/one-fm-boot-manager.sh
+EOF
+
+    systemctl daemon-reload
 
     msg info "Enabling nvidia-fabricmanager systemd service"
     systemctl enable nvidia-fabricmanager.service
