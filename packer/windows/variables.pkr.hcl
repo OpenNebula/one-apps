@@ -1,27 +1,3 @@
-variable "appliance_name" {
-  type    = string
-  default = "windows"
-}
-
-variable "version" {
-  type    = string
-  default = "10Home"
-}
-
-variable "input_dir" {
-  type = string
-}
-
-variable "output_dir" {
-  type = string
-}
-
-variable "headless" {
-  type    = bool
-  default = true
-}
-
-
 variable "language" {
   type    = string
   default = "en-US"
