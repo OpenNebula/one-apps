@@ -22,8 +22,49 @@
 #include <iomanip>
 #include <limits>
 #include <sstream>
+#include <vector>
+#include <fstream>
+#include <algorithm>
 
 #include "nv_fm_agent.h" 
+
+const char* STATE_FILE_PATH = "/var/lib/nvidia-fabricmanager/active_partitions.state";
+
+// --- State Management Functions ---
+
+std::vector<fmFabricPartitionId_t> readState() {
+    std::vector<fmFabricPartitionId_t> activePartitions;
+    std::ifstream stateFile(STATE_FILE_PATH);
+    fmFabricPartitionId_t id;
+    while (stateFile >> id) {
+        activePartitions.push_back(id);
+    }
+    return activePartitions;
+}
+
+void writeState(const std::vector<fmFabricPartitionId_t>& activePartitions) {
+    std::ofstream stateFile(STATE_FILE_PATH, std::ios::trunc);
+    for (const auto& id : activePartitions) {
+        stateFile << id << std::endl;
+    }
+}
+
+void updateStateFile(fmFabricPartitionId_t partitionId, bool activate) {
+    auto activePartitions = readState();
+    auto it = std::find(activePartitions.begin(), activePartitions.end(), partitionId);
+
+    if (activate) {
+        if (it == activePartitions.end()) {
+            activePartitions.push_back(partitionId);
+        }
+    } else {
+        if (it != activePartitions.end()) {
+            activePartitions.erase(it);
+        }
+    }
+    writeState(activePartitions);
+}
+
 
 void printFmError(const char* operation, fmReturn_t fmReturn) {
     std::cout << "Error: Failed to " << operation << ". (Code: " << fmReturn << ")" << std::endl;
@@ -40,7 +81,8 @@ void printMenu() {
     std::cout << "  0 - List Supported Partitions\n";
     std::cout << "  1 - Activate a Partition\n";
     std::cout << "  2 - Deactivate a Partition\n";
-    std::cout << "  3 - Quit\n";
+    std::cout << "  3 - Restore Active Partitions\n";
+    std::cout << "  4 - Quit\n";
     std::cout << "------------------------------------------\n";
     std::cout << "Enter operation: ";
 }
@@ -142,6 +184,7 @@ fmReturn_t executeOperation(fmHandle_t fmHandle, unsigned int operation, fmFabri
             fmReturn = fmActivateFabricPartition(fmHandle, partitionId);
             if (fmReturn == FM_ST_SUCCESS) {
                 std::cout << "Successfully sent activation request for partition " << partitionId << std::endl;
+                updateStateFile(partitionId, true);
             } else {
                 printFmError("activate partition", fmReturn);
             }
@@ -156,8 +199,37 @@ fmReturn_t executeOperation(fmHandle_t fmHandle, unsigned int operation, fmFabri
             fmReturn = fmDeactivateFabricPartition(fmHandle, partitionId);
             if (fmReturn == FM_ST_SUCCESS) {
                 std::cout << "Successfully sent deactivation request for partition " << partitionId << std::endl;
+                updateStateFile(partitionId, false);
             } else {
                 printFmError("deactivate partition", fmReturn);
+            }
+            break;
+        }
+
+        case 3: { // Restore Active Partitions
+            auto activePartitions = readState();
+            
+            fmActivatedFabricPartitionList_t partitionsToRestore = {0};
+            partitionsToRestore.version = fmActivatedFabricPartitionList_version;
+            
+            if (activePartitions.size() > FM_MAX_FABRIC_PARTITIONS) {
+                std::cout << "Error: Number of active partitions in state file exceeds limit." << std::endl;
+                return FM_ST_BADPARAM;
+            }
+
+            partitionsToRestore.numPartitions = activePartitions.size();
+            for(size_t i = 0; i < activePartitions.size(); ++i) {
+                partitionsToRestore.partitionIds[i] = activePartitions[i];
+            }
+
+            std::cout << "Restoring " << partitionsToRestore.numPartitions << " active partition(s)..." << std::endl;
+
+            fmReturn = fmSetActivatedFabricPartitions(fmHandle, &partitionsToRestore);
+
+            if (fmReturn == FM_ST_SUCCESS) {
+                std::cout << "Successfully restored active partitions." << std::endl;
+            } else {
+                printFmError("restore active partitions", fmReturn);
             }
             break;
         }
@@ -214,10 +286,10 @@ int main(int argc, char **argv)
             runInteractive = false;
         } else if (!runInteractive) {
             std::cout << "Usage: " << argv[0] << " [-i <IP>] -o <OP> [-p <ID>] [-f <FORMAT>]\n"
-                      << "  -i, --ip <IP>      : IP address of Fabric Manager (default: 127.0.0.1)\n"
-                      << "  -o, --operation <N>: 0=List, 1=Activate, 2=Deactivate\n"
-                      << "  -p, --partition <ID>: Partition ID (required for Activate/Deactivate)\n"
-                      << "  -f, --format <FORMAT>: Output format for operation 0 (csv or table, default: table)\n"
+                      << "  -i, --ip <IP>        : IP address of Fabric Manager (default: 127.0.0.1)\n"
+                      << "  -o, --operation <N>  : 0=List, 1=Activate, 2=Deactivate, 3=Restore\n"
+                      << "  -p, --partition <ID> : Partition ID (for Activate/Deactivate)\n"
+                      << "  -f, --format <FORMAT>: Output format for op 0 (csv or table, default: table)\n"
                       << "Running without options starts interactive mode.\n";
             return FM_ST_BADPARAM;
         }
@@ -259,7 +331,7 @@ int main(int argc, char **argv)
         return fmReturn;
     }
     
-    if (outputFormat != "csv") {
+    if (outputFormat != "csv" && operation != 3) {
         std::cout << "Successfully connected to Fabric Manager at " << hostIpAddress << std::endl;
     }
     
@@ -277,7 +349,7 @@ int main(int argc, char **argv)
                 continue;
             }
             
-            if (operation == 3) break; 
+            if (operation == 4) break; 
             
             partitionId = PARTITION_ID_NOT_SET; 
             if (operation == 1 || operation == 2) {
