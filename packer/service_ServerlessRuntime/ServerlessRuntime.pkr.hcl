@@ -89,7 +89,7 @@ build {
 
   # Copy serverless-runtime source code into the image
   provisioner "file" {
-    source      = "/home/ubuntu/cognit-appliance-building/serverless-runtime"
+    source      = "/root/cognit-appliance-building/serverless-runtime"
     destination = "/root/"
   }
 
