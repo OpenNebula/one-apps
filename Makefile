@@ -64,6 +64,9 @@ packer-service_Capi.aarch64: packer-ubuntu2204.aarch64 $(DIR_EXPORT)/service_Cap
 packer-service_ServerlessRuntime: packer-ubuntu2204 $(DIR_EXPORT)/service_ServerlessRuntime.qcow2
 	@$(INFO) "Packer service_ServerlessRuntime done"
 
+packer-service_EdgeClusterFrontend: packer-ubuntu2204 $(DIR_EXPORT)/service_EdgeClusterFrontend.qcow2
+	@$(INFO) "Packer service_EdgeClusterFrontend done"
+
 # run packer build for given distro or service
 $(DIR_EXPORT)/service_OneKE_storage.qcow2:
 	qemu-img create -f qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2 10G
