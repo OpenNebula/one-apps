@@ -132,13 +132,19 @@ module Service
                     onegate_vm_update ["#{ONEKS_STATE_KEY}=PROVISIONING_FAILURE"]
                     exit 1
                 end
+            rescue StandardError => e
+                msg :error, "Unexpected error: #{e.message}"
+                onegate_vm_update ["#{ONEKS_STATE_KEY}=PROVISIONING_FAILURE"]
+                exit 1
+            end
 
+            begin
+                onegate_vm_update ["#{ONEKS_STATE_KEY}=PIVOTING_CLUSTER"]
                 msg :info, 'Create backup directory'
                 unless bash <<~SCRIPT
                     install -d backup
                 SCRIPT
                     msg :error, 'Failed to create backup directory'
-                    onegate_vm_update ["#{ONEKS_STATE_KEY}=GATHERING_CONFIG_FAILED"]
                     exit 1
                 end
 
@@ -194,11 +200,10 @@ module Service
                     onegate_vm_update ["#{ONEKS_STATE_KEY}=PIVOTING_FAILURE"]
                     exit 1
                 end
-                onegate_vm_update ["#{ONEKS_STATE_KEY}=CP_PROVISIONED"]
-                onegate_vm_update ['READY=YES']
+                onegate_vm_update ["#{ONEKS_STATE_KEY}=RUNNING"]
             rescue StandardError => e
                 msg :error, "Unexpected error: #{e.message}"
-                onegate_vm_update ["#{ONEKS_STATE_KEY}=PROVISIONING_FAILURE"]
+                onegate_vm_update ["#{ONEKS_STATE_KEY}=PIVOTING_FAILURE"]
                 exit 1
             end
         end
