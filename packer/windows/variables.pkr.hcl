@@ -66,7 +66,7 @@ variable "windows" {
       iso          = "windows10BusinessEditions"
       edition_name = "Windows 10 Enterprise"
     }
-    "10enterpriseN" = {
+    "10EnterpriseN" = {
       iso          = "windows10BusinessEditions"
       edition_name = "Windows 10 Enterprise N"
     }
@@ -151,7 +151,7 @@ variable "windows" {
       iso          = "windows11BusinessEditions"
       edition_name = "Windows 11 Enterprise"
     }
-    "11enterpriseN" = {
+    "11EnterpriseN" = {
       iso          = "windows11BusinessEditions"
       edition_name = "Windows 11 Enterprise N"
     }
