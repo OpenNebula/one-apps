@@ -55,6 +55,9 @@ packer-service_Vllm.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_Vll
 
 	@$(INFO) "Packer service_Vllm.aarch64 done"
 
+packer-service_vllm-engine: packer-ubuntu2404 $(DIR_EXPORT)/service_vllm-engine.qcow2
+	@$(INFO) "Packer service_vllm-engine done"
+
 packer-service_Capi: packer-ubuntu2204 $(DIR_EXPORT)/service_Capi.qcow2
 	@$(INFO) "Packer service_Capi done"
 
