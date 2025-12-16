@@ -1,8 +1,9 @@
 [Unit]
 Description=OpenNebula pre-networking contextualization
+Requires=dev-sr0.device
 Wants=network-pre.target local-fs.target syslog.target
 Before=network-pre.target
-After=local-fs.target syslog.target
+After=local-fs.target syslog.target dev-sr0.device
 ConditionPathExists=!/var/run/one-context/context.sh.local
 
 [Service]
