@@ -93,6 +93,11 @@ build {
     destination = "/etc/one-appliance/fabricManager-partition-tool"
   }
 
+  provisioner "file" {
+    source      = "appliances/FabricManager/one-fm-boot-manager.sh"
+    destination = "/etc/one-appliance/one-fm-boot-manager.sh"
+  }
+
   provisioner "shell" {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
