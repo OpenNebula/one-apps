@@ -35,12 +35,6 @@ packer-service_VRouter.aarch64: packer-alpine320.aarch64 $(DIR_EXPORT)/service_V
 packer-service_Harbor: packer-ubuntu2204 $(DIR_EXPORT)/service_Harbor.qcow2
 	@$(INFO) "Packer service_Harbor done"
 
-packer-service_SlurmController: packer-ubuntu2204 $(DIR_EXPORT)/service_SlurmController.qcow2
-	@$(INFO) "Packer service_SlurmController done"
-
-packer-service_SlurmWorker: packer-ubuntu2204 $(DIR_EXPORT)/service_SlurmWorker.qcow2
-	@$(INFO) "Packer service_SlurmWorker done"
-
 packer-service_MinIO: packer-ubuntu2204 $(DIR_EXPORT)/service_MinIO.qcow2
 	@$(INFO) "Packer service_MinIO done"
 
@@ -49,6 +43,12 @@ packer-service_OneKE: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKE.qcow2 $
 
 packer-capone: packer-ubuntu2204oneke $(DIR_EXPORT)/capone.qcow2
 	@$(INFO) "Packer capone done"
+
+packer-service_SlurmController: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmController.qcow2
+	@$(INFO) "Packer service_SlurmController done"
+
+packer-service_SlurmWorker: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmWorker.qcow2
+	@$(INFO) "Packer service_SlurmWorker done"
 
 # airgapped version
 packer-service_OneKEa: PKR_VAR_airgapped := YES
