@@ -8,8 +8,8 @@ variable "freebsd" {
     }
 
     "14.x86_64" = {
-      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/FreeBSD-14.2-RELEASE-amd64-disc1.iso"
-      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/CHECKSUM.SHA256-FreeBSD-14.2-RELEASE-amd64"
+      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.3/FreeBSD-14.3-RELEASE-amd64-disc1.iso"
+      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.3/CHECKSUM.SHA256-FreeBSD-14.3-RELEASE-amd64"
     }
   }
 }
