@@ -11,6 +11,11 @@ variable "freebsd" {
       iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/FreeBSD-14.2-RELEASE-amd64-disc1.iso"
       iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/14.2/CHECKSUM.SHA256-FreeBSD-14.2-RELEASE-amd64"
     }
+
+    "15.x86_64" = {
+      iso_url      = "https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/15.0/FreeBSD-15.0-RELEASE-amd64-disc1.iso"
+      iso_checksum = "file:https://download.freebsd.org/ftp/releases/amd64/amd64/ISO-IMAGES/15.0/CHECKSUM.SHA256-FreeBSD-15.0-RELEASE-amd64"
+    }
   }
 }
 
@@ -152,6 +157,53 @@ variable "boot_cmd" {
 
       "N<wait>",          # Add User Accounts, no
       "E<enter><wait10>", # Final Configuration, exit
+      "Y<wait>",          # Yes
+
+      # Manual Configuration
+      "sed -i '' -e 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config<enter><wait>",
+      "sed -i '' -e 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config<enter><wait>",
+      "sed -i '' -e 's/^.*\\([[:space:]]\\/[[:space:]]\\)/\\/dev\\/gpt\\/rootfs\\1/' /etc/fstab<enter><wait>",
+      "sync<enter>exit<enter><wait2s>",
+
+      "R<wait10>" # Complete: Reboot
+    ]
+
+    "15" = [
+      "I<wait7s>",       # Welcome: Install
+      "<enter><wait2s>", # Keymap Selection: Continue with default
+
+      "localhost",       # Set hostname
+      "<enter><wait2s>",
+
+      "D<wait2s>",       # Distribution Select
+      "<enter><wait2s>", # OK
+      "<enter><wait2s>", # OK
+      "<enter><wait10s>", # Network - Auto
+
+      "<down><enter><wait2s>",                     # Partitioning, Auto (UFS)
+      "E<wait2s>",                                   # Entire Disk
+      "G<enter><wait2s>",                            # GPT
+      "<down><down><down>D<wait>",                 # Delete swap partition
+      "M<wait>",                                   # Modify second partition
+      "<down><down><down>rootfs<tab><enter>",      # Set rootfs label on root p.
+      "F<wait>",                                   # Finish
+      "C<wait>",                                   # Commit
+      "<enter><wait2s>",                           # Mirror select
+      "<wait5m>",                                  # Wait for base install
+
+      "opennebula<tab><wait2s>", # Root password
+      "opennebula<enter><wait5s>",
+
+      "0<enter><wait2s>",  # Time zone selector
+      "Y<wait>",           # UTC
+      "S<wait>",           # Skip date
+      "S<wait>",           # Skip time
+
+      "<enter><wait2s>",  # System Configuration, OK
+      "<enter><wait10s>", # System Hardening OK, Firmware wait
+
+      "N<wait>",          # Add User Accounts, no
+      "<enter><wait10>",  # Final Configuration, exit
       "Y<wait>",          # Yes
 
       # Manual Configuration
