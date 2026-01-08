@@ -13,8 +13,8 @@ build {
 
     # execute *.sh + *.sh.<version> from input_dir
     scripts = sort(concat(
-      [for s in fileset(".", "**.sh") : "${var.input_dir}/${s}"],
-      [for s in fileset(".", "**.sh.${var.version}") : "${var.input_dir}/${s}"]
+      [for s in fileset(".", "**/*.sh") : "${var.input_dir}/${s}"],
+      [for s in fileset(".", "**/*.sh.${var.version}") : "${var.input_dir}/${s}"]
     ))
 
     environment_vars = [
