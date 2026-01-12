@@ -140,29 +140,6 @@ module Service
 
             begin
                 onegate_vm_update ["#{ONEKS_STATE_KEY}=PIVOTING_CLUSTER"]
-                msg :info, 'Create backup directory'
-                unless bash <<~SCRIPT
-                    install -d backup
-                SCRIPT
-                    msg :error, 'Failed to create backup directory'
-                    exit 1
-                end
-
-                msg :info, 'Backup Management Cluster'
-                success = begin_retry?(30, 10) do
-                    puts bash <<~SCRIPT
-                        clusterctl -v=4 move \
-                        --to-directory=backup/ \
-                        --kubeconfig #{ONEKS_MGMT_KUBECONFIG_PATH}
-                    SCRIPT
-                end
-
-                unless success
-                    msg :error, 'Failed to backup Management Cluster'
-                    onegate_vm_update ["#{ONEKS_STATE_KEY}=PIVOTING_FAILURE"]
-                    exit 1
-                end
-
                 msg :info, 'Retrieve Workload Cluster Kubeconfig'
                 unless bash <<~SCRIPT
                     clusterctl get kubeconfig #{ONEKS_CLUSTER_NAME} \
@@ -190,7 +167,7 @@ module Service
                 success = begin_retry?(30, 10) do
                     puts bash <<~SCRIPT
                         clusterctl -v=4 move \
-                        --from-directory=backup/ \
+                        --kubeconfig #{ONEKS_MGMT_KUBECONFIG_PATH} \
                         --to-kubeconfig #{ONEKS_WKLD_KUBECONFIG_PATH}
                     SCRIPT
                 end
