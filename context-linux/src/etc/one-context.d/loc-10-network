@@ -50,8 +50,11 @@ if [ -z "${NETCFG_TYPE}" ] ; then
         fedora*|centos*|rhel*|almalinux*|ol*|rocky*)
             NETCFG_TYPE='nm networkd scripts'
             ;;
-        opensuse*|sles*|sled*)
+        opensuse-leap15*|sles*|sled*)
             NETCFG_TYPE='scripts'
+	    ;;
+        opensuse-leap16*)
+            NETCFG_TYPE='nm networkd scripts'
             ;;
         amzn*)
             NETCFG_TYPE='scripts'
