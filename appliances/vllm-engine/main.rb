@@ -401,10 +401,9 @@ module Service
     # ------------------------------------------------------------------------------
 
     def detect_and_mount_model_disk
-        # Auto-detect model disk (first non-OS disk)
         os_disk = detect_os_disk
 
-        # Find additional disks (both block devices and virtiofs)
+        # Find additional disks (both block devices and virtiofs) except the OS and context disks
         additional_disks = find_additional_disks(os_disk)
 
         if additional_disks.empty?
@@ -412,24 +411,14 @@ module Service
             return nil
         end
 
-        # Probe candidates: mount, check HF signature, keep only the matching disk mounted
+        # Mount the first candidate disk and return its path for vLLM
         additional_disks.each do |model_disk|
             mount_path = determine_default_mount_path(model_disk)
             disk_format = detect_disk_format(model_disk)
-            already_mounted = mountpoint?(mount_path)
 
-            msg :info, "Probing model disk: #{model_disk} (format: #{disk_format}), mount #{mount_path}"
+            msg :info, "Mounting model disk: #{model_disk} (format: #{disk_format}), mount #{mount_path}"
             mounted_path = mount_disk_by_format(model_disk, mount_path, disk_format)
-            next unless mounted_path
-
-            if model_disk_signature?(mounted_path)
-                msg :info, "Selected model disk: #{model_disk}"
-                return mounted_path
-            end
-
-            msg :warn, "Disk #{model_disk} missing HF signature, skipping"
-            # Unmount test mounts so only the selected model disk stays mounted
-            Open3.capture3("umount #{mounted_path} 2>/dev/null") unless already_mounted
+            return mounted_path if mounted_path
         end
 
         msg :error, "No model disk detected. vllm-engine requires a model disk to be attached."
@@ -444,33 +433,7 @@ module Service
         'vda'  # Default fallback
     end
 
-    # True if path is already a mountpoint (avoid unmounting user mounts)
-    def mountpoint?(path)
-        _stdout, _stderr, status = Open3.capture3("mountpoint -q #{path}")
-        status.success?
-    end/opt/one-ee/src/mad/sh/create_hf_image.sh
-
-    # Heuristic to detect HuggingFace model disks by file signature.
-    def model_disk_signature?(mount_path)
-        #TODO: We could improve this by injecting a marker file in the model disk when the model image is created (in /one-ee/src/mad/sh/create_hf_image.sh)
-        config = File.exist?(File.join(mount_path, 'config.json'))
-        tokenizer = File.exist?(File.join(mount_path, 'tokenizer.json')) ||
-                    File.exist?(File.join(mount_path, 'tokenizer_config.json'))
-        # Quick top-level weight file check (no recursive scan on large disks)
-        weights = false
-        Dir.each_child(mount_path) do |entry|
-            if entry == 'pytorch_model.bin' ||
-               entry.end_with?('.safetensors') ||
-               entry.end_with?('.gguf')
-                weights = true
-                break
-            end
-        end
-
-        msg :info, "Model signature check at #{mount_path}: config=#{config}, tokenizer=#{tokenizer}, weights=#{weights}"
-        config && tokenizer && weights
-    end
-
+    # Return non-OS disks and virtiofs tags, excluding the OS and context disks
     def find_additional_disks(os_disk)
         disks = []
         # Find block devices (qcow2 format)
