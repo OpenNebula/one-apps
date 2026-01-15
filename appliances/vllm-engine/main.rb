@@ -448,10 +448,11 @@ module Service
     def mountpoint?(path)
         _stdout, _stderr, status = Open3.capture3("mountpoint -q #{path}")
         status.success?
-    end
+    end/opt/one-ee/src/mad/sh/create_hf_image.sh
 
     # Heuristic to detect HuggingFace model disks by file signature.
     def model_disk_signature?(mount_path)
+        #TODO: We could improve this by injecting a marker file in the model disk when the model image is created (in /one-ee/src/mad/sh/create_hf_image.sh)
         config = File.exist?(File.join(mount_path, 'config.json'))
         tokenizer = File.exist?(File.join(mount_path, 'tokenizer.json')) ||
                     File.exist?(File.join(mount_path, 'tokenizer_config.json'))
