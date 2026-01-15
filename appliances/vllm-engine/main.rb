@@ -412,15 +412,28 @@ module Service
             return nil
         end
 
-        # Use first additional disk as model disk
-        model_disk = additional_disks.first
-        mount_path = determine_default_mount_path(model_disk)
+        # Probe candidates: mount, check HF signature, keep only the matching disk mounted
+        additional_disks.each do |model_disk|
+            mount_path = determine_default_mount_path(model_disk)
+            disk_format = detect_disk_format(model_disk)
+            already_mounted = mountpoint?(mount_path)
 
-        # Detect format for auto-detected disk
-        disk_format = detect_disk_format(model_disk)
+            msg :info, "Probing model disk: #{model_disk} (format: #{disk_format}), mount #{mount_path}"
+            mounted_path = mount_disk_by_format(model_disk, mount_path, disk_format)
+            next unless mounted_path
 
-        msg :info, "Auto-detected model disk: #{model_disk} (format: #{disk_format}), mounting to #{mount_path}"
-        return mount_disk_by_format(model_disk, mount_path, disk_format)
+            if model_disk_signature?(mounted_path)
+                msg :info, "Selected model disk: #{model_disk}"
+                return mounted_path
+            end
+
+            msg :warn, "Disk #{model_disk} missing HF signature, skipping"
+            # Unmount test mounts so only the selected model disk stays mounted
+            Open3.capture3("umount #{mounted_path} 2>/dev/null") unless already_mounted
+        end
+
+        msg :error, "No model disk detected. vllm-engine requires a model disk to be attached."
+        nil
     end
 
     def detect_os_disk
@@ -431,9 +444,34 @@ module Service
         'vda'  # Default fallback
     end
 
+    # True if path is already a mountpoint (avoid unmounting user mounts)
+    def mountpoint?(path)
+        _stdout, _stderr, status = Open3.capture3("mountpoint -q #{path}")
+        status.success?
+    end
+
+    # Heuristic to detect HuggingFace model disks by file signature.
+    def model_disk_signature?(mount_path)
+        config = File.exist?(File.join(mount_path, 'config.json'))
+        tokenizer = File.exist?(File.join(mount_path, 'tokenizer.json')) ||
+                    File.exist?(File.join(mount_path, 'tokenizer_config.json'))
+        # Quick top-level weight file check (no recursive scan on large disks)
+        weights = false
+        Dir.each_child(mount_path) do |entry|
+            if entry == 'pytorch_model.bin' ||
+               entry.end_with?('.safetensors') ||
+               entry.end_with?('.gguf')
+                weights = true
+                break
+            end
+        end
+
+        msg :info, "Model signature check at #{mount_path}: config=#{config}, tokenizer=#{tokenizer}, weights=#{weights}"
+        config && tokenizer && weights
+    end
+
     def find_additional_disks(os_disk)
         disks = []
-
         # Find block devices (qcow2 format)
         stdout, _stderr, status = Open3.capture3('lsblk -n -o NAME,TYPE | grep disk | awk \'{print $1}\'')
         if status.success?
@@ -454,30 +492,30 @@ module Service
             virtiofs_dirs = Dir.entries('/sys/fs/virtiofs').select { |d| d != '.' && d != '..' }
             disks.concat(virtiofs_dirs)
         end
-
-        # Proactively probe for unmounted virtiofs tags
-        # Virtiofs tags follow the pattern "disk{N}" where N is the DISK_ID
-        # Try common tags (disk1, disk2, etc.) by attempting a test mount
-        if File.exist?('/proc/filesystems') && File.read('/proc/filesystems').include?('virtiofs')
-            # Try to detect available virtiofs tags by attempting test mounts
-            # We'll try disk1 through disk10 (common range)
-            (1..10).each do |disk_id|
-                tag = "disk#{disk_id}"
-                # Try a test mount to see if the tag is available
-                # Use a temporary mount point and immediately unmount if successful
-                test_mount = "/tmp/test_virtiofs_#{tag}"
-                FileUtils.mkdir_p(test_mount)
-                stdout, stderr, status = Open3.capture3("mount -t virtiofs #{tag} #{test_mount} 2>&1")
-                if status.success?
-                    disks << tag
-                    # Unmount the test mount
-                    Open3.capture3("umount #{test_mount} 2>/dev/null")
-                end
-                FileUtils.rmdir(test_mount) if Dir.exist?(test_mount)
-            end
+        context_id = context_disk_id
+        if context_id
+            # Filter out the context disk tag (disk<DISK_ID>)
+            disks = disks.reject { |d| d == "disk#{context_id}" }
         end
 
-        disks.uniq
+        disks = disks.uniq
+        msg :info, "find_additional_disks: candidates=#{disks.join(',')}"
+        disks
+    end
+
+    def context_disk_id
+        # Read DISK_ID from one-context env so we can exclude the context disk
+        [
+            '/run/one-context/one_env',
+            '/var/run/one-context/one_env'
+        ].each do |path|
+            next unless File.exist?(path)
+            File.read(path).each_line do |line|
+                match = line.match(/^export\s+DISK_ID=\"?(\d+)\"?/)
+                return match[1] if match
+            end
+        end
+        nil
     end
 
     def detect_disk_format(disk_spec)
