@@ -120,7 +120,7 @@ gen_iface_conf()
 {
     nmcli con mod "${dev}" ipv4.method manual ipv4.addresses "${ip}/${cidr}"
 
-    if [ -n "$gateway" ]; then
+    if valid_ipv4 $gateway; then
         nmcli con mod "${dev}" ipv4.gateway "${gateway}"
     else
         nmcli con mod "${dev}" ipv4.gateway ""
