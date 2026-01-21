@@ -136,10 +136,19 @@ gen_iface_conf()
             rsplit=( ${route} )
             dst="${rsplit[0]}"
             gw="${rsplit[2]}"
+            if [[ ${rsplit[4]} ]]; then
+                route_dev="${rsplit[4]}"
+            fi
+            if [[ ${rsplit[6]} ]]; then
+                metric="${rsplit[6]}"
+            fi
 
-            nmcli con mod "$dev" +ipv4.routes "${dst} ${gw}"
+            if [[ ${route_dev} = ${dev} ]]; then
+                nmcli con mod --temporary "$route_dev" +ipv4.routes "${dst} ${gw}"
+            fi
         done
-
+    else
+        nmcli con mod "${dev}" ipv4.routes ""
     fi
 
     # Add ONEGATE Proxy static route ip route replace 169.254.16.9 dev eth0
@@ -162,6 +171,7 @@ gen_iface_conf()
 reset_iface()
 {
     # the order is significant - ip.addresses cannot be erased while gateway is set
+    nmcli con mod "${dev}" ipv4.routes ""
     nmcli con mod "${dev}" ipv4.route-metric ""
     nmcli con mod "${dev}" ipv4.gateway ""
     nmcli con mod "${dev}" ipv4.addresses ""

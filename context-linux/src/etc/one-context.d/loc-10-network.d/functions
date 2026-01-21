@@ -533,7 +533,7 @@ setup_iface_vars()
     export ip6_gateway=$(get_iface_var "$1" "IP6_GATEWAY")
     export ip6_metric=$(get_iface_var "$1" "IP6_METRIC")
     export ip6_method=$(get_iface_var "$1" "IP6_METHOD")
-    export static_routes=$(get_iface_var "$1" "ROUTES")
+    export static_routes=${ROUTES}
 
     # backward compatibility
     [ -z "$ip6_gateway" ] && ip6_gateway=$(get_iface_var "$1" "GATEWAY6")
