@@ -21,8 +21,8 @@ VLLM_API_ROUTE='/v1'
 DEFAULT_GPU_MEMORY_UTILIZATION = "0.9"
 
 # These variables are not exposed to the user and only used during install
-ONEAPP_VLLM_RELEASE_VERSION = env :ONEAPP_VLLM_RELEASE_VERSION, '0.10.2'
-ONEAPP_VLLM_CUDA_VERSION   = env :ONEAPP_VLLM_CUDA_VERSION, '129'
+ONEAPP_VLLM_RELEASE_VERSION = env :ONEAPP_VLLM_RELEASE_VERSION, '0.15.1'
+ONEAPP_VLLM_CUDA_VERSION   = env :ONEAPP_VLLM_CUDA_VERSION, '130'
 INSTALL_DRIVERS            = env :INSTALL_DRIVERS, 'true'
 
 # ------------------------------------------------------------------------------

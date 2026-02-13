@@ -118,7 +118,7 @@ module Service
             uv pip install -r requirements/cpu-build.txt --torch-backend cpu --index-strategy unsafe-best-match
             uv pip install -r requirements/cpu.txt --torch-backend cpu
 
-            VLLM_TARGET_DEVICE=cpu python setup.py install
+            VLLM_TARGET_DEVICE=cpu uv pip install . --no-build-isolation
         SCRIPT
     end
 
@@ -171,7 +171,7 @@ module Service
 
             export VLLM_VERSION=#{ONEAPP_VLLM_RELEASE_VERSION}
             export CUDA_VERSION=#{ONEAPP_VLLM_CUDA_VERSION}
-            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux1_x86_64.whl  \
+            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux_2_35_x86_64.whl \
                 --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
                 --index-strategy unsafe-best-match
         SCRIPT
@@ -186,7 +186,7 @@ module Service
 
             export VLLM_VERSION=#{ONEAPP_VLLM_RELEASE_VERSION}
             export CUDA_VERSION=#{ONEAPP_VLLM_CUDA_VERSION}
-            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux2014_aarch64.whl  \
+            uv pip install https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux_2_35_aarch64.whl \
                 --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
                 --index-strategy unsafe-best-match
         SCRIPT
