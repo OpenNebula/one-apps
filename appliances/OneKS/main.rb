@@ -72,7 +72,8 @@ module Service
                 clusterctl init \
                 --bootstrap=rke2 \
                 --control-plane=rke2 \
-                --infrastructure=opennebula:v#{ONEKS_CAPONE_VERSION}
+                --infrastructure=opennebula:v#{ONEKS_CAPONE_VERSION} \
+                --wait-providers
             SCRIPT
 
             msg :info, 'Stop management cluster'
