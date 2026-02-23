@@ -3,11 +3,11 @@ variable "arch_parameter_map" {
 
   default = {
     "x86_64" = {
-      iso_url = "export/ubuntu2204.qcow2"
+      iso_url = "export/ubuntu2404.qcow2"
     }
 
     "aarch64" = {
-      iso_url = "export/ubuntu2204.aarch64.qcow2"
+      iso_url = "export/ubuntu2404.aarch64.qcow2"
     }
   }
 }
