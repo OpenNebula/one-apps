@@ -58,7 +58,6 @@ guidellm benchmark \
   --max-seconds 20 \
   --warmup-percent 0.1 \
   --output-path="$output_path" \
-  --display-scheduler-stats \
   --data "prompt_tokens=512,output_tokens=256"
 
 echo "Benchmark completed. Results saved to $output_path"

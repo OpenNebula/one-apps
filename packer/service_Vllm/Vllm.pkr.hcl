@@ -18,7 +18,7 @@ build {
 # Here are the details about the VM virtual hardware
 source "qemu" "Vllm" {
   cpus        = 2
-  memory      = 4096
+  memory      = 16384
   accelerator = "kvm"
 
   iso_url      = lookup(lookup(var.arch_parameter_map, var.arch, {}), "iso_url", "")
