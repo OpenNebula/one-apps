@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2026, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# THIS IS A CONTEXTUALIZATION GUARD
+if [ "$1" != 'local' ] ; then
+    exit 0
+fi
+
+_action="${2:-configure}"
+_exit_result=0
+
+# Unmount virtiofs mounts that are no longer in the context
+unmount_stale_virtiofs() {
+    # Get all current virtiofs mounts
+    while IFS= read -r _line ; do
+        [ -z "${_line}" ] && continue
+
+        _mounted_tag=$(echo "${_line}" | awk '{print $1}')
+        _mounted_point=$(echo "${_line}" | awk '{print $2}')
+
+        # Check if this tag+mountpoint is still requested in context
+        _found='no'
+        for _disk in $(env | grep -E "^DISK[0-9]+_TAG=" | sed 's/_TAG=.*//' | sort) ; do
+            _tag_var="${_disk}_TAG"
+            _mountpoint_var="${_disk}_MOUNTPOINT"
+            _tag="${!_tag_var}"
+            _mountpoint="${!_mountpoint_var}"
+
+            if [ "${_tag}" = "${_mounted_tag}" ] && \
+               [ "${_mountpoint}" = "${_mounted_point}" ] ; then
+                _found='yes'
+                break
+            fi
+        done
+
+        if [ "${_found}" = 'no' ] ; then
+            echo "VIRTIOFS: Unmounting stale ${_mounted_tag} from ${_mounted_point}" >&2
+            if ! umount "${_mounted_point}" ; then
+                echo "VIRTIOFS: Failed to unmount ${_mounted_point}" >&2
+                _exit_result=1
+            fi
+        fi
+    done <<< "$(mount -t virtiofs 2>/dev/null | awk '{print $1, $3}')"
+}
+
+# Mount virtiofs filesystems from context
+mount_virtiofs() {
+    for _disk in $(env | grep -E "^DISK[0-9]+_TAG=" | sed 's/_TAG=.*//' | sort) ; do
+        _tag_var="${_disk}_TAG"
+        _mountpoint_var="${_disk}_MOUNTPOINT"
+
+        _tag="${!_tag_var}"
+        _mountpoint="${!_mountpoint_var}"
+
+        if [ -z "${_tag}" ] ; then
+            continue
+        fi
+
+        if [ -z "${_mountpoint}" ] ; then
+            continue
+        fi
+
+        # Skip if already mounted with the same tag on the same mountpoint
+        if mount -t virtiofs 2>/dev/null | grep -q "^${_tag} on ${_mountpoint} " ; then
+            echo "VIRTIOFS: ${_tag} already mounted on ${_mountpoint}, skipping" >&2
+            continue
+        fi
+
+        # If something else is mounted there, skip
+        if mountpoint -q "${_mountpoint}" 2>/dev/null ; then
+            echo "VIRTIOFS: ${_mountpoint} is already a mountpoint, skipping" >&2
+            continue
+        fi
+
+        echo "VIRTIOFS: Mounting ${_tag} on ${_mountpoint}" >&2
+
+        mkdir -p "${_mountpoint}"
+
+        if ! mount -t virtiofs "${_tag}" "${_mountpoint}" ; then
+            echo "VIRTIOFS: Failed to mount ${_tag} on ${_mountpoint}" >&2
+            _exit_result=1
+        fi
+    done
+}
+
+case "${_action}" in
+    configure)
+        mount_virtiofs
+        ;;
+    reconfigure|force)
+        unmount_stale_virtiofs
+        mount_virtiofs
+        ;;
+    *)
+        echo "VIRTIOFS: Unknown action: ${_action}" >&2
+        exit 1
+        ;;
+esac
+
+exit "${_exit_result}"
