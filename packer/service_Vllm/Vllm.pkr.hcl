@@ -17,7 +17,7 @@ build {
 # A Virtual Machine is created with qemu in order to run the setup from the ISO on the CD-ROM
 # Here are the details about the VM virtual hardware
 source "qemu" "Vllm" {
-  cpus        = 2
+  cpus        = 4
   memory      = 16384
   accelerator = "kvm"
 
