@@ -152,13 +152,13 @@ module Service
         # return if drivers were already provided in the base image
         return if INSTALL_DRIVERS != 'true'
 
-        # Installing 570 branch drivers as they are available with CUDA 12.8
+        # Installing 590 branch drivers as they are available with CUDA 13.0
         # which are necessary for running on NVIDIA Blackwell GPUs
         # https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html#pre-built-wheels
         puts bash <<~SCRIPT
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            apt install nvidia-driver-570-server nvidia-utils-570-server -y
+            apt install nvidia-driver-590-server-open nvidia-utils-590-server -y
         SCRIPT
     end
 
