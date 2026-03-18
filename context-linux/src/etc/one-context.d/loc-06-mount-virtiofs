@@ -35,9 +35,9 @@ unmount_stale_virtiofs() {
 
         # Check if this tag+mountpoint is still requested in context
         _found='no'
-        for _disk in $(env | grep -E "^DISK[0-9]+_TAG=" | sed 's/_TAG=.*//' | sort) ; do
-            _tag_var="${_disk}_TAG"
-            _mountpoint_var="${_disk}_MOUNTPOINT"
+        for _disk in $(env | grep -E "^DISK[0-9]+_MOUNT_TAG=" | sed 's/_MOUNT_TAG=.*//' | sort) ; do
+            _tag_var="${_disk}_MOUNT_TAG"
+            _mountpoint_var="${_disk}_MOUNT_POINT"
             _tag="${!_tag_var}"
             _mountpoint="${!_mountpoint_var}"
 
@@ -60,9 +60,9 @@ unmount_stale_virtiofs() {
 
 # Mount virtiofs filesystems from context
 mount_virtiofs() {
-    for _disk in $(env | grep -E "^DISK[0-9]+_TAG=" | sed 's/_TAG=.*//' | sort) ; do
-        _tag_var="${_disk}_TAG"
-        _mountpoint_var="${_disk}_MOUNTPOINT"
+    for _disk in $(env | grep -E "^DISK[0-9]+_MOUNT_TAG=" | sed 's/_MOUNT_TAG=.*//' | sort) ; do
+        _tag_var="${_disk}_MOUNT_TAG"
+        _mountpoint_var="${_disk}_MOUNT_POINT"
 
         _tag="${!_tag_var}"
         _mountpoint="${!_mountpoint_var}"
