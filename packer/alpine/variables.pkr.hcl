@@ -28,5 +28,14 @@ variable "alpine" {
       iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/nocloud_alpine-3.22.2-aarch64-uefi-cloudinit-r0.qcow2"
       iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/cloud/nocloud_alpine-3.22.2-aarch64-uefi-cloudinit-r0.qcow2.sha512"
     }
+
+    "323.x86_64" = {
+      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.3-x86_64-bios-cloudinit-r0.qcow2"
+      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.3-x86_64-bios-cloudinit-r0.qcow2.sha512"
+    }
+    "323.aarch64" = {
+      iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.3-aarch64-uefi-cloudinit-r0.qcow2"
+      iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/cloud/nocloud_alpine-3.23.3-aarch64-uefi-cloudinit-r0.qcow2.sha512"
+    }
   }
 }
