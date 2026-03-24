@@ -168,7 +168,7 @@ EOT
             dst="${rsplit[0]}"
             gw="${rsplit[2]}"
 
-            echo "  up ip route add ${dst} via ${gw}"
+            echo "  up ip route replace ${dst} via ${gw}"
         done
 
     fi
@@ -249,7 +249,7 @@ EOT
     if [ "${os_id}" = 'alpine' ] && \
        [ -n "${ip6_gateway}" ] && [ -n "${ip6_metric}" ];
     then
-        echo "  up ip -6 route add default via ${ip6_gateway} dev ${dev} metric ${ip6_metric}"
+        echo "  up ip -6 route replace default via ${ip6_gateway} dev ${dev} metric ${ip6_metric}"
 
     elif [ -n "${ip6_gateway}" ]; then
         echo "  gateway ${ip6_gateway}"
