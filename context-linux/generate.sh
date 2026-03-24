@@ -184,9 +184,16 @@ else
     sed -i "s/\<_PACKAGE_VERSION_\>/${VERSION}/" \
         "${BUILD_DIR}/usr/sbin/onesysprep"
 
+    # apk-tools v3 (Alpine 3.23+) requires 'noarch', not 'all'
+    if [ "${TYPE}" = 'apk' ]; then
+        _ARCH=noarch
+    else
+        _ARCH=all
+    fi
+
     # shellcheck disable=SC2086
     fpm --name "${NAME}" --version "${VERSION}" --iteration "${RELEASE_FULL}" \
-        --architecture all --license "${LICENSE}" \
+        --architecture "${_ARCH}" --license "${LICENSE}" \
         --vendor "${VENDOR}" --maintainer "${MAINTAINER}" \
         --description "${DESCRIPTION}" --url "${URL}" \
         --output-type "${TYPE}" --input-type dir --chdir "${BUILD_DIR}" \
@@ -208,6 +215,11 @@ else
         --pacman-group 0 \
         ${CONFIG_FILES} \
         --package "${OUT}"
+
+    # APK v2: inject datahash for apk-tools v3 (Alpine 3.23+)
+    if [ "${TYPE}" = 'apk' ]; then
+        python3 "$(dirname "$0")/apk-add-datahash.py" "${OUT}"
+    fi
 fi
 
 basename "${OUT}"
