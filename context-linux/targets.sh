@@ -190,6 +190,21 @@ case "${TARGET}" in
         POSTUP=${POSTUP:-pkg/postupgrade}
         ;;
 
+    'alpine322')
+        NAME=${NAME:-one-context}
+        RELSUFFIX=${RELSUFFIX:-.alpine322}
+        TYPE=${TYPE:-apk}
+        TAGS=${TAGS:-linux apk one} # ruby-base64 is now separate package
+        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-base64 ruby-json-schema bind-tools openssh qemu-guest-agent gawk virt-what}
+        PROVIDES=${PROVIDES:-}
+        REPLACES=${REPLACES:-}  #not respected
+        CONFLICTS=${CONFLICTS:-one-context-ec2}
+        POSTIN=${POSTINST:-pkg/postinstall}
+        PREUN=${PREUN:-pkg/preuninstall}
+        POSTUN=${POSTUN:-pkg/postuninstall}
+        POSTUP=${POSTUP:-pkg/postupgrade}
+        ;;
+
     'iso')
         NAME=${NAME:-one-context-linux}
         TYPE=${TYPE:-iso}
