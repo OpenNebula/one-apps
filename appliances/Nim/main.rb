@@ -64,7 +64,7 @@ module Service
             puts bash <<~SCRIPT
                 export DEBIAN_FRONTEND=noninteractive
                 apt-get update
-                apt-get install -y ca-certificates curl docker.io
+                apt-get install -y ca-certificates curl docker.io nvidia-driver-590-server-open nvidia-utils-590-server
             SCRIPT
         end
 
@@ -86,9 +86,8 @@ module Service
         def start_container
             msg :info, "Starting container: #{NIM_CONTAINER_NAME}"
 
-            # The image is selected, but the first concrete NIM deployment contract
-            # is still pending. NIM_DOCKER_RUN_ARGS is the intentional extension
-            # point for later runtime-specific flags, mounts, and env vars.
+            return start_real_container if NIM_MODE == 'real'
+
             puts bash <<~SCRIPT
                 docker run -d \
                     --name #{NIM_CONTAINER_NAME} \
@@ -116,6 +115,28 @@ server {
 }
 EOF
                         exec nginx -g 'daemon off;'"
+            SCRIPT
+        end
+
+        def start_real_container
+            puts bash <<~SCRIPT
+                install -d -m 0777 #{NIM_CACHE_DIR}
+                set +x
+                echo "$NGC_API_KEY" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+                set -x
+                docker pull "#{NIM_CONTAINER_IMAGE}"
+                docker run -d \
+                    --name #{NIM_CONTAINER_NAME} \
+                    --runtime=nvidia \
+                    --gpus all \
+                    --shm-size=#{NIM_SHM_SIZE} \
+                    -e NGC_API_KEY \
+                    #{NIM_EXTRA_ENV} \
+                    -v #{NIM_CACHE_DIR}:/opt/nim/.cache \
+                    -u $(id -u) \
+                    -p #{NIM_PORT}:#{NIM_CONTAINER_PORT} \
+                    #{NIM_EXTRA_RUN_ARGS} \
+                    "#{NIM_CONTAINER_IMAGE}"
             SCRIPT
         end
 
@@ -209,6 +230,9 @@ EOF
 
         def validate_placeholders!
             raise 'NIM container image must not be empty.' if NIM_CONTAINER_IMAGE.empty?
+            return unless NIM_MODE == 'real'
+
+            raise 'NGC_API_KEY must not be empty in real mode.' if NGC_API_KEY.empty?
         end
     end
 end
