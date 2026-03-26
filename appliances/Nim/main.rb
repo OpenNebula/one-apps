@@ -6,6 +6,7 @@ rescue LoadError
     require_relative '../lib/helpers'
 end
 
+require 'shellwords'
 require_relative 'config'
 
 module Service
@@ -26,7 +27,7 @@ module Service
         def configure
             msg :info, 'Nim::configure'
 
-            validate_placeholders!
+            validate_runtime_context!
             ensure_docker_running
             remove_previous_container
             start_container
@@ -51,8 +52,8 @@ module Service
                 return
             end
 
-            api_url    = "http://#{ip}:#{NIM_API_PORT}#{NIM_API_ROUTE}"
-            health_url = "http://#{ip}:#{NIM_API_PORT}#{NIM_READY_ROUTE}"
+            api_url = url_for(ip, NIM_API_PORT, NIM_API_ROUTE)
+            health_url = url_for(ip, NIM_API_PORT, NIM_READY_ROUTE)
 
             bash "onegate vm update --data \"ONEAPP_NIM_API=#{api_url}\""
             bash "onegate vm update --data \"ONEAPP_NIM_HEALTH=#{health_url}\""
@@ -64,7 +65,20 @@ module Service
             puts bash <<~SCRIPT
                 export DEBIAN_FRONTEND=noninteractive
                 apt-get update
-                apt-get install -y ca-certificates curl docker.io nvidia-driver-590-server-open nvidia-utils-590-server
+                apt-get install -y ca-certificates curl gnupg docker.io nvidia-driver-590-server-open nvidia-utils-590-server
+
+                install -m 0755 -d /etc/apt/keyrings
+                curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+                    | gpg --dearmor -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg
+
+                curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+                    | sed 's#deb https://#deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg] https://#' \
+                    > /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+                apt-get update
+                apt-get install -y nvidia-container-toolkit
+
+                nvidia-ctk runtime configure --runtime=docker
             SCRIPT
         end
 
@@ -85,58 +99,37 @@ module Service
 
         def start_container
             msg :info, "Starting container: #{NIM_CONTAINER_NAME}"
-
-            return start_real_container if NIM_MODE == 'real'
-
             puts bash <<~SCRIPT
-                docker run -d \
-                    --name #{NIM_CONTAINER_NAME} \
-                    -p #{NIM_API_PORT}:#{NIM_CONTAINER_PORT} \
-                    #{NIM_DOCKER_RUN_ARGS} \
-                    #{NIM_CONTAINER_IMAGE} \
-                    -c "cat > /etc/nginx/conf.d/default.conf <<'EOF'
-server {
-    listen 8000;
+                install -d -m 0777 #{sh_escape(NIM_CACHE_HOST_DIR)}
 
-    location = /v1 {
-        default_type text/plain;
-        return 200 'ok\n';
-    }
-
-    location = /v1/health/ready {
-        default_type text/plain;
-        return 200 'ok\n';
-    }
-
-    location / {
-        default_type text/plain;
-        return 404 'not found\n';
-    }
-}
-EOF
-                        exec nginx -g 'daemon off;'"
-            SCRIPT
-        end
-
-        def start_real_container
-            puts bash <<~SCRIPT
-                install -d -m 0777 #{NIM_CACHE_DIR}
                 set +x
-                echo "$NGC_API_KEY" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+                if ! printf '%s' "$NVIDIA_REGISTRY_KEY" | docker login "$NVIDIA_REGISTRY" -u #{sh_escape(registry_username)} --password-stdin; then
+                    echo "ERROR: Docker login failed for NVIDIA registry '$NVIDIA_REGISTRY'." >&2
+                    exit 1
+                fi
                 set -x
-                docker pull "#{NIM_CONTAINER_IMAGE}"
-                docker run -d \
-                    --name #{NIM_CONTAINER_NAME} \
+
+                if ! docker pull "$NVIDIA_IMAGE_REF"; then
+                    echo "ERROR: Failed to pull NVIDIA image '$NVIDIA_IMAGE_REF'." >&2
+                    exit 1
+                fi
+
+                if ! docker run -d \
+                    --name #{sh_escape(NIM_CONTAINER_NAME)} \
                     --runtime=nvidia \
                     --gpus all \
-                    --shm-size=#{NIM_SHM_SIZE} \
-                    -e NGC_API_KEY \
+                    --shm-size=#{sh_escape(NIM_SHM_SIZE)} \
+                    -e NGC_API_KEY="$NVIDIA_REGISTRY_KEY" \
                     #{NIM_EXTRA_ENV} \
-                    -v #{NIM_CACHE_DIR}:/opt/nim/.cache \
+                    -v #{sh_escape(NIM_CACHE_HOST_DIR)}:#{sh_escape(NIM_CACHE_CONTAINER_DIR)} \
                     -u $(id -u) \
-                    -p #{NIM_PORT}:#{NIM_CONTAINER_PORT} \
+                    -p #{sh_escape(NIM_HOST_PORT)}:#{sh_escape(NIM_CONTAINER_PORT)} \
                     #{NIM_EXTRA_RUN_ARGS} \
-                    "#{NIM_CONTAINER_IMAGE}"
+                    "$NVIDIA_IMAGE_REF"
+                then
+                    echo "ERROR: Failed to start NVIDIA container '$NVIDIA_IMAGE_REF'." >&2
+                    exit 1
+                fi
             SCRIPT
         end
 
@@ -181,23 +174,25 @@ EOF
         end
 
         def ready?
-            bash <<~SCRIPT
-                curl -fsS http://localhost:#{NIM_API_PORT}#{NIM_READY_ROUTE}
-            SCRIPT
-            true
-        rescue StandardError
-            false
+            health = container_health_status
+
+            return true if health == 'healthy'
+            return false unless health == 'none'
+
+            ready_via_http?
         end
 
         def service_state
             return :container_not_running unless container_running?
+            return :container_unhealthy if container_health_status == 'unhealthy'
+            return :container_running_not_ready if container_health_status == 'starting'
             return :ready if ready?
 
             :container_running_not_ready
         end
 
         def wait_service_available(timeout: 600, check_interval: 5)
-            msg :info, "Waiting for Nim readiness at http://localhost:#{NIM_API_PORT}#{NIM_READY_ROUTE}"
+            msg :info, readiness_wait_message
 
             start_time = Time.now
 
@@ -216,8 +211,19 @@ EOF
                         Recent logs:
                         #{logs}
                     ERROR
+                when :container_unhealthy
+                    status = container_status
+                    logs   = container_logs_tail
+
+                    raise <<~ERROR
+                        Nim container became unhealthy during readiness polling.
+                        Container status: #{status}
+                        Container health: #{container_health_status}
+                        Recent logs:
+                        #{logs}
+                    ERROR
                 when :container_running_not_ready
-                    msg :info, 'Nim container is running but readiness endpoint is not ready yet'
+                    msg :info, readiness_pending_message
                 end
 
                 if Time.now - start_time > timeout
@@ -228,11 +234,73 @@ EOF
             end
         end
 
-        def validate_placeholders!
-            raise 'NIM container image must not be empty.' if NIM_CONTAINER_IMAGE.empty?
-            return unless NIM_MODE == 'real'
+        def validate_runtime_context!
+            missing = []
+            missing << 'NVIDIA_REGISTRY' if NVIDIA_REGISTRY.empty?
+            missing << 'NVIDIA_REGISTRY_KEY' if NVIDIA_REGISTRY_KEY.empty?
+            missing << 'NVIDIA_IMAGE_REF' if NVIDIA_IMAGE_REF.empty?
+            missing << 'NVIDIA_REGISTRY_USER' if require_registry_user? && NVIDIA_REGISTRY_USER.empty?
 
-            raise 'NGC_API_KEY must not be empty in real mode.' if NGC_API_KEY.empty?
+            return if missing.empty?
+
+            raise "Missing required OpenNebula context variable(s): #{missing.join(', ')}"
+        end
+
+        def require_registry_user?
+            normalized_registry != 'nvcr.io'
+        end
+
+        def registry_username
+            return '$oauthtoken' unless require_registry_user?
+
+            NVIDIA_REGISTRY_USER
+        end
+
+        def normalized_registry
+            NVIDIA_REGISTRY.strip
+        end
+
+        def container_health_status
+            bash <<~SCRIPT, chomp: true
+                docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' #{NIM_CONTAINER_NAME}
+            SCRIPT
+        rescue StandardError
+            'unknown'
+        end
+
+        def ready_via_http?
+            bash <<~SCRIPT
+                curl -fsS http://localhost:#{NIM_API_PORT}#{NIM_READY_ROUTE}
+            SCRIPT
+            true
+        rescue StandardError
+            false
+        end
+
+        def readiness_wait_message
+            health = container_health_status
+
+            return 'Waiting for Nim Docker HEALTHCHECK to report healthy' unless health == 'none'
+            "Waiting for Nim readiness at http://localhost:#{NIM_API_PORT}#{NIM_READY_ROUTE}"
+        end
+
+        def readiness_pending_message
+            health = container_health_status
+
+            return 'Nim container is running but Docker HEALTHCHECK is not healthy yet' unless health == 'none'
+            'Nim container is running but readiness endpoint is not ready yet'
+        end
+
+        def url_for(ip, port, path)
+            normalized = path.to_s
+            normalized = '' if normalized == '/'
+            normalized = "/#{normalized}" unless normalized.empty? || normalized.start_with?('/')
+
+            "http://#{ip}:#{port}#{normalized}"
+        end
+
+        def sh_escape(value)
+            Shellwords.escape(value.to_s)
         end
     end
 end
