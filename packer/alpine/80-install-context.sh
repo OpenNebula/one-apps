@@ -9,7 +9,12 @@ set -eux -o pipefail
 
 apk add tzdata haveged
 
-LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
+# Alpine 3.22+ needs ruby-base64 (separate package), use alpine322 variant
+if [ "${DIST_VER}" -ge 322 ] 2>/dev/null; then
+    LATEST=$(find /context/ -type f -name "one-context*.alpine322.$CTXEXT" | sort -V | tail -n1)
+else
+    LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" ! -name "*.alpine322.*" | sort -V | tail -n1)
+fi
 
 apk add --allow-untrusted "$LATEST"
 
