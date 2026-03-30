@@ -18,8 +18,7 @@ module Service
         def install
             msg :info, 'Nim::install'
             msg :info, NIM_RUNTIME_NOTE
-
-            install_runtime_dependencies
+            msg :info, 'Runtime dependencies are preinstalled during image build'
 
             msg :info, 'Installation completed successfully'
         end
@@ -61,30 +60,8 @@ module Service
             msg :info, 'Bootstrap completed successfully'
         end
 
-        def install_runtime_dependencies
-            puts bash <<~SCRIPT
-                export DEBIAN_FRONTEND=noninteractive
-                apt-get update
-                apt-get install -y ca-certificates curl gnupg docker.io nvidia-driver-590-server-open nvidia-utils-590-server
-
-                install -m 0755 -d /etc/apt/keyrings
-                curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
-                    | gpg --dearmor -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg
-
-                curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
-                    | sed 's#deb https://#deb [signed-by=/etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg] https://#' \
-                    > /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-                apt-get update
-                apt-get install -y nvidia-container-toolkit
-
-                nvidia-ctk runtime configure --runtime=docker
-            SCRIPT
-        end
-
         def ensure_docker_running
             puts bash <<~SCRIPT
-                systemctl enable docker
                 systemctl start docker
             SCRIPT
         end

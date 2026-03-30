@@ -60,6 +60,10 @@ build {
   }
 
   provisioner "shell" {
+    scripts = ["${var.input_dir}/83-install-runtime-dependencies.sh"]
+  }
+
+  provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline = [
       "install -o 0 -g 0 -m u=rwx,g=rx,o=   -d /etc/one-appliance/{,service.d/,lib/}",
