@@ -76,6 +76,9 @@ packer-service_Capi: packer-ubuntu2404 $(DIR_EXPORT)/service_Capi.qcow2
 packer-service_Capi.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_Capi.aarch64.qcow2
 	@$(INFO) "Packer service_Capi.aarch64 done"
 
+packer-service_OneKS: packer-alpine321 $(DIR_EXPORT)/service_OneKS.qcow2
+	@$(INFO) "Packer service_OneKS done"
+
 # run packer build for given distro or service
 $(DIR_EXPORT)/service_OneKE_storage.qcow2:
 	qemu-img create -f qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2 10G
