@@ -47,6 +47,9 @@ packer-capone: packer-ubuntu2204oneke $(DIR_EXPORT)/capone.qcow2
 packer-service_SlurmController: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmController.qcow2
 	@$(INFO) "Packer service_SlurmController done"
 
+packer-service_Nim: packer-ubuntu2404 $(DIR_EXPORT)/service_Nim.qcow2
+	@$(INFO) "Packer service_Nim done"	
+
 packer-service_SlurmController.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_SlurmController.aarch64.qcow2
 	@$(INFO) "Packer service_SlurmController.aarch64 done"
 
