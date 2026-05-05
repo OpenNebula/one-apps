@@ -35,5 +35,8 @@ rm -rf "$INPUT_DIR"/"$DISTRO"-cloud-init.iso  \
 # convert to the export dir and compress
 qemu-img convert -c -O qcow2 "$OUTPUT_DIR/$DISTRO" "$DST"
 
+# generate manifest yaml alongside the image
+"$(dirname "$0")/manifest.sh" "$DST"
+
 # delete workig directory
 rm -rf "$OUTPUT_DIR"
