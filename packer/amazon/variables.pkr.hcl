@@ -4,13 +4,13 @@ variable "amazon" {
   default = {
     "2.x86_64" = {
       # navigate via https://cdn.amazonlinux.com/os-images/latest/kvm/
-      iso_url      = "https://cdn.amazonlinux.com/os-images/2.0.20260302.0/kvm/amzn2-kvm-2.0.20260302.0-x86_64.xfs.gpt.qcow2"
-      iso_checksum = "file:https://cdn.amazonlinux.com/os-images/2.0.20260302.0/kvm/SHA256SUMS"
+      iso_url      = "https://cdn.amazonlinux.com/os-images/2.0.20260508.0/kvm/amzn2-kvm-2.0.20260508.0-x86_64.xfs.gpt.qcow2"
+      iso_checksum = "file:https://cdn.amazonlinux.com/os-images/2.0.20260508.0/kvm/SHA256SUMS"
     }
     "2023.x86_64" = {
       # navigate via https://cdn.amazonlinux.com/al2023/os-images/latest/
-      iso_url      = "https://cdn.amazonlinux.com/al2023/os-images/2023.10.20260302.1/kvm/al2023-kvm-2023.10.20260302.1-kernel-6.1-x86_64.xfs.gpt.qcow2"
-      iso_checksum = "file:https://cdn.amazonlinux.com/al2023/os-images/2023.10.20260302.1/kvm/SHA256SUMS"
+      iso_url      = "https://cdn.amazonlinux.com/al2023/os-images/2023.11.20260509.0/kvm/al2023-kvm-2023.11.20260509.0-kernel-6.1-x86_64.xfs.gpt.qcow2"
+      iso_checksum = "file:https://cdn.amazonlinux.com/al2023/os-images/2023.11.20260509.0/kvm/SHA256SUMS"
     }
   }
 }
