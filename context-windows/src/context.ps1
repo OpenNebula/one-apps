@@ -326,9 +326,6 @@ function Set-NetworkConfiguration {
         if (!$network) {
             $network = $ip -replace "\.[^.]+$", ".0"
         }
-        if ($nicId -eq 0 -and !$gateway) {
-            $gateway = $ip -replace "\.[^.]+$", ".1"
-        }
 
         # default NIC configuration methods
         if (!$method) {
