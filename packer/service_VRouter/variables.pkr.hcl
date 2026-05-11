@@ -3,11 +3,11 @@ variable "VRouter" {
 
   default = {
     "x86_64" = {
-      iso_url = "export/alpine320.qcow2"
+      iso_url = "export/alpine321.qcow2"
     }
 
     "aarch64" = {
-      iso_url = "export/alpine320.aarch64.qcow2"
+      iso_url = "export/alpine321.aarch64.qcow2"
     }
   }
 }

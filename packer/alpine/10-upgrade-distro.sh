@@ -5,7 +5,7 @@
 exec 1>&2
 set -eux -o pipefail
 
-apk --no-cache add bash curl gawk grep jq sed
+apk --no-cache add bash curl gawk grep iproute2-minimal jq sed
 
 gawk -i inplace -f- /etc/apk/repositories <<'EOF'
 /community$/ && !/edge/ { gsub(/^#\s*/, "") }
