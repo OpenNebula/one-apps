@@ -26,10 +26,10 @@ packer-service_Wordpress: packer-alma8 $(DIR_EXPORT)/service_Wordpress.qcow2
 packer-service_example: packer-alma8 $(DIR_EXPORT)/service_example.qcow2
 	@$(INFO) "Packer service_example done"
 
-packer-service_VRouter: packer-alpine320 $(DIR_EXPORT)/service_VRouter.qcow2
+packer-service_VRouter: packer-alpine321 $(DIR_EXPORT)/service_VRouter.qcow2
 	@$(INFO) "Packer service_VRouter done"
 
-packer-service_VRouter.aarch64: packer-alpine320.aarch64 $(DIR_EXPORT)/service_VRouter.aarch64.qcow2
+packer-service_VRouter.aarch64: packer-alpine321.aarch64 $(DIR_EXPORT)/service_VRouter.aarch64.qcow2
 	@$(INFO) "Packer service_VRouter.aarch64 done"
 
 packer-service_Harbor: packer-ubuntu2204 $(DIR_EXPORT)/service_Harbor.qcow2
@@ -48,7 +48,7 @@ packer-service_SlurmController: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmCon
 	@$(INFO) "Packer service_SlurmController done"
 
 packer-service_Nim: packer-ubuntu2404 $(DIR_EXPORT)/service_Nim.qcow2
-	@$(INFO) "Packer service_Nim done"	
+	@$(INFO) "Packer service_Nim done"
 
 packer-service_SlurmController.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_SlurmController.aarch64.qcow2
 	@$(INFO) "Packer service_SlurmController.aarch64 done"
