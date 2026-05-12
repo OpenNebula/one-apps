@@ -935,6 +935,28 @@ function Enable-RemoteDesktop {
     Write-Host "`r`n" -NoNewline
 }
 
+function Enable-SSHFirewallRule {
+    # On Windows Server 2025 OpenSSH Server is preinstalled but its firewall
+    # rule is enabled only for Domain/Private profiles, so inbound SSH is
+    # silently dropped when the active profile is Public.
+    $ruleName = "OpenSSH-Server-In-TCP"
+    $rule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
+    if ($rule) {
+        Write-LogMessage "- Enabling firewall rule $ruleName for all profiles"
+        Set-NetFirewallRule -Name $ruleName -Enabled True -Profile Any
+    } else {
+        Write-LogMessage "- Creating firewall rule $ruleName for all profiles"
+        New-NetFirewallRule -Name $ruleName -DisplayName "OpenSSH Server (sshd)" `
+            -Enabled True -Direction Inbound -Protocol TCP -Action Allow `
+            -LocalPort 22 -Profile Any | Out-Null
+    }
+    if ($?) {
+        Write-LogMessage "  ... Success"
+    } else {
+        Write-LogMessage "  ... Failed"
+    }
+}
+
 function Enable-SSH {
     Write-LogMessage "* Enabling SSH"
     # Get sshd service
@@ -942,37 +964,36 @@ function Enable-SSH {
     $sshdService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 
     # Check if service is present
-    if ($sshdService) {
-        # Service is running and automatic start is enabled
-        if ($sshdService.StartType -eq "Automatic" -and $sshdService.Status -eq "Running") {
-            Write-LogMessage " ... Success (Service is already enabled and running )"
-            return
-        }
-        # Enable autostart
-        if ($sshdService.StartType -ne "Automatic") {
-            Write-LogMessage "- Enabling automatic start for SSH service"
-            Set-Service -Name $serviceName -StartupType Automatic
-            if ($?) {
-                Write-LogMessage "  ... Success"
-            } else {
-                Write-LogMessage "  ... Failed"
-                return
-            }
-        }
-        # Start service
-        if ($sshdService.Status -ne "Running") {
-            Write-LogMessage "- Starting SSH service"
-            Start-Service -Name $serviceName
-            if ($?) {
-                Write-LogMessage "  ... Success"
-            } else {
-                Write-LogMessage "  ... Failed"
-            }
-        }
-    } else {
+    if (!$sshdService) {
         # OpenSSH.Server feature is not installed
         Write-LogMessage " ... Failed (OpenSSH Server is not installed)"
+        return
     }
+
+    # Enable autostart
+    if ($sshdService.StartType -ne "Automatic") {
+        Write-LogMessage "- Enabling automatic start for SSH service"
+        Set-Service -Name $serviceName -StartupType Automatic
+        if ($?) {
+            Write-LogMessage "  ... Success"
+        } else {
+            Write-LogMessage "  ... Failed"
+            return
+        }
+    }
+    # Start service
+    if ($sshdService.Status -ne "Running") {
+        Write-LogMessage "- Starting SSH service"
+        Start-Service -Name $serviceName
+        if ($?) {
+            Write-LogMessage "  ... Success"
+        } else {
+            Write-LogMessage "  ... Failed"
+        }
+    }
+    # Firewall must be opened even when the service was already enabled and
+    # running, otherwise Windows Server 2025 still blocks port 22 on Public.
+    Enable-SSHFirewallRule
 }
 
 function Enable-Ping {
