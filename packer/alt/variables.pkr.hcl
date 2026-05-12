@@ -1,26 +1,3 @@
-variable "appliance_name" {
-  type    = string
-  default = "alt"
-}
-
-variable "version" {
-  type    = string
-  default = "9"
-}
-
-variable "input_dir" {
-  type = string
-}
-
-variable "output_dir" {
-  type = string
-}
-
-variable "headless" {
-  type    = bool
-  default = false
-}
-
 variable "alt" {
   type = map(map(string))
 
