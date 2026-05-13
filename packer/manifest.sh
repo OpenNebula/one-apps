@@ -51,12 +51,21 @@ else
     NAME="$DISTRO"
 fi
 
+# Hash the image so downstream tools (app2 release) don't have to.
+echo "manifest.sh: hashing $DST..."
+SHA256=$(sha256sum "$DST" | awk '{print $1}')
+MD5=$(md5sum "$DST" | awk '{print $1}')
+SIZE=$(stat -c %s "$DST")
+
 MANIFEST="${DST%.qcow2}.yaml"
 cat > "$MANIFEST" <<EOF
 name: $NAME
 version: ${VERSION}-${RELEASE}-$(date +%Y%m%d)
 image: $(basename "$DST")
 format: qcow2
+size: $SIZE
+sha256: $SHA256
+md5: $MD5
 creation_time: $(stat -c %Y "$DST")
 os-id: $OS_ID
 os-release: '$OS_RELEASE'
