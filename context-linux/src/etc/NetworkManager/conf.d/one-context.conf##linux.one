@@ -1,3 +1,8 @@
 [main]
 no-auto-default=*
 dns=none
+
+# Disable connectivity checking to avoid NM's +20000 IPv6 default-route
+# metric penalty on devices it considers to lack global connectivity.
+[connectivity]
+enabled=false
