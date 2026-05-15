@@ -7,7 +7,13 @@ set -eux -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get purge -y cloud-init snapd fwupd
+# cloud-init was split into cloud-init + cloud-init-base (Ubuntu 26.04+);
+# purge whichever are installed, otherwise cloud-init still runs at boot
+# and clobbers root's authorized_keys with a disable_root forced command.
+cloud_init_pkgs=$(dpkg-query -W -f='${Package}\n' 'cloud-init*' 2>/dev/null \
+    | grep -xE 'cloud-init(-base)?' || true)
+
+apt-get purge -y $cloud_init_pkgs snapd fwupd
 
 apt-get autoremove -y --purge
 
