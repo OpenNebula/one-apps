@@ -51,12 +51,26 @@ else
     NAME="$DISTRO"
 fi
 
+# Hash the image so downstream tools (app2 release) don't have to.
+echo "manifest.sh: hashing $DST..."
+SHA256=$(sha256sum "$DST" | awk '{print $1}')
+MD5=$(md5sum "$DST" | awk '{print $1}')
+FILE_SIZE=$(stat -c %s "$DST")
+
+# Virtual disk size in bytes — what the marketplace yaml's images[].size expects
+# (qcow2 is sparse, so this differs from the on-disk file size).
+VIRTUAL_SIZE=$(qemu-img info "$DST" | sed -n 's/^virtual size: .*(\([0-9]*\) bytes).*/\1/p')
+
 MANIFEST="${DST%.qcow2}.yaml"
 cat > "$MANIFEST" <<EOF
 name: $NAME
 version: ${VERSION}-${RELEASE}-$(date +%Y%m%d)
 image: $(basename "$DST")
 format: qcow2
+size: $VIRTUAL_SIZE
+file_size: $FILE_SIZE
+sha256: $SHA256
+md5: $MD5
 creation_time: $(stat -c %Y "$DST")
 os-id: $OS_ID
 os-release: '$OS_RELEASE'
