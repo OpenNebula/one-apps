@@ -239,6 +239,14 @@ EOT
     if [ -n "$ip6_gateway" ]; then
         echo "Gateway=${ip6_gateway}"
 
+        # Mark the default route as on-link. The gateway always lives in the
+        # NIC's own subnet, but systemd-networkd (e.g. systemd 259 on Ubuntu
+        # 26.04) refuses to install an IPv6 default route when the same
+        # gateway is already reachable via another link - it then keeps the
+        # interface stuck in the 'configuring' state. GatewayOnLink skips
+        # that reachability check.
+        echo "GatewayOnLink=yes"
+
         if [ -n "$ip6_metric" ]; then
             echo "Metric=${ip6_metric}"
         fi

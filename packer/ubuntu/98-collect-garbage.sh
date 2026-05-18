@@ -13,7 +13,7 @@ export DEBIAN_FRONTEND=noninteractive
 cloud_init_pkgs=$(dpkg-query -W -f='${Package}\n' 'cloud-init*' 2>/dev/null \
     | grep -xE 'cloud-init(-base)?' || true)
 
-apt-get purge -y $cloud_init_pkgs snapd fwupd
+apt-get purge -y $cloud_init_pkgs snapd fwupd open-vm-tools
 
 apt-get autoremove -y --purge
 
