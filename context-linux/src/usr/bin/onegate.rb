@@ -462,7 +462,11 @@ module OneGate
 
         def get(path, extra = nil)
             req = Net::HTTP::Proxy(@host, @port)::Get.new(path)
-            req.body = extra if extra
+
+            if extra
+                req.body = extra
+                req.content_type = 'application/x-www-form-urlencoded'
+            end
 
             do_request(req)
         end
@@ -476,6 +480,7 @@ module OneGate
         def post(path, body)
             req = Net::HTTP::Proxy(@host, @port)::Post.new(path)
             req.body = body
+            req.content_type = 'application/json'
 
             do_request(req)
         end
@@ -483,6 +488,10 @@ module OneGate
         def put(path, body)
             req = Net::HTTP::Proxy(@host, @port)::Put.new(path)
             req.body = body
+            # Set explicitly: Ruby 4.0 (e.g. Fedora 44) no longer defaults the
+            # body Content-Type to application/x-www-form-urlencoded, and the
+            # OneGate server needs it to parse the form-encoded params.
+            req.content_type = 'application/x-www-form-urlencoded'
 
             do_request(req)
         end
