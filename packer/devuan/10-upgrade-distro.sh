@@ -11,10 +11,17 @@ set -eux -o pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+case "${DIST_VER}" in
+    4) CODENAME=chimaera  ;;
+    5) CODENAME=daedalus  ;;
+    6) CODENAME=excalibur ;;
+    *) echo "Unsupported DIST_VER=${DIST_VER}" >&2; exit 1 ;;
+esac
+
 sed -i '/^deb cdrom/d' /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged excalibur          main" >> /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged excalibur-updates  main" >> /etc/apt/sources.list
-echo "deb http://deb.devuan.org/merged excalibur-security main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged ${CODENAME}          main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged ${CODENAME}-updates  main" >> /etc/apt/sources.list
+echo "deb http://deb.devuan.org/merged ${CODENAME}-security main" >> /etc/apt/sources.list
 
 apt-get update -y
 
@@ -28,6 +35,11 @@ apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--fo
 
 # Ensure packages needed for post-processing scripts do exist.
 apt-get install -y curl gawk grep jq
+
+# hwclock is required for KVM guest time sync (`virsh domtime --sync`)
+if apt-cache show util-linux-extra >/dev/null 2>&1; then
+    apt-get install -y util-linux-extra
+fi
 
 policy_rc_d_enable
 

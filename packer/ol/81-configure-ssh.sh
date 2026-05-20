@@ -26,4 +26,6 @@ BEGIN { update = "UseDNS no" }
 ENDFILE { if (!found) print update }
 EOF
 
+rm -f /etc/ssh/sshd_config.d/*-cloud-init.conf
+
 sync
