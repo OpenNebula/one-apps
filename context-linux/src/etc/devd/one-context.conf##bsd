@@ -6,15 +6,15 @@
 # script is not detected anymore. We hack the state files so that the
 # recontextualization is forced to run.
 notify 21 {
-    match "system"      "ETHERNET";
-    match "type"        "IFATTACH";
-    match "subsystem"   "!vtnet[0-9]+";
+    match "system"      "IFNET";
+    match "type"        "ATTACH";
+    match "subsystem"   "!(vtnet|usbus|wlan|lo)[0-9]+";
     action "/bin/sh -c 'test -f /var/run/one-context/context.sh.local && echo >> /var/run/one-context/context.sh.local; test -f /var/run/one-context/context.sh.network && echo >> /var/run/one-context/context.sh.network; service one-context-reconfigure-delayed onestart'";
 };
 
 notify 20 {
-    match "system"      "ETHERNET";
-    match "type"        "IFATTACH";
+    match "system"      "IFNET";
+    match "type"        "ATTACH";
     action "service one-context-reconfigure-delayed onestart";
 };
 

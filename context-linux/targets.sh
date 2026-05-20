@@ -167,7 +167,7 @@ case "${TARGET}" in
         TAGS=${TAGS:-linux deb sysv systemd upstart one}
         DEPENDS=${DEPENDS:-util-linux bash curl bind9-host cloud-utils parted ruby ifupdown|ifupdown2 acpid|systemd sudo passwd dbus openssh-server qemu-guest-agent gawk virt-what}
         PROVIDES=${PROVIDES:-}
-        REPLACES=${REPLACES:-cloud-init}
+        REPLACES=${REPLACES:-cloud-init cloud-init-base}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
         POSTIN=${POSTINST:-pkg/postinstall}
         PREUN=${PREUN:-pkg/preuninstall}

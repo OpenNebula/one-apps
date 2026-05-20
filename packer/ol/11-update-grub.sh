@@ -19,6 +19,9 @@ gawk -i inplace -f- /etc/default/grub <<'EOF'
 { print }
 EOF
 
+grubby --update-kernel ALL --remove-args='console=ttyS0,115200n8'
+grubby --update-kernel=ALL --args="net.ifnames=0"
+
 # Ensure required.
 
 gawk -i inplace -f- /etc/default/grub <<'EOF'
