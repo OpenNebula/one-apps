@@ -105,11 +105,12 @@ context-windows/out/%: $(CONTEXT_WINDOWS_SOURCES)
 	cd context-windows/ && ./generate-all.sh
 
 # context iso with all the context packages
-context-iso: $(DIR_EXPORT)/one-context-$(VERSION)-$(RELEASE).iso
-$(DIR_EXPORT)/one-context-$(VERSION)-$(RELEASE).iso: $(LINUX_CONTEXT_PACKAGES_FULL) $(WINDOWS_CONTEXT_PACKAGES_FULL)
-	mkisofs -J -R -input-charset utf8 -m '*.iso' -V one-context-$(VERSION) -o $(DIR_EXPORT)/one-context.iso \
+context-iso: $(DIR_EXPORT)/one-context.iso
+$(DIR_EXPORT)/one-context.iso: $(LINUX_CONTEXT_PACKAGES_FULL) $(WINDOWS_CONTEXT_PACKAGES_FULL)
+	mkisofs -J -R -input-charset utf8 -m '*.iso' -V one-context-$(VERSION) -o $@ \
 	context-linux/out/one-context?$(VERSION)* \
 	context-windows/out/one-context-$(VERSION)*.msi
+	packer/manifest.sh $@
 
 clean:
 	-if [ -d '$(DIR_EXPORT)' ]; then rm -rf $(DIR_EXPORT)/*; fi
