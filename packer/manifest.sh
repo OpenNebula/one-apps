@@ -11,6 +11,15 @@
 
 set -e
 
+# Derive FreeBSD's release (e.g. 14.4) from the packer variables
+freebsd_release_from_vars() {
+    local major="$1" arch="$2" dir url
+    command -v packer >/dev/null 2>&1 || return 1
+    dir="$(dirname "$0")/freebsd"
+    url=$(echo "var.freebsd[\"${major}.${arch}\"].iso_url" | packer console "$dir" 2>/dev/null) || return 1
+    printf '%s\n' "$url" | sed -n 's/.*FreeBSD-\([0-9][0-9.]*\)-RELEASE.*/\1/p'
+}
+
 DST="$1"
 [ -n "$DST" ] || { echo "usage: $0 <image_path>" >&2; exit 2; }
 [ -f "$DST" ] || { echo "$0: not a file: $DST" >&2; exit 2; }
@@ -71,6 +80,12 @@ OS_RELEASE=''
 if OSREL=$(virt-cat -a "$DST" /etc/os-release 2>/dev/null); then
     OS_ID=$(printf '%s\n' "$OSREL" | sed -n 's/^NAME=//p' | sed -e 's/^"//' -e 's/"$//')
     OS_RELEASE=$(printf '%s\n' "$OSREL" | sed -n 's/^VERSION_ID=//p' | sed -e 's/^"//' -e 's/"$//')
+fi
+
+# FreeBSD can't be read by virt-cat; derive its release from the packer vars.
+if [ -z "$OS_RELEASE" ] && [ "$DISTRO_NAME" = 'freebsd' ]; then
+    OS_ID='FreeBSD'
+    OS_RELEASE=$(freebsd_release_from_vars "${DISTRO#freebsd}" "$ARCH" || true)
 fi
 
 # Display name: service appliances override the OS-derived name
