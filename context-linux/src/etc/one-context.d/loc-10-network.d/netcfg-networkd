@@ -109,7 +109,7 @@ EOT
 
     echo "[Route]"
 
-    if [ -n "$gateway" ]; then
+    if valid_ipv4 $gateway; then
         echo "Gateway=${gateway}"
 
         if [ -n "$metric" ]; then
