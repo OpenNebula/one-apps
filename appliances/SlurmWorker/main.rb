@@ -27,6 +27,7 @@ module Service
         def install
             msg(:info, 'SlurmWorker::install')
             bash('apt update && apt install munge libmunge-dev slurmd -y')
+            bash('systemctl disable slurmd')
             msg(:info, 'Installation completed successfully')
         end
 
@@ -65,8 +66,8 @@ module Service
             msg(:info, 'Successfully connected to Slurm controller port.')
 
             # Configure hostname
-            if !Socket.gethostname.include?('worker')
-                msg(:info, 'Hostname does not contain "worker", configuring it...')
+            if ENV['SET_HOSTNAME'].to_s.empty?
+                msg(:info, 'SET_HOSTNAME not set, configuring default hostname...')
 
                 vm_id = nil
                 10.times do |i|
@@ -90,11 +91,24 @@ module Service
                 bash("hostnamectl set-hostname #{new_hostname}")
             end
 
-            # Add controller to /etc/hosts for name resolution
-            hosts_entry = "#{controller_ip}\tslurm-one-controller"
-            unless File.read('/etc/hosts').include?(hosts_entry)
-                msg(:info, "Adding '#{hosts_entry}' to /etc/hosts")
-                File.open('/etc/hosts', 'a') { |f| f.puts(hosts_entry) }
+            hostname = Socket.gethostname.split('.').first
+
+            # Add worker and controller to /etc/hosts
+            ip = Socket.ip_address_list
+                       .find { |a| a.ipv4? && !a.ipv4_loopback? }
+                       .ip_address
+            hosts_entries = [
+                "#{ip}\t#{hostname}",
+                "#{controller_ip}\tslurm-one-controller"
+            ]
+            hosts = File.read('/etc/hosts')
+            File.open('/etc/hosts', 'a') do |f|
+                hosts_entries.each do |hosts_entry|
+                    next if hosts.include?(hosts_entry)
+
+                    msg(:info, "Adding '#{hosts_entry}' to /etc/hosts")
+                    f.puts(hosts_entry)
+                end
             end
 
             # Decode and install the munge key from the controller
@@ -113,9 +127,35 @@ module Service
             # Wait and start the slurmd service
             sleep 5
             msg(:info, 'Starting slurmd and registering with controller')
-            cpus = bash('nproc').chomp
-            mem_mb = bash("free -m | awk '/^Mem:/ {print $2}'").chomp
-            bash("slurmd -Z --conf \"CPUs=#{cpus} RealMemory=#{mem_mb} Feature=one\" --conf-server #{controller_ip}")
+            slurmd_unit = <<~UNIT
+                [Unit]
+                Description=Slurm node daemon
+                After=munge.service network-online.target
+                Wants=network-online.target
+                Documentation=man:slurmd(8)
+
+                [Service]
+                Type=notify
+                EnvironmentFile=-/etc/default/slurmd
+                RuntimeDirectory=slurm
+                RuntimeDirectoryMode=0755
+                ExecStart=/usr/sbin/slurmd --systemd --conf-server slurm-one-controller:6817 -N #{hostname} -Z
+                ExecReload=/bin/kill -HUP $MAINPID
+                KillMode=process
+                LimitNOFILE=131072
+                LimitMEMLOCK=infinity
+                LimitSTACK=infinity
+                Delegate=yes
+                TasksMax=infinity
+
+                [Install]
+                WantedBy=multi-user.target
+            UNIT
+            File.write('/etc/systemd/system/slurmd.service', slurmd_unit)
+            bash('systemctl daemon-reload')
+            bash('systemctl enable slurmd')
+            bash('systemctl restart slurmd')
+            bash('systemctl is-active slurmd')
             msg(:info, 'slurmd started')
 
             msg(:info, 'Configuration completed successfully')
