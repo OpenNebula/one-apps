@@ -25,6 +25,7 @@ end
 require_relative 'config'
 require 'base64'
 require 'open3'
+require 'rbconfig'
 
 # Base module for OpenNebula services
 module Service
@@ -39,9 +40,11 @@ module Service
         def install
             msg :info, 'OneKS::install'
 
+            arch = RbConfig::CONFIG['host_cpu'] =~ /arm64|aarch64/ ? 'arm64' : 'amd64'
+
             msg :info, "Download Clusterctl: #{ONEKS_CLUSTERCTL_VERSION}"
             clusterctl_url = 'https://github.com/kubernetes-sigs/cluster-api/releases/download/' \
-                            "v#{ONEKS_CLUSTERCTL_VERSION}/clusterctl-linux-amd64"
+                            "v#{ONEKS_CLUSTERCTL_VERSION}/clusterctl-linux-#{arch}"
             bash <<~SCRIPT
                 curl -fsSL #{clusterctl_url} \
                 | install -o 0 -g 0 -m u=rwx,go= -D /dev/fd/0 '/usr/local/bin/clusterctl'
@@ -49,7 +52,7 @@ module Service
 
             msg :info, "Download Kind: #{ONEKS_KIND_VERSION}"
             kind_url = 'https://github.com/kubernetes-sigs/kind/releases/download/' \
-                        "v#{ONEKS_KIND_VERSION}/kind-linux-amd64"
+                        "v#{ONEKS_KIND_VERSION}/kind-linux-#{arch}"
             bash <<~SCRIPT
                 curl -fsSL #{kind_url} \
                 | install -o 0 -g 0 -m u=rwx,go= -D /dev/fd/0 '/usr/local/bin/kind'
@@ -57,7 +60,7 @@ module Service
 
             msg :info, "Download Kubectl: #{ONEKS_KUBECTL_VERSION}"
             bash <<~SCRIPT
-                curl -fsSL 'https://dl.k8s.io/release/v#{ONEKS_KUBECTL_VERSION}/bin/linux/amd64/kubectl' \
+                curl -fsSL 'https://dl.k8s.io/release/v#{ONEKS_KUBECTL_VERSION}/bin/linux/#{arch}/kubectl' \
                 | install -o 0 -g 0 -m u=rwx,go= -D /dev/fd/0 '/usr/local/bin/kubectl'
             SCRIPT
 
