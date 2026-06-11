@@ -42,7 +42,7 @@ module Service
             msg :info, 'SlurmController::install'
 
             # Install dependencies
-            bash 'apt update && apt install munge libmunge-dev slurmctld -y'
+            bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins -y'
 
             # Create slurm.conf
             slurm_conf = <<~CONF
@@ -52,6 +52,8 @@ module Service
                 ProctrackType=proctrack/cgroup
                 SchedulerType=sched/backfill
                 SelectType=select/cons_tres
+                GresTypes=gpu
+                TaskPlugin=task/cgroup,task/affinity
 
                 SlurmUser=slurm
                 StateSaveLocation=/var/spool/slurmctld
@@ -70,6 +72,17 @@ module Service
             CONF
 
             File.write('/etc/slurm/slurm.conf', slurm_conf)
+
+            gres_conf = <<~CONF
+                AutoDetect=nvidia
+            CONF
+            File.write('/etc/slurm/gres.conf', gres_conf)
+
+            cgroup_conf = <<~CONF
+                CgroupAutomount=yes
+                ConstrainDevices=yes
+            CONF
+            File.write('/etc/slurm/cgroup.conf', cgroup_conf)
 
             # Create directories and set permissions
             FileUtils.mkdir_p('/var/spool/slurmd')

@@ -26,9 +26,27 @@ module Service
 
         def install
             msg(:info, 'SlurmWorker::install')
-            bash('apt update && apt install munge libmunge-dev slurmd -y')
+            bash('apt update && apt install munge libmunge-dev slurmd slurm-wlm-basic-plugins -y')
+            install_nvidia_drivers
             bash('systemctl disable slurmd')
             msg(:info, 'Installation completed successfully')
+        end
+
+        def install_nvidia_drivers
+            return unless INSTALL_DRIVERS == 'true'
+
+            install_nvidia_packages
+        end
+
+        def install_nvidia_packages
+            # Use Ubuntu's packaged server-open driver for recent datacenter GPUs.
+            bash <<~SCRIPT
+                export DEBIAN_FRONTEND=noninteractive
+                apt update
+                apt install -y linux-headers-$(uname -r) build-essential dkms
+                apt install -y nvidia-driver-#{NVIDIA_DRIVER_BRANCH}-server-open
+                apt install -y nvidia-utils-#{NVIDIA_DRIVER_BRANCH}-server
+            SCRIPT
         end
 
         def configure
@@ -127,6 +145,9 @@ module Service
             # Wait and start the slurmd service
             sleep 5
             msg(:info, 'Starting slurmd and registering with controller')
+            conf = "CPUs=#{cpu_count} RealMemory=#{real_memory_mb} Feature=one"
+            gpus = gpu_count
+            conf += " Gres=gpu:#{gpus}" if gpus > 0
             slurmd_unit = <<~UNIT
                 [Unit]
                 Description=Slurm node daemon
@@ -139,7 +160,7 @@ module Service
                 EnvironmentFile=-/etc/default/slurmd
                 RuntimeDirectory=slurm
                 RuntimeDirectoryMode=0755
-                ExecStart=/usr/sbin/slurmd --systemd --conf-server slurm-one-controller:6817 -N #{hostname} -Z
+                ExecStart=/usr/sbin/slurmd --systemd --conf-server slurm-one-controller:6817 -N #{hostname} -Z --conf "#{conf}"
                 ExecReload=/bin/kill -HUP $MAINPID
                 KillMode=process
                 LimitNOFILE=131072
@@ -163,6 +184,32 @@ module Service
 
         def bootstrap
             # No bootstrap actions defined for the worker.
+        end
+
+        def gpu_count
+            stdout, _stderr, status = Open3.capture3('nvidia-smi --query-gpu=count' \
+                                                     ' --format=csv,noheader')
+            unless status.success?
+                msg(:warn, 'nvidia-smi command failed, assuming 0 GPUs')
+                return 0
+            end
+            stdout.strip.to_i
+        rescue StandardError => e
+            msg(:warn, "Error detecting GPU count: #{e.message}")
+            0
+        end
+
+        def cpu_count
+            bash('nproc').strip.to_i
+        end
+
+        def real_memory_mb
+            meminfo = File.read('/proc/meminfo')
+            if meminfo =~ /^MemTotal:\s+(\d+)\s+kB/m
+                ($1.to_i / 1024).to_i
+            else
+                raise 'FATAL: Unable to read MemTotal from /proc/meminfo'
+            end
         end
 
     end
