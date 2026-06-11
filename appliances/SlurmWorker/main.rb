@@ -39,21 +39,13 @@ module Service
         end
 
         def install_nvidia_packages
-            # NVIDIA CUDA repo branch #{NVIDIA_DRIVER_BRANCH}; required for recent
-            # datacenter GPUs such as H200 and GB200.
+            # Use Ubuntu's packaged server-open driver for recent datacenter GPUs.
             bash <<~SCRIPT
                 export DEBIAN_FRONTEND=noninteractive
-                ARCH=$(uname -m)
-                CUDA_ARCH=${ARCH}
-                if [ "${ARCH}" = "aarch64" ]; then
-                    CUDA_ARCH=sbsa
-                fi
-                wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/${CUDA_ARCH}/cuda-keyring_1.1-1_all.deb
-                dpkg -i cuda-keyring_1.1-1_all.deb
                 apt update
-                apt install -y nvidia-driver-pinning-#{NVIDIA_DRIVER_BRANCH}
                 apt install -y linux-headers-$(uname -r) build-essential dkms
-                apt install -y cuda-drivers
+                apt install -y nvidia-driver-#{NVIDIA_DRIVER_BRANCH}-server-open
+                apt install -y nvidia-utils-#{NVIDIA_DRIVER_BRANCH}-server
             SCRIPT
         end
 
