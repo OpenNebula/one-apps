@@ -55,6 +55,14 @@ source "qemu" "SlurmWorker" {
   vm_name          = "${var.appliance_name}"
 }
 
+locals {
+  install_nvidia_driver          = var.nvidia_driver_path != "" ? true : false
+  nvidia_driver_local_tmp_dir    = "/tmp"
+  nvidia_driver_local_tmp_path   = "${local.nvidia_driver_local_tmp_dir}/${basename(var.nvidia_driver_path)}"
+  nvidia_driver_remote_dest_dir  = "/tmp"
+  nvidia_driver_remote_dest_path = "${local.nvidia_driver_remote_dest_dir}/${basename(var.nvidia_driver_path)}"
+}
+
 build {
   sources = ["source.qemu.SlurmWorker"]
 
@@ -97,9 +105,55 @@ build {
     scripts = ["${var.input_dir}/82-configure-context.sh"]
   }
 
+  provisioner "shell-local" {
+    execute_command = ["bash", "-c", "{{.Vars}} {{.Script}}"]
+    environment_vars = [
+      "DRIVERS_PATH=${var.nvidia_driver_path}",
+      "DRIVERS_TMP_DEST_DIR=${local.nvidia_driver_local_tmp_dir}",
+    ]
+    scripts = ["${var.input_dir}/90-custom-scripts/get_nvidia_driver.sh"]
+  }
+
+  provisioner "file" {
+    source      = local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : "/dev/null"
+    destination = local.install_nvidia_driver ? local.nvidia_driver_remote_dest_path : "/dev/null"
+    generated   = true
+  }
+
+  provisioner "shell-local" {
+    inline = [<<EOF
+        if [ -n "$DRIVERS_TMP_PATH" ]; then
+            rm -f "$DRIVERS_TMP_PATH";
+        fi
+    EOF
+    ]
+    environment_vars = [
+      "DRIVERS_TMP_PATH=${local.install_nvidia_driver ? local.nvidia_driver_local_tmp_path : ""}",
+    ]
+  }
+
+  provisioner "shell" {
+    inline_shebang = "/bin/bash -e"
+    inline = [<<EOF
+        if [ -n "$DRIVER_PATH" ]; then
+            apt-get update --fix-missing;
+            dpkg -i "$DRIVER_PATH";
+            apt --fix-broken install --yes;
+            rm -f "$DRIVER_PATH";
+        fi
+    EOF
+    ]
+    environment_vars = [
+      "DRIVER_PATH=${local.install_nvidia_driver ? local.nvidia_driver_remote_dest_path : ""}"
+    ]
+  }
+
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+    environment_vars = [
+      "INSTALL_DRIVERS=${local.install_nvidia_driver ? "false" : "true"}",
+    ]
   }
 
   post-processor "shell-local" {

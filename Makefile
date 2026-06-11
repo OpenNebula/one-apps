@@ -44,19 +44,19 @@ packer-service_OneKE: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKE.qcow2 $
 packer-capone: packer-ubuntu2204oneke $(DIR_EXPORT)/capone.qcow2
 	@$(INFO) "Packer capone done"
 
-packer-service_SlurmController: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmController.qcow2
+packer-service_SlurmController: packer-debian13 $(DIR_EXPORT)/service_SlurmController.qcow2
 	@$(INFO) "Packer service_SlurmController done"
 
 packer-service_Nim: packer-ubuntu2404 $(DIR_EXPORT)/service_Nim.qcow2
 	@$(INFO) "Packer service_Nim done"
 
-packer-service_SlurmController.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_SlurmController.aarch64.qcow2
+packer-service_SlurmController.aarch64: packer-debian13.aarch64 $(DIR_EXPORT)/service_SlurmController.aarch64.qcow2
 	@$(INFO) "Packer service_SlurmController.aarch64 done"
 
-packer-service_SlurmWorker: packer-ubuntu2404 $(DIR_EXPORT)/service_SlurmWorker.qcow2
+packer-service_SlurmWorker: packer-debian13 $(DIR_EXPORT)/service_SlurmWorker.qcow2
 	@$(INFO) "Packer service_SlurmWorker done"
 
-packer-service_SlurmWorker.aarch64: packer-ubuntu2404.aarch64 $(DIR_EXPORT)/service_SlurmWorker.aarch64.qcow2
+packer-service_SlurmWorker.aarch64: packer-debian13.aarch64 $(DIR_EXPORT)/service_SlurmWorker.aarch64.qcow2
 	@$(INFO) "Packer service_SlurmWorker.aarch64 done"
 
 # airgapped version
