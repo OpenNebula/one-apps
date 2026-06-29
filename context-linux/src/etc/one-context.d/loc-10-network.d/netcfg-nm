@@ -349,8 +349,14 @@ gen_network_configuration()
             fi
         done
 
-        # 'nmcli con reload' is not enough
-        nmcli con up "${dev}"
+        # 'nmcli con reload' is not enough. Retry: 'con up' races NM's own
+        # boot-time auto-activation and can transiently fail, which would
+        # otherwise leave the interface unconfigured and the VM unreachable.
+        _up_tries=5
+        while ! nmcli con up "${dev}" && [ "${_up_tries}" -gt 1 ] ; do
+            _up_tries=$(( _up_tries - 1 ))
+            sleep 2
+        done
 
         if [ -n "${_disable_ipv6}" ]; then
             disable_ipv6 "${dev}"
