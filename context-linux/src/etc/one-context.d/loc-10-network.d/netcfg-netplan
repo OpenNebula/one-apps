@@ -158,6 +158,14 @@ EOT
             dst="${rsplit[0]}"
             gw="${rsplit[2]}"
 
+            # Skip routes whose address family is disabled (METHOD='skip'):
+            # the gateway isn't on-link, so the route never installs and the
+            # interface stays stuck 'configuring'.
+            case "${gw}${dst}" in
+                *:*) [ "${ip6_method}" = 'skip' ] && continue ;;
+                *)   [ "${method}" = 'skip' ] && continue ;;
+            esac
+
         cat <<EOT
         - to: "${dst}"
           via: "${gw}"
@@ -177,17 +185,18 @@ EOT
     fi
 
     if [ -n "${ip6_gateway}" ] && { [ -z "${ip6_method}" ] || [ "${ip6_method}" = 'static' ]; }; then
-        # Mark the default route as on-link. The gateway always lives in the
-        # NIC's own subnet, but systemd-networkd (e.g. systemd 259 on Ubuntu
-        # 26.04) refuses to install an IPv6 default route when the same
-        # gateway is already reachable via another link - it then keeps the
-        # interface stuck in the 'configuring' state. on-link skips that
-        # reachability check.
         cat <<EOT
         - to: "::/0"
           via: ${ip6_gateway}
-          on-link: true
 EOT
+
+        # on-link, networkd only: systemd-networkd (systemd 259, Ubuntu 26.04)
+        # otherwise leaves the interface stuck 'configuring'. NetworkManager
+        # must NOT get it - the kernel rejects an on-link IPv6 default route,
+        # silently dropping it.
+        if [ "${NETCFG_NETPLAN_RENDERER}" = 'networkd' ] ; then
+            echo "          on-link: true"
+        fi
 
         # Force default Linux IPv6 metric (man 8 route) to override
         # automatic metrics calculation done by NetworkManager and unify
