@@ -397,5 +397,9 @@ EOT
             echo "      routes:"
             echo "${_routes}"
         fi
+
+        # gen_routes' subshell can't unset the flag; reset it here so the
+        # ONEGATE proxy route is emitted on the first interface only.
+        missing_onegate_proxy_route && unset onegate_proxy_route_missing
     done
 }
