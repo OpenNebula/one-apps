@@ -1,52 +1,40 @@
-# OpenNebula Apps
+# Windows Drive Letter Assignment via TARGET Attribute
 
-The OpenNebula Apps project offers a comprehensive suite of tools to construct specialized appliances tailored for your OpenNebula cloud environment. Within this repository, you'll find:
+This enhancement allows Windows virtual machines to assign specific drive letters to context disks and additional data disks using the `TARGET` attribute in OpenNebula VM templates.
 
-* Contextualization packages designed for both Linux and Windows operating systems. These packages facilitate seamless integration of VM guests with OpenNebula by configuring networking, user accounts, SSH keys, and enabling the execution of custom startup scripts, among various other operations.
-* Packer build scripts crafted to generate contextualized qcow2 disk images compatible with a variety of standard Linux OS distributions.
-* The Virtual Router (VR) appliance, delivering multiple virtualized network functions (VNFs) to enhance network operations within your cloud setup.
-* The OneKE appliance, streamlining the deployment of a Kubernetes platform, ensuring a more efficient and optimized experience.
+## Usage
 
-The artifacts built through the OpenNebula Apps project are regularly published on the OpenNebula Marketplace, allowing you to [download them instantly](https://marketplace.opennebula.io/).
+### Context ISO
 
-Previously, OpenNebula Team maintained two different repositories for the Linux and Windows contextualization packages:
-* [addon-context-linux](https://github.com/OpenNebula/addon-context-linux)
-* [addon-context-windows](https://github.com/OpenNebula/addon-context-windows)
+Set `CONTEXT = [ TARGET="Z" ]` to assign drive letter Z: to the context ISO.
 
-Both of them were merged here, together with the image building tools. The original repositories has been archived, please use this one to get the latest release or to report any issues.
+### Data Disks
 
-## Documentation
-[Documentation for one-apps is in the project Wiki](https://github.com/OpenNebula/one-apps/wiki)
+Set `DISK = [ IMAGE_ID=<id>, TARGET="D" ]` in the VM template. The script will assign drive letters in the order the disks are attached.
 
-For a quick start, please read the [requirements](https://github.com/OpenNebula/one-apps/wiki/tool_reqs) and the [usage reference](https://github.com/OpenNebula/one-apps/wiki/tool_use).
+> **Note:** For data disks, the script currently assigns letters sequentially to fixed disks (excluding the system disk and optical drives). Ensure the order of `TARGET` attributes matches the order of attached disks.
 
-## Contributing
+## Implementation Details
 
-* Guidelines
-* [Development and issue tracking](https://github.com/OpenNebula/one-apps/issues).
-* [Community Forum](https://forum.opennebula.io/c/development/one-apps).
+- The context script (`context.ps1`) reads a context file containing key-value pairs.
+- If `CONTEXT_TARGET` is specified, the script finds the CD/DVD drive with volume label `CONTEXT` and remaps its drive letter.
+- For data disks, `DISK_TARGET_<N>` variables (e.g., `DISK_TARGET_0`, `DISK_TARGET_1`) are processed in index order. The script assigns each target letter to the first available non-system, non-optical partition.
+- The script uses PowerShell cmdlets `Get-Partition` and `Set-Partition`.
 
-## Contact Information
+## Requirements
 
-* [OpenNebula web site](https://opennebula.io).
-* [Enterprise Services](https://opennebula.io/enterprise).
+- Windows PowerShell 5.0 or later.
+- The context ISO must be attached and readable.
+- The virtual machine must have the `OpenNebula` guest tools (context package) installed to run the script at boot.
 
-## License
+## Limitations
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+- The script does not handle dynamic disk reordering; it assumes disks are ordered by attachment.
+- If a target drive letter is already in use, the script will fail and log an error.
+- Only drives with existing partitions (with or without letters) are reassigned; raw disks without partitions are ignored.
 
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+## Future Improvements
 
-## Author Information
-
-Copyright 2002-2025, OpenNebula Project, OpenNebula Systems
-
-## Contributors
-
-The Linux contextualization package has benefited immensely from incredible contributions by numerous developers. We extend our thanks to: [Th0masL](https://github.com/Th0masL), [baby-gnu](https://github.com/baby-gnu), [Moin](https://github.com/5u623l20), [Remy Zandwijk](https://github.com/rpmzandwijk), [Sergio Milanese](https://github.com/openmilanese), Alexandre Derumier, Andrei Kvapil, Deyan Chepishev, and Daniel Dehennin.
-
-The Windows contextualization package is largely based upon the work by André Monteiro and Tiago Batista in the [DETI/IEETA Universidade de Aveiro](http://www.ua.pt/). The original guide is available here: [OpenNebula - IEETA](http://wiki.ieeta.pt/wiki/index.php/OpenNebula). Later, [Lukáš Fázik](https://github.com/lukasfazik) significantly improved Windows context packages and added Packer build support in one-apps, streamlining the image automation.
-
-## Acknowledgements
-
-Some of the appliances included in this repository have been made possible through the funding of the following innovation projects: [ONEnextgen](http://onenextgen.eu/) and [ONEedge5G](https://opennebula.io/innovation/oneedge5g/).
+- Support disk identifiers (like serial number) for precise mapping.
+- Automatic conflict resolution (e.g., free the target letter before assigning).
+- Integration with OneGate for real-time updates.
