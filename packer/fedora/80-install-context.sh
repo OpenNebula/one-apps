@@ -9,9 +9,7 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-dnf install -y "$LATEST" haveged
-
-systemctl enable haveged
+dnf install -y "$LATEST"
 
 if ! rpm -q --queryformat '%{VERSION}' one-context | grep -E '^([1-5]\.|6\.0\.)'; then
 # >>> Apply only on one-context >= 6.1 >>>

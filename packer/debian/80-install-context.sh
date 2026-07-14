@@ -19,9 +19,6 @@ policy_rc_d_disable
 dpkg -i "$LATEST" || apt-get install -y -f
 dpkg -i "$LATEST"
 
-apt-get install -y haveged
-
-systemctl enable haveged
 
 if [ "$DIST_VER" -gt "11" ]; then
     systemctl enable systemd-networkd

@@ -12,9 +12,7 @@ export DEBIAN_FRONTEND=noninteractive
 LATEST=$(find /context/ -type f -name "one-context*-$CTXEXT" | sort -V | tail -n1)
 
 apt-get remove --purge -y cloud-init
-apt-get install -y "$LATEST" haveged
-
-systemctl enable haveged
+apt-get install -y "$LATEST"
 
 apt-get install -y NetworkManager
 systemctl enable NetworkManager.service

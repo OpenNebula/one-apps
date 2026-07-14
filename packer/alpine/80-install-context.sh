@@ -7,7 +7,7 @@
 exec 1>&2
 set -eux -o pipefail
 
-apk add tzdata haveged
+apk add tzdata
 
 # Alpine 3.22+ needs ruby-base64 (separate package), use alpine322 variant
 if [ "${DIST_VER}" -ge 322 ] 2>/dev/null; then
@@ -19,6 +19,5 @@ fi
 apk add --allow-untrusted "$LATEST"
 
 rc-update add qemu-guest-agent default
-rc-update add haveged boot
 
 sync

@@ -21,9 +21,6 @@ policy_rc_d_disable
 dpkg -i --auto-deconfigure "$LATEST" || apt-get install -y -f
 dpkg -i --auto-deconfigure "$LATEST"
 
-apt-get install -y haveged
-
-systemctl enable haveged
 
 # >>> Apply only on one-context >= 6.1 >>>
 if ! dpkg-query -W --showformat '${Version}' one-context | grep -E '^([1-5]\.|6\.0\.)'; then
