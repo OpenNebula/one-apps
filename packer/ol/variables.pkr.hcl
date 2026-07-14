@@ -9,13 +9,13 @@ variable "ol" {
     }
 
     "9.x86_64" = {
-      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL9/u7/x86_64/OL9U7_x86_64-kvm-b269.qcow2"
-      iso_checksum = "88c75cf913a66227e9ce74b0087ecac4cce1883f3e5649082e982d0d00310f1c"
+      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL9/u7/x86_64/OL9U7_x86_64-kvm-b289.qcow2"
+      iso_checksum = "81b61a7b3fb3279d8758c82c625cce7c770123f193cb37960971ba58aa9e025f"
     }
 
     "10.x86_64" = {
-      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL10/u1/x86_64/OL10U1_x86_64-kvm-b270.qcow2"
-      iso_checksum = "65077d1363f107cd750cdea26c73868c2128b5ed778ee93f0873aa2999228765"
+      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL10/u1/x86_64/OL10U1_x86_64-kvm-b291.qcow2"
+      iso_checksum = "8e59326c4bf7cfa58a6cac404db8ed583fe3a5f4c460e2b73c64988785bb4f0f"
     }
   }
 }
