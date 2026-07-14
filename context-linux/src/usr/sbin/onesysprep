@@ -65,6 +65,7 @@ package-manager-cache   :1: Remove package manager cache
 pam-data                :1: Remove the PAM data in the guest
 passwd-backups          :1: Remove /etc/passwd- and similar backup files
 puppet-data-log         :1: Remove the data and log files of puppet
+random-seed             :1: Remove the random seed files
 rh-subscription-manager :1: Remove the RH subscription manager files
 rhn-systemid            :1: Remove the RHN system ID
 rpm-db                  :1: Remove host-specific RPM database files
@@ -1589,6 +1590,21 @@ op_puppet_data_log()
         /var/log/puppet/* \
         /var/lib/puppet/*/* \
         /var/lib/puppet/*/*/* \
+        ;
+)
+
+# seeds are recreated on the next boot, removing them prevents all the guests
+# cloned from this image from starting with an identical one
+op_random_seed()
+(
+    run_op() { echo "+ ${*}" ; "$@" ; }
+
+    run_op rm -rvf \
+        /var/lib/systemd/random-seed \
+        /var/lib/random-seed \
+        /var/lib/urandom/random-seed \
+        /var/lib/seedrng \
+        /etc/random-seed \
         ;
 )
 
