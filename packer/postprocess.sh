@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -ex
 
+# avoid libvirt seclabel incompatibility (libguestfs 1.58 / libvirt >= 11)
+export LIBGUESTFS_BACKEND=direct
+
 timeout 5m virt-sysprep \
     --add ${OUTPUT_DIR}/${APPLIANCE_NAME} \
     --selinux-relabel \
