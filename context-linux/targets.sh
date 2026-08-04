@@ -134,7 +134,7 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-alt}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one networkd}
-        DEPENDS=${DEPENDS:-bind-utils btrfs-progs cloud-utils-growpart curl e2fsprogs iproute2 openssl parted passwd qemu-guest-agent ruby-json-pure sudo systemd-services wget which xfsprogs gawk virt-what}
+        DEPENDS=${DEPENDS:-bind-utils btrfs-progs cloud-utils-growpart curl e2fsprogs iproute2 openssl parted passwd qemu-guest-agent ruby gem-json sudo systemd-services wget which xfsprogs gawk virt-what}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
