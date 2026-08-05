@@ -156,6 +156,7 @@ build {
     inline         = ["/etc/one-appliance/service install && sync"]
     environment_vars = [
       "INSTALL_DRIVERS=${local.install_nvidia_driver ? "false" : "true"}",
+      "INSTALL_INFINIBAND=${var.install_infiniband}",
     ]
   }
 

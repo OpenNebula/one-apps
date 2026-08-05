@@ -16,6 +16,7 @@ require_relative '../common/onegate'
 require_relative '../common/ldap'
 require_relative '../common/munge'
 require_relative '../common/slurm'
+require_relative '../common/infiniband'
 require_relative 'config'
 
 # Base module for OpenNebula services
@@ -29,6 +30,7 @@ module Service
         include OneSlurm::Ldap
         include OneSlurm::Munge
         include OneSlurm::Slurm
+        include OneSlurm::Infiniband
 
         DEPENDS_ON    = []
 
@@ -37,6 +39,7 @@ module Service
 
             # Install dependencies
             bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins ldap-utils sssd sssd-ldap libnss-sss libpam-sss -y'
+            install_infiniband_packages
 
             # Write cluster configuration
             write_controller_slurm_config
@@ -49,6 +52,12 @@ module Service
             install_node_reconciler
 
             msg :info, 'Installation completed successfully'
+        end
+
+        def install_infiniband_packages
+            return unless INSTALL_INFINIBAND == 'true'
+
+            install_controller_infiniband_packages
         end
 
         # Writes the reconciler script and systemd service/timer units. The
@@ -199,6 +208,7 @@ module Service
 
         def configure
             msg :info, 'SlurmController::configure'
+            reconfigure_slurmctld = munge_key_generated?
 
             #
             # Hostname Management
@@ -221,6 +231,8 @@ module Service
                     File.open('/etc/hosts', 'a') { |f| f.puts hosts_entry }
                 end
             end
+
+            write_controller_slurm_config
 
             #
             # Munge Key Management
@@ -249,6 +261,8 @@ module Service
                     msg :info, 'slurmctld started successfully'
                 end
             end
+
+            apply_slurmctld_config if reconfigure_slurmctld
 
             # Configure identity (local slapd or external client) and publish
             # LDAP_URL / LDAP_DOMAIN to OneGate

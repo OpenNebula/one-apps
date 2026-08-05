@@ -14,6 +14,11 @@ module OneSlurm
         end
 
         def write_controller_slurm_config
+            infiniband_config = slurm_infiniband_enabled? ? <<~CONF : ''
+                MpiDefault=pmix
+                PropagateResourceLimitsExcept=MEMLOCK
+            CONF
+
             # Create slurm.conf
             slurm_conf = <<~CONF
                 ClusterName=one
@@ -33,6 +38,7 @@ module OneSlurm
                 SlurmdPidFile=/var/run/slurm/slurmd.pid
 
                 SlurmctldParameters=enable_configless
+                #{infiniband_config}
 
                 MaxNodeCount=100
 
@@ -61,6 +67,22 @@ module OneSlurm
             FileUtils.chown_R('slurm', 'slurm', '/var/spool/slurmctld')
             FileUtils.chmod(0700, '/var/spool/slurmd')
             FileUtils.chmod(0700, '/var/spool/slurmctld')
+        end
+
+        def slurm_infiniband_enabled?
+            return false unless defined?(ONEAPP_SLURM_INFINIBAND_ENABLE)
+
+            ONEAPP_SLURM_INFINIBAND_ENABLE == true ||
+                ONEAPP_SLURM_INFINIBAND_ENABLE.to_s.casecmp('YES').zero? ||
+                ONEAPP_SLURM_INFINIBAND_ENABLE.to_s == '1'
+        end
+
+        def apply_slurmctld_config
+            msg :info, 'Applying updated slurm.conf to running slurmctld'
+            bash 'systemctl is-active slurmctld'
+            bash 'scontrol reconfigure'
+        rescue StandardError => e
+            msg :warn, "Could not apply slurmctld reconfigure: #{e.message}"
         end
 
         def write_slurmd_unit(hostname)

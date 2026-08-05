@@ -11,3 +11,8 @@ variable "SlurmController" {
     }
   }
 }
+
+variable "install_infiniband" {
+  type    = bool
+  default = true
+}

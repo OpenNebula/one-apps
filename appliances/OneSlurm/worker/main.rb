@@ -17,6 +17,7 @@ require_relative '../common/onegate'
 require_relative '../common/ldap'
 require_relative '../common/munge'
 require_relative '../common/slurm'
+require_relative '../common/infiniband'
 require_relative 'config'
 
 # Base module for OpenNebula services
@@ -30,15 +31,23 @@ module Service
         include OneSlurm::Ldap
         include OneSlurm::Munge
         include OneSlurm::Slurm
+        include OneSlurm::Infiniband
 
         DEPENDS_ON = []
 
         def install
             msg(:info, 'SlurmWorker::install')
             bash('apt update && apt install munge libmunge-dev slurmd slurm-client slurm-wlm-basic-plugins sssd sssd-ldap libnss-sss libpam-sss ldap-utils -y')
+            install_infiniband_packages
             install_nvidia_drivers
             bash('systemctl disable slurmd')
             msg(:info, 'Installation completed successfully')
+        end
+
+        def install_infiniband_packages
+            return unless INSTALL_INFINIBAND == 'true'
+
+            install_worker_infiniband_packages
         end
 
         def install_nvidia_drivers
@@ -127,6 +136,12 @@ module Service
                     msg(:info, "Adding '#{hosts_entry}' to /etc/hosts")
                     f.puts(hosts_entry)
                 end
+            end
+
+            if infiniband_enabled?
+                configure_ipoib(ip)
+            else
+                msg(:info, 'InfiniBand support disabled, skipping IPoIB configuration')
             end
 
             # Decode and install the munge key from the controller

@@ -3,6 +3,11 @@ variable "nvidia_driver_path" {
   default = ""
 }
 
+variable "install_infiniband" {
+  type    = bool
+  default = true
+}
+
 variable "SlurmWorker" {
   type = map(map(string))
 

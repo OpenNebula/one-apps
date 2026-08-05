@@ -103,6 +103,9 @@ build {
   provisioner "shell" {
     inline_shebang = "/bin/bash -e"
     inline         = ["/etc/one-appliance/service install && sync"]
+    environment_vars = [
+      "INSTALL_INFINIBAND=${var.install_infiniband}",
+    ]
   }
 
   post-processor "shell-local" {
