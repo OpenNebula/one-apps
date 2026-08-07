@@ -75,6 +75,7 @@ build {
 
   provisioner "file" {
     sources = [
+      "appliances/OneSlurm/scripts/net-12-mount-nfs",
       "appliances/scripts/net-90-service-appliance",
       "appliances/scripts/net-99-report-ready",
     ]

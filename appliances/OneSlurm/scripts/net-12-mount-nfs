@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2026, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# THIS IS A CONTEXTUALIZATION GUARD
+if [ "$1" != 'network' ] ; then
+    exit 0
+fi
+
+: "${ENV_FILE:=/var/run/one-context/one_env}"
+: "${NFS_MOUNT_OPTIONS:=sec=sys,_netdev}"
+
+set -o errexit
+
+if [[ -f "${ENV_FILE}" ]]; then
+    # shellcheck source=/dev/null
+    . "${ENV_FILE}"
+fi
+
+_exit_result=0
+
+# arg: context_var mountpoint
+mount_nfs_export() {
+    local _var="$1"
+    local _mountpoint="$2"
+    local _spec="${!_var}"
+
+    if [[ -z "${_spec}" ]]; then
+        return 0
+    fi
+
+    local _host="${_spec%%:*}"
+    local _export="${_spec#*:}"
+
+    if [[ -z "${_host}" || -z "${_export}" || "${_host}" = "${_spec}" ]]; then
+        echo "NFS: Invalid ${_var}='${_spec}' (expected host:/export)" >&2
+        return 1
+    fi
+
+    if mountpoint -q "${_mountpoint}" 2>/dev/null ; then
+        echo "NFS: ${_mountpoint} already a mountpoint, skipping ${_var}" >&2
+        return 0
+    fi
+
+    echo "NFS: Mounting ${_host}:${_export} on ${_mountpoint}" >&2
+
+    mkdir -p "${_mountpoint}"
+
+    if ! mount -t nfs4 -o "${NFS_MOUNT_OPTIONS}" "${_host}:${_export}" "${_mountpoint}" ; then
+        echo "NFS: Failed to mount ${_host}:${_export} on ${_mountpoint}" >&2
+        return 1
+    fi
+
+    local _fstab_line="${_host}:${_export} ${_mountpoint} nfs4 ${NFS_MOUNT_OPTIONS} 0 0"
+    if ! grep -qF "${_fstab_line}" /etc/fstab 2>/dev/null ; then
+        echo "${_fstab_line}" >> /etc/fstab
+    fi
+}
+
+case "${2:-configure}" in
+    configure|reconfigure|force)
+        mount_nfs_export ONEAPP_SLURM_NFS_HOME /home || _exit_result=1
+        mount_nfs_export ONEAPP_SLURM_NFS_SCRATCH /scratch || _exit_result=1
+        ;;
+    *)
+        echo "NFS: Unknown action: ${2:-}" >&2
+        exit 1
+        ;;
+esac
+
+exit "${_exit_result}"

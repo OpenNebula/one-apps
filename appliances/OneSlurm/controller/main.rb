@@ -38,7 +38,7 @@ module Service
             msg :info, 'SlurmController::install'
 
             # Install dependencies
-            bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins ldap-utils sssd sssd-ldap libnss-sss libpam-sss -y'
+            bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins ldap-utils sssd sssd-ldap libnss-sss libpam-sss nfs-common -y'
             install_infiniband_packages
 
             # Write cluster configuration

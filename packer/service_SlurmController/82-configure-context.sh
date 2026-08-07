@@ -18,6 +18,7 @@ install /dev/fd/0 /etc/one-context.d/loc-15-keepalived <<EOF
 true
 EOF
 
+mv /etc/one-appliance/net-12-mount-nfs         /etc/one-context.d/
 mv /etc/one-appliance/net-90-service-appliance /etc/one-context.d/
 mv /etc/one-appliance/net-99-report-ready      /etc/one-context.d/
 
