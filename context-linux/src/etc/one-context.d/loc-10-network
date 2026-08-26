@@ -38,11 +38,11 @@ if [ -z "${NETCFG_TYPE}" ] ; then
         altlinux*)
             NETCFG_TYPE='networkd nm'
             ;;
-        debian12)
-            NETCFG_TYPE='netplan networkd interfaces nm'
-            ;;
-        devuan*|debian*)
+        devuan*|debian10|debian11)
             NETCFG_TYPE='interfaces netplan nm networkd'
+            ;;
+        debian*)
+            NETCFG_TYPE='netplan networkd interfaces nm'
             ;;
         ubuntu*)
             NETCFG_TYPE='netplan networkd interfaces nm'
