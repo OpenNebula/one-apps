@@ -5,7 +5,7 @@
 exec 1>&2
 set -eux -o pipefail
 
-apk --no-cache add bash curl gawk grep iproute2-minimal jq sed
+apk --no-cache add bash curl gawk grep iperf3 iproute2-minimal jq sed
 
 gawk -i inplace -f- /etc/apk/repositories <<'EOF'
 /community$/ && !/edge/ { gsub(/^#\s*/, "") }
@@ -14,5 +14,10 @@ EOF
 
 apk update
 apk upgrade
+
+apk --no-cache add fio
+if [ "${DIST_VER}" -ge 321 ] 2>/dev/null; then
+    apk --no-cache add jc
+fi
 
 sync
