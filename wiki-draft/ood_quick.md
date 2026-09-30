@@ -25,7 +25,7 @@ This guide connects a portal to one OneSlurm cluster.
    | Home | NFS export | `10.0.0.2:/export/home` |
    | Slurm | Clusters | `cpu:<controller IP>` |
 
-   ![The four tabs of the wizard](images/ood-wizard.png)
+   ![The LDAP tab of the wizard](images/ood-wizard.png)
 
 3. Wait until the VM shows `READY=YES`. The attribute `OOD_URL` has the address of the portal. A wrong input stops the boot, and `OOD_ERROR` explains the problem.
 
