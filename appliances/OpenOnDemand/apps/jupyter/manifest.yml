@@ -1,0 +1,15 @@
+---
+name: Jupyter
+category: Interactive Apps
+subcategory: Servers
+role: batch_connect
+description: |
+  JupyterLab on a node of a Slurm cluster of the portal. It runs the JupyterLab
+  installed in your home, in `~/.venvs/jupyter`, so the nodes need nothing else.
+
+  To install it once, open the terminal of a cluster from the **Clusters** menu and run:
+
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+      ~/.local/bin/uv venv ~/.venvs/jupyter
+      source ~/.venvs/jupyter/bin/activate
+      ~/.local/bin/uv pip install jupyterlab

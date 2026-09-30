@@ -1,0 +1,5 @@
+port=$(find_port ${host})
+password=$(create_passwd 16)
+# Only exported variables reach script.sh. Jupyter reads the token from the environment,
+# so it never appears on the command line that every user of the node can see with ps.
+export JUPYTER_TOKEN="${password}"

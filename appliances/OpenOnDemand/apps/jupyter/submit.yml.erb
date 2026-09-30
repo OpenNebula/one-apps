@@ -1,0 +1,5 @@
+---
+batch_connect:
+  template: "basic"
+  # The portal cannot resolve the names of the OneSlurm nodes, so the session reports its IP.
+  set_host: "host=$(hostname -I | awk '{print $1}')"
