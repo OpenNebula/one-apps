@@ -47,7 +47,7 @@ Each session has its own token, so other users cannot open it.
 ## Security
 
 * The portal pins the SSH host key of each controller at the first boot. To accept a new key, run `ssh-keygen -R <IP> -f /etc/ood/ssh/known_hosts` on the portal and update its configuration.
-* The LDAP directory of a OneSlurm controller has no TLS, so login passwords travel in clear text. Use `ldaps://` when the directory supports it.
+* The LDAP directory of a OneSlurm controller has no TLS, so login passwords travel in clear text. Use `ldaps://` when the directory supports it. It needs a certificate from a public certificate authority, because the portal has no input for a private one.
 
 ## Limitations
 

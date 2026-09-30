@@ -153,7 +153,6 @@ module Service
         def validate_inputs
             {
                 'ONEAPP_PORTAL_HOST_NAME'         => OOD_PORTAL_HOST_NAME,
-                'ONEAPP_PORTAL_LETSENCRYPT_EMAIL' => OOD_PORTAL_LETSENCRYPT_EMAIL,
                 'ONEAPP_LDAP_SERVER_URL'          => OOD_LDAP_URL,
                 'ONEAPP_LDAP_SERVER_DOMAIN'       => OOD_LDAP_DOMAIN,
                 'ONEAPP_LDAP_BIND_USER'           => OOD_LDAP_BIND_USER,
@@ -498,14 +497,11 @@ module Service
         def request_letsencrypt(name)
             msg :info, "Requesting a Let's Encrypt certificate for #{name}"
 
+            # Let's Encrypt no longer sends expiry emails, so the account needs no address.
             args = ['certbot', 'certonly', '--standalone', '--non-interactive', '--agree-tos',
-                    '--keep-until-expiring', '--cert-name', name, '-d', name,
+                    '--register-unsafely-without-email', '--keep-until-expiring',
+                    '--cert-name', name, '-d', name,
                     '--pre-hook', 'systemctl stop apache2', '--post-hook', 'systemctl start apache2']
-            args += if OOD_PORTAL_LETSENCRYPT_EMAIL.empty?
-                        ['--register-unsafely-without-email']
-                    else
-                        ['-m', OOD_PORTAL_LETSENCRYPT_EMAIL]
-                    end
 
             output, status = Open3.capture2e(*args)
             puts output
