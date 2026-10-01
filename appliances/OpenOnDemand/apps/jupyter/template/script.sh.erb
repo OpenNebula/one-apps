@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+cd "${HOME}"
+jupyter="${HOME}/.venvs/jupyter/bin/jupyter"
+if [[ -z "${JUPYTER_TOKEN:-}" ]]; then
+  echo "JUPYTER_TOKEN is empty, Jupyter would start without authentication" >&2
+  exit 1
+fi
+if [[ ! -x "${jupyter}" ]]; then
+  echo "JupyterLab is not installed in ~/.venvs/jupyter" >&2
+  exit 1
+fi
+exec "${jupyter}" lab --no-browser --ip=0.0.0.0 --port="${port}" \
+  --ServerApp.base_url="/node/${host}/${port}/" \
+  --ServerApp.allow_remote_access=True \
+  --ServerApp.root_dir="${HOME}"
