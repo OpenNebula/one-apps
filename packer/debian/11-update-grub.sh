@@ -47,6 +47,11 @@ gawk -i inplace -f- /etc/default/grub <<'EOF'
 { print }
 EOF
 
+# Load virtio_net before virtio_pci so that multi-NIC VMs get deterministic
+# eth%d names (with virtio_pci as a module udev loads virtio_net concurrently
+# with the NIC probing). Inert on kernels with built-in virtio_pci.
+echo 'softdep virtio_pci pre: virtio_net' >/etc/modprobe.d/virtio-net-first.conf
+
 update-initramfs -vu
 update-grub2
 
