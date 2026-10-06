@@ -1,0 +1,3 @@
+# nginx_stage reads this file before it starts the web server of a user. Open OnDemand runs
+# "ssh" for the Slurm commands and the terminal, and this makes it the wrapper of the portal.
+export PATH="/opt/one-appliance/OpenOnDemand/bin:$PATH"

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Open OnDemand runs this as root with "--user <name>" before it starts the web server of a
+# user (pun_pre_hook_root_cmd in /etc/ood/config/ood_portal.yml). It runs portal-ssh-key as
+# that user. The messages go to the journal, read them with "journalctl -t ood-prehook".
+set -uo pipefail
+
+[[ "${1:-}" == --user && -n "${2:-}" && "$2" != root ]] || exit 0
+user="$2"
+
+# The administrator creates the homes. Without one, Open OnDemand shows its own error page.
+home="$(getent passwd "$user" | cut -d: -f6)"
+if [[ -z "$home" || ! -d "$home" ]]; then
+    logger -t ood-prehook "${user} has no home directory, the administrator must create it"
+    exit 0
+fi
+
+# An NFS export with root_squash does not let root write in the home, so the key is made
+# as the user.
+runuser -u "$user" -- "$(dirname "$0")/portal-ssh-key" "$home"

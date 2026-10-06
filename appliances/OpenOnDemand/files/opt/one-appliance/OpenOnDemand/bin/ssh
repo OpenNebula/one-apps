@@ -1,0 +1,6 @@
+#!/bin/sh
+# Open OnDemand runs "ssh" to send the Slurm commands of a user to the controller of a
+# cluster (submit_host) and to open the terminal. /etc/ood/profile puts this wrapper first in
+# the PATH of the web server of each user. The SSH configuration of the portal is not in
+# /etc/ssh because the apache2 unit of Ubuntu hides /etc/ssh from Apache and those servers.
+exec /usr/bin/ssh -F /etc/ood/ssh/ssh_config "$@"
