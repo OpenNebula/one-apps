@@ -17,6 +17,7 @@ else
 fi
 
 apk add --allow-untrusted "$LATEST"
+apk add qemu-guest-agent
 
 rc-update add qemu-guest-agent default
 

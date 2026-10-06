@@ -9,7 +9,7 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-yum install -y "$LATEST"
+yum install -y "$LATEST" qemu-guest-agent
 
 
 if [ "$DIST_VER" = "2023" ]; then

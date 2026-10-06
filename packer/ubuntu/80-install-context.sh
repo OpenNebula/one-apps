@@ -20,6 +20,7 @@ policy_rc_d_disable
 
 dpkg -i --auto-deconfigure "$LATEST" || apt-get install -y -f
 dpkg -i --auto-deconfigure "$LATEST"
+apt-get install -y qemu-guest-agent
 
 
 # >>> Apply only on one-context >= 6.1 >>>
