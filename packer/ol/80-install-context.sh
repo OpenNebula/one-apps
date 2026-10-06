@@ -9,7 +9,7 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-dnf install -y "$LATEST"
+dnf install -y "$LATEST" qemu-guest-agent
 
 dnf install -y --setopt=install_weak_deps=False NetworkManager systemd-networkd
 

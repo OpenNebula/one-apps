@@ -18,6 +18,7 @@ policy_rc_d_disable
 
 dpkg -i "$LATEST" || apt-get install -y -f
 dpkg -i "$LATEST"
+apt-get install -y qemu-guest-agent
 
 
 if [ "$DIST_VER" -gt "11" ]; then

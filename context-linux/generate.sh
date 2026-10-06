@@ -207,6 +207,7 @@ else
         ${DEPENDS:+ --depends ${DEPENDS// / --depends }} \
         ${RECOMMENDS:+ --rpm-tag Recommends:${RECOMMENDS// / --rpm-tag Recommends:}} \
         ${RECOMMENDS:+ --deb-recommends ${RECOMMENDS// / --deb-recommends }} \
+        ${RECOMMENDS:+ --pacman-optional-depends ${RECOMMENDS// / --pacman-optional-depends }} \
         ${REPLACES:+ --replaces ${REPLACES// / --replaces }} \
         ${CONFLICTS:+ --conflicts ${CONFLICTS// / --conflicts }} \
         ${PROVIDES:+ --provides ${PROVIDES// / --provides }} \

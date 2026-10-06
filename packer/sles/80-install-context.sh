@@ -9,6 +9,6 @@ set -eux -o pipefail
 
 LATEST=$(find /context/ -type f -name "one-context*.$CTXEXT" | sort -V | tail -n1)
 
-zypper --non-interactive --no-gpg-checks install -y "$LATEST"
+zypper --non-interactive --no-gpg-checks install -y "$LATEST" qemu-guest-agent
 
 sync

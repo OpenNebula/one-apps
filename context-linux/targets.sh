@@ -37,8 +37,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.el8}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one network-scripts}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent network-scripts gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server network-scripts gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -53,8 +53,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.el9}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -69,8 +69,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.el10}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -85,8 +85,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.fc}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils btrfs-progs cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server qemu-guest-agent gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils btrfs-progs cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -101,8 +101,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.amzn2}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one network-scripts}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted qemu-guest-agent ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -118,7 +118,7 @@ case "${TARGET}" in
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one network-scripts}
         DEPENDS=${DEPENDS:-util-linux bash curl bind-utils cloud-utils-growpart parted ruby rubygem-json sudo shadow-utils openssh-server network-scripts gawk virt-what}
-        RECOMMENDS=${RECOMMENDS:-}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init cloud-init-cfg-onprem}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -134,7 +134,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-alt}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one networkd}
-        DEPENDS=${DEPENDS:-bind-utils btrfs-progs cloud-utils-growpart curl e2fsprogs iproute2 openssl parted passwd qemu-guest-agent ruby-json-pure sudo systemd-services wget which xfsprogs gawk virt-what}
+        DEPENDS=${DEPENDS:-bind-utils btrfs-progs cloud-utils-growpart curl e2fsprogs iproute2 openssl parted passwd ruby-json-pure sudo systemd-services wget which xfsprogs gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -150,7 +151,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.suse}
         TYPE=${TYPE:-rpm}
         TAGS=${TAGS:-linux rpm systemd one network-scripts}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils growpart parted parted ruby sudo shadow openssh qemu-guest-agent gawk virt-what} # rubygem-json}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind-utils growpart parted parted ruby sudo shadow openssh gawk virt-what} # rubygem-json}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init cloud-init-config-suse}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -165,7 +167,8 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-}
         TYPE=${TYPE:-deb}
         TAGS=${TAGS:-linux deb sysv systemd upstart one}
-        DEPENDS=${DEPENDS:-util-linux bash curl bind9-host cloud-utils parted ruby ifupdown|ifupdown2 acpid|systemd sudo passwd dbus openssh-server qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-util-linux bash curl bind9-host cloud-utils parted ruby ifupdown|ifupdown2 acpid|systemd sudo passwd dbus openssh-server gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init cloud-init-base}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
@@ -180,7 +183,7 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-}
         TYPE=${TYPE:-apk}
         TAGS=${TAGS:-linux apk one}
-        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-json-schema bind-tools openssh qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-json-schema bind-tools openssh gawk virt-what}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-}  #not respected
         CONFLICTS=${CONFLICTS:-one-context-ec2}
@@ -195,7 +198,7 @@ case "${TARGET}" in
         RELSUFFIX=${RELSUFFIX:-.alpine322}
         TYPE=${TYPE:-apk}
         TAGS=${TAGS:-linux apk one} # ruby-base64 is now separate package
-        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-base64 ruby-json-schema bind-tools openssh qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-util-linux bash curl udev sfdisk parted e2fsprogs-extra sudo shadow ruby ruby-base64 ruby-json-schema bind-tools openssh gawk virt-what}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-}  #not respected
         CONFLICTS=${CONFLICTS:-one-context-ec2}
@@ -217,7 +220,8 @@ case "${TARGET}" in
         EXT=${EXT:-pkg.tar.xz}
         TAGS=${TAGS:-linux arch systemd one networkd}
         # mkinitcpio-growrootfs ruby-json
-        DEPENDS=${DEPENDS:-filesystem util-linux bash curl bind-tools ruby sudo shadow qemu-guest-agent gawk virt-what}
+        DEPENDS=${DEPENDS:-filesystem util-linux bash curl bind-tools ruby sudo shadow gawk virt-what}
+        RECOMMENDS=${RECOMMENDS:-qemu-guest-agent}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-cloud-init}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}
