@@ -57,8 +57,12 @@ module Service
             msg :info, 'OpenOnDemand::configure'
 
             validate_inputs
-            configure_home
-            configure_ldap
+            if without_clusters?
+                configure_without_clusters
+            else
+                configure_home
+                configure_ldap
+            end
             configure_certificate
             configure_portal
             configure_clusters
@@ -85,6 +89,11 @@ module Service
 
             onegate_update 'OOD_URL', portal_url
             onegate_erase 'OOD_ERROR'
+            if without_clusters?
+                onegate_update 'OOD_WARNING', 'No LDAP and no home and no clusters. Nobody can sign in yet'
+            else
+                onegate_erase 'OOD_WARNING'
+            end
 
             msg :info, "Portal ready at #{portal_url}"
         rescue StandardError => e
@@ -158,14 +167,24 @@ module Service
 
         # --- inputs ------------------------------------------------------------------- #
 
+        # The LDAP URL, the home export and the clusters go together: all of them, or none of them
+        # for a portal without clusters (for example to test the appliance alone).
+        def without_clusters?
+            [OOD_LDAP_URL, OOD_HOME_NFS_EXPORT, OOD_SLURM_CLUSTERS].all?(&:empty?)
+        end
+
         def validate_inputs
+            return portal_ip if without_clusters?
+
             {
                 'ONEAPP_LDAP_SERVER_URL'     => OOD_LDAP_URL,
-                'ONEAPP_LDAP_SERVER_DOMAIN'  => OOD_LDAP_DOMAIN,
                 'ONEAPP_HOME_NFS_EXPORT'     => OOD_HOME_NFS_EXPORT,
                 'ONEAPP_SLURM_CLUSTERS_LIST' => OOD_SLURM_CLUSTERS
             }.each do |input, value|
-                raise "#{input} is required" if value.empty?
+                if value.empty?
+                    raise "#{input} is required. Set the LDAP URL and the NFS export and the clusters together " \
+                          'or leave the three empty'
+                end
             end
 
             # The domain goes into sssd.conf as it is, the other inputs have a strict format.
@@ -223,6 +242,17 @@ module Service
             mount_nfs OOD_HOME_NFS_EXPORT, '/home', options: OOD_NFS_MOUNT_OPTIONS
         end
 
+        # Without clusters /home stays on the disk of the VM and SSSD does not run. A home export of an
+        # earlier configuration is not removed from a running portal.
+        def configure_without_clusters
+            msg :warn, 'No LDAP and no home and no clusters. The portal starts without users'
+
+            current = bash('findmnt -n -o SOURCE /home || true', chomp: true)
+            raise "/home is mounted from #{current}. Deploy a new portal to run without clusters" unless current.empty?
+
+            bash 'systemctl disable --now sssd'
+        end
+
         # --- LDAP --------------------------------------------------------------------- #
 
         # SSSD gives the system the users of the directory, so the web server of each user runs
@@ -257,8 +287,10 @@ module Service
 
         # Dex needs an email for each user, and many directories have no mail attribute, so the
         # email is the user name with the domain of the directory.
+        # Dex refuses to start without a connector. Without clusters its connector points to a port
+        # where nothing listens, so the login page works and every sign in fails.
         def dex_ldap_connector
-            uri    = URI.parse(OOD_LDAP_URL)
+            uri    = URI.parse(without_clusters? ? 'ldap://127.0.0.1:389' : OOD_LDAP_URL)
             domain = if OOD_LDAP_DOMAIN.include?('=')
                          OOD_LDAP_DOMAIN.scan(/dc=([^,]+)/i).flatten.join('.')
                      else
@@ -378,6 +410,8 @@ module Service
             end
 
             controllers = clusters.map(&:last).uniq
+            return FileUtils.rm_f(OOD_SHELL_ENV) if controllers.empty?
+
             file OOD_SHELL_ENV, <<~ENV, mode: 'u=rw,go=r', overwrite: true
                 # #{OOD_MANAGED_MARK}
                 OOD_DEFAULT_SSHHOST=#{controllers.first}
