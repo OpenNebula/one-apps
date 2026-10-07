@@ -24,7 +24,6 @@ end
 
 require_relative 'config'
 require 'fileutils'
-require 'ipaddr'
 require 'open3'
 require 'securerandom'
 require 'shellwords'
@@ -189,7 +188,7 @@ module Service
             clusters = OOD_SLURM_CLUSTERS.split.map do |pair|
                 name, ip = pair.split(':', 2)
 
-                unless name.match?(/\A[A-Za-z0-9][A-Za-z0-9_-]{0,62}\z/) && ipv4_address?(ip)
+                unless name.match?(/\A[A-Za-z0-9][A-Za-z0-9_-]{0,62}\z/) && ipv4?(ip)
                     raise 'ONEAPP_SLURM_CLUSTERS_LIST must be name:IP pairs like cpu:10.0.0.20 and ' \
                           "#{pair} is not one"
                 end
@@ -203,18 +202,10 @@ module Service
             clusters
         end
 
-        def ipv4_address?(value)
-            value.to_s.match?(/\A[\d.]+\z/) && IPAddr.new(value).ipv4?
-        rescue IPAddr::Error
-            false
-        end
-
-        # The portal answers on the IP that OpenNebula gives to the first NIC of the VM.
         def portal_ip
-            ip = ENV.fetch('ETH0_IP', '')
-            raise 'The first NIC of the VM has no IPv4 address (ETH0_IP)' if ip.empty?
+            raise 'The first NIC of the VM has no IPv4 address (ETH0_IP)' unless ipv4?(OOD_PORTAL_IP)
 
-            ip
+            OOD_PORTAL_IP
         end
 
         def portal_url

@@ -28,6 +28,9 @@ OOD_VERSION = '4.2'
 OOD_LDAP_URL    = env(:ONEAPP_LDAP_SERVER_URL, '').strip
 OOD_LDAP_DOMAIN = env(:ONEAPP_LDAP_SERVER_DOMAIN, 'slurm.local').strip
 
+# The portal answers on the IP that OpenNebula gives to the first NIC of the VM.
+OOD_PORTAL_IP = env(:ETH0_IP, '')
+
 # NFS export with the homes of the users, host:/export, as ONEAPP_SLURM_NFS_HOME of OneSlurm.
 OOD_HOME_NFS_EXPORT = env(:ONEAPP_HOME_NFS_EXPORT, '').strip
 
