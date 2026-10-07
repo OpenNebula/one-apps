@@ -266,3 +266,74 @@ def set_status(status, path = '/etc/one-appliance/status')
         set_motd step, status
     end
 end
+
+# Runs the block until it does not raise, at most attempts times, with delay seconds between
+# attempts. The last error is raised again.
+def with_retries(attempts: 10, delay: 15, msg: 'Retrying operation...')
+    attempts.times do |i|
+        begin
+            return yield
+        rescue StandardError => e
+            if i + 1 < attempts
+                msg(:warn, "#{msg} (#{i + 1}/#{attempts}). Error: #{e.message}. Retrying in #{delay}s.")
+                sleep delay
+            else
+                msg(:error, "Operation failed after #{attempts} attempts.")
+                raise e
+            end
+        end
+    end
+end
+
+# A DNS style domain becomes dc= parts (slurm.local -> dc=slurm,dc=local), and a DN stays as it is.
+def ldap_base_dn(domain)
+    domain = domain.to_s.strip
+    return '' if domain.empty?
+
+    domain.include?('=') ? domain : domain.split('.').map { |part| "dc=#{part}" }.join(',')
+end
+
+# Gives the system the users and groups of an LDAP directory through SSSD, with the users under
+# ou=People and the groups under ou=Groups of base_dn. Without a services line the NSS responder
+# starts from sssd-nss.socket. ldap:// without TLS needs start_tls: false.
+def sssd_ldap_client(uri, base_dn, auth_provider: 'none', start_tls: false, header: nil,
+                     path: '/etc/sssd/sssd.conf')
+    content = <<~SSSD
+        [sssd]
+        config_file_version = 2
+        domains = ldap
+
+        [domain/ldap]
+        id_provider = ldap
+        auth_provider = #{auth_provider}
+        ldap_uri = #{uri}
+        ldap_id_use_start_tls = #{start_tls}
+        ldap_search_base = #{base_dn}
+        ldap_user_search_base = ou=People,#{base_dn}
+        ldap_group_search_base = ou=Groups,#{base_dn}
+    SSSD
+    content = "# #{header}\n#{content}" if header
+
+    FileUtils.mkdir_p File.dirname(path)
+    file path, content, mode: 'u=rw,go=', overwrite: true
+end
+
+# Mounts an NFS export (host:/export) on mountpoint with NFS version 4 and keeps it in fstab.
+# It does nothing when the export is already mounted there, and refuses to replace another mount.
+def mount_nfs(export, mountpoint, options: 'sec=sys,_netdev', fstab: '/etc/fstab')
+    lines = File.readlines(fstab).reject do |line|
+        !line.start_with?('#') && line.split[1] == mountpoint
+    end
+    lines << "#{export} #{mountpoint} nfs4 #{options} 0 0\n"
+    File.write(fstab, lines.join)
+    system('systemctl', 'daemon-reload', out: File::NULL, err: File::NULL)
+
+    current, = Open3.capture2('findmnt', '-n', '-o', 'SOURCE', mountpoint)
+    current = current.strip
+    return if current.chomp('/') == export.chomp('/')
+    raise "#{mountpoint} is mounted from #{current}. Reboot the VM to mount #{export}" unless current.empty?
+
+    FileUtils.mkdir_p mountpoint
+    output, status = Open3.capture2e('mount', mountpoint)
+    raise "Cannot mount #{export} on #{mountpoint}: #{output.strip}" unless status.success?
+end

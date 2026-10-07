@@ -220,22 +220,7 @@ module Service
         def configure_home
             msg :info, "Mounting #{OOD_HOME_NFS_EXPORT} on /home"
 
-            fstab = File.readlines('/etc/fstab').reject do |line|
-                !line.start_with?('#') && line.split[1] == '/home'
-            end
-            fstab << "#{OOD_HOME_NFS_EXPORT} /home nfs4 #{OOD_NFS_MOUNT_OPTIONS} 0 0\n"
-            File.write('/etc/fstab', fstab.join)
-            bash 'systemctl daemon-reload'
-
-            current = bash('findmnt -n -o SOURCE /home || true', chomp: true)
-            return if current.chomp('/') == OOD_HOME_NFS_EXPORT.chomp('/')
-
-            unless current.empty?
-                raise "/home is mounted from #{current}. Reboot the VM to mount #{OOD_HOME_NFS_EXPORT}"
-            end
-
-            output, status = Open3.capture2e('mount', '/home')
-            raise "Cannot mount #{OOD_HOME_NFS_EXPORT} on /home: #{output.strip}" unless status.success?
+            mount_nfs OOD_HOME_NFS_EXPORT, '/home', options: OOD_NFS_MOUNT_OPTIONS
         end
 
         # --- LDAP --------------------------------------------------------------------- #
@@ -248,23 +233,7 @@ module Service
 
             check_ldap
 
-            # SSSD 2.12 uses StartTLS by default, and the ldap:// directory of OneSlurm has no TLS.
-            # Ubuntu starts the NSS responder from sssd-nss.socket, so [sssd] lists no services.
-            file '/etc/sssd/sssd.conf', <<~SSSD, mode: 'u=rw,go=', overwrite: true
-                # #{OOD_MANAGED_MARK}
-                [sssd]
-                config_file_version = 2
-                domains = ldap
-
-                [domain/ldap]
-                id_provider = ldap
-                auth_provider = none
-                ldap_uri = #{OOD_LDAP_URL}
-                ldap_id_use_start_tls = false
-                ldap_search_base = #{ldap_base_dn}
-                ldap_user_search_base = #{ldap_people_dn}
-                ldap_group_search_base = ou=Groups,#{ldap_base_dn}
-            SSSD
+            sssd_ldap_client OOD_LDAP_URL, ldap_base_dn(OOD_LDAP_DOMAIN), header: OOD_MANAGED_MARK
 
             bash <<~SCRIPT
                 systemctl enable sssd
@@ -282,15 +251,8 @@ module Service
             raise "Cannot read the users of #{OOD_LDAP_DOMAIN} from #{OOD_LDAP_URL}: #{output.lines.first.to_s.strip}"
         end
 
-        # The same rule as OneSlurm, a DNS style domain becomes dc= parts and a DN stays as it is.
-        def ldap_base_dn
-            return OOD_LDAP_DOMAIN if OOD_LDAP_DOMAIN.include?('=')
-
-            OOD_LDAP_DOMAIN.split('.').map { |part| "dc=#{part}" }.join(',')
-        end
-
         def ldap_people_dn
-            "ou=People,#{ldap_base_dn}"
+            "ou=People,#{ldap_base_dn(OOD_LDAP_DOMAIN)}"
         end
 
         # Dex needs an email for each user, and many directories have no mail attribute, so the
@@ -440,32 +402,30 @@ module Service
 
         # A controller that is still booting has one minute to answer.
         def scan_host_keys(ip)
-            12.times do
+            with_retries(attempts: 12, delay: 5, msg: "Waiting for the SSH port of #{ip}") do
+                raise "The controller #{ip} does not answer on the SSH port" unless tcp_port_open?(ip, 22)
+
                 keys = bash("ssh-keyscan -T 5 #{ip} 2>/dev/null || true").lines.map(&:strip)
                 keys = keys.reject { |line| line.empty? || line.start_with?('#') }
-                return keys unless keys.empty?
+                raise "The controller #{ip} gives no SSH host key" if keys.empty?
 
-                sleep 5
+                keys
             end
-
-            raise "The controller #{ip} does not answer on the SSH port"
         end
 
         # --- checks and OneGate ------------------------------------------------------- #
 
         # Without -k, curl also checks that the system trusts the certificate of the portal.
         def check_portal
-            12.times do
+            with_retries(attempts: 12, delay: 5, msg: "Waiting for the portal on #{portal_url}") do
                 code = bash("curl -s -o /dev/null -w '%{http_code}' --max-time 10 #{portal_url} || true",
                             chomp: true)
                 dex  = bash("curl -s --max-time 10 #{portal_url}dex/.well-known/openid-configuration || true")
 
-                return if %w[200 301 302 303].include?(code) && dex.include?('issuer')
-
-                sleep 5
+                unless %w[200 301 302 303].include?(code) && dex.include?('issuer')
+                    raise "The portal does not answer on #{portal_url}. Read journalctl -u apache2 -u ondemand-dex"
+                end
             end
-
-            raise "The portal does not answer on #{portal_url}. Read journalctl -u apache2 -u ondemand-dex"
         end
 
         # A failed boot must not keep the READY of the previous boot next to the error.

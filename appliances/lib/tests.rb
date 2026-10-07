@@ -227,3 +227,41 @@ RSpec.describe 'set_status' do
         end
     end
 end
+
+RSpec.describe 'with_retries' do
+    it 'should return the value once the block works' do
+        allow(self).to receive(:sleep)
+        calls = 0
+        expect(with_retries(attempts: 3, delay: 0) { (calls += 1) < 3 ? raise('not yet') : :ok }).to eq :ok
+        expect(calls).to eq 3
+    end
+    it 'should raise the last error' do
+        allow(self).to receive(:sleep)
+        expect { with_retries(attempts: 2, delay: 0) { raise 'down' } }.to raise_error(RuntimeError, 'down')
+    end
+end
+
+RSpec.describe 'ldap_base_dn' do
+    it 'should turn a domain into dc parts and keep a DN' do
+        expect(ldap_base_dn('slurm.local')).to eq 'dc=slurm,dc=local'
+        expect(ldap_base_dn(' example.org ')).to eq 'dc=example,dc=org'
+        expect(ldap_base_dn('ou=hpc,dc=example,dc=org')).to eq 'ou=hpc,dc=example,dc=org'
+        expect(ldap_base_dn('')).to eq ''
+    end
+end
+
+RSpec.describe 'sssd_ldap_client' do
+    it 'should write the SSSD configuration' do
+        Dir.mktmpdir do |dir|
+            path = "#{dir}/sssd/sssd.conf"
+            sssd_ldap_client 'ldap://10.0.0.20', 'dc=slurm,dc=local', header: 'Managed', path: path
+            conf = File.read(path)
+            expect(conf).to start_with "# Managed\n[sssd]"
+            expect(conf).to include "ldap_uri = ldap://10.0.0.20\n"
+            expect(conf).to include "ldap_id_use_start_tls = false\n"
+            expect(conf).to include "ldap_user_search_base = ou=People,dc=slurm,dc=local\n"
+            expect(conf).not_to include 'services'
+            expect(File.stat(path).mode & 0o777).to eq 0o600
+        end
+    end
+end
