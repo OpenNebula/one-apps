@@ -337,6 +337,9 @@ function acquire_lock {
     while true; do
         if mkdir "${LOCK_FILE}" 2>/dev/null; then
             trap 'cleanup' EXIT
+            # PID of the lock holder, lets others (e.g., package removal
+            # scripts) tell a running contextualization from a stale lock
+            echo "$$" > "${LOCK_FILE}/pid"
             log debug "Acquired lock ${LOCK_FILE}"
             break
         fi

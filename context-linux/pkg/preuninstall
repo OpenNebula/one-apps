@@ -1,9 +1,50 @@
 #!/usr/bin/env bash
 
+# NOTE: On Debian-based distros this script is embedded into a /bin/sh (dash)
+# maintainer script by fpm, keep the code POSIX sh compatible.
+
 SERVICES=${SERVICES:-one-context one-context-online one-context-local one-context-reconfigure one-context-reconfigure-delayed}
 TIMERS=${TIMERS:-one-context-reconfigure.timer}
 
-# Disable services
+CONTEXT_LOCK=${CONTEXT_LOCK:-/var/run/one-context/one-context.lock}
+CONTEXT_WAIT_TIMEOUT=${CONTEXT_WAIT_TIMEOUT:-600}
+
+### Wait for running contextualization #####################
+
+# Stopping the services and removing the files while one-contextd is still
+# running would interrupt the contextualization in the middle. Wait for
+# the running contextualization (if any) to finish first.
+
+# Lock directory is created by one-contextd and holds the PID of the
+# lock holder. Lock without a live holder is stale (e.g. one-contextd killed).
+context_running() {
+    [ -d "${CONTEXT_LOCK}" ] || return 1
+
+    _lock_pid=$(cat "${CONTEXT_LOCK}/pid" 2>/dev/null)
+    if [ -n "${_lock_pid}" ] && ! [ -d "/proc/${_lock_pid}" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
+if context_running; then
+    echo "Waiting up to ${CONTEXT_WAIT_TIMEOUT}s for the running contextualization to finish ..." >&2
+
+    _waited=0
+    while context_running; do
+        if [ "${_waited}" -ge "${CONTEXT_WAIT_TIMEOUT}" ]; then
+            echo "WARNING: Contextualization still running after ${CONTEXT_WAIT_TIMEOUT}s, removing package anyway!" >&2
+            break
+        fi
+
+        sleep 1
+        _waited=$((_waited + 1))
+    done
+fi
+
+### Disable services ########################################
+
 if which systemctl >/dev/null 2>&1 && [ -d /etc/systemd ]; then
     for S in ${TIMERS} ${SERVICES}; do
         systemctl --no-reload disable "${S}" >/dev/null 2>&1 || :
