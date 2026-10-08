@@ -46,11 +46,17 @@ module NAT4
         end
 
         unless nat4_vars[:masq].empty?
-            # Add MASQUERADE rules.
+            snat = snat_sources nat4_vars[:masq]
+
+            # Add MASQUERADE rules (SNAT to an address or to the VIP, if configured).
             bash ERB.new(<<~IPTABLES, trim_mode: '-').result(binding)
                 iptables -t nat -F NAT4-MASQ
                 <%- nat4_vars[:masq].each do |nic| -%>
+                <%- if snat.key?(nic) -%>
+                iptables -t nat -A NAT4-MASQ -o '<%= nic %>' -j SNAT --to-source '<%= snat[nic] %>'
+                <%- else -%>
                 iptables -t nat -A NAT4-MASQ -o '<%= nic %>' -j MASQUERADE
+                <%- end -%>
                 <%- end -%>
             IPTABLES
         end
