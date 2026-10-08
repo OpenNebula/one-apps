@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Runs as the user from pun_prehook, with the home of the user as $1. It creates the SSH key
+# of the portal for the user and adds it to authorized_keys in the same home. The controllers
+# read that home over NFS, so Open OnDemand can run the Slurm commands and the terminal of
+# the user on them. The from= option accepts the key only from the addresses of the portals
+# that use this home, so a second portal on the same homes does not lock out the first one.
+set -uo pipefail
+umask 077
+
+user="$(id -un)"
+key="$1/.ssh/id_ed25519_portal"
+keys="$1/.ssh/authorized_keys"
+
+if [[ ! -f "$key" ]]; then
+    mkdir -p "$1/.ssh"
+    if ! ssh-keygen -q -t ed25519 -N "" -C open-ondemand-portal -f "$key" </dev/null; then
+        logger -t ood-prehook "cannot create the portal key of ${user} in ${key}"
+        exit 1
+    fi
+    logger -t ood-prehook "portal key of ${user} created in ${key}"
+fi
+
+# One line for the key. It keeps the addresses already in its from= option and adds the
+# addresses of this portal.
+touch "$keys"
+pub="$(cut -d' ' -f2 "${key}.pub")"
+known="$(grep -F "$pub" "$keys" | grep -o '^from="[^"]*"' | head -1 | cut -d'"' -f2)"
+addresses="$({ tr ',' '\n' <<<"$known"; hostname -I | tr ' ' '\n'; } | grep -v '^$' | sort -u | paste -sd, -)"
+line="from=\"${addresses}\" $(cat "${key}.pub")"
+if ! grep -qxF "$line" "$keys"; then
+    { grep -vF "$pub" "$keys"; printf '%s\n' "$line"; } > "${keys}.new"
+    mv "${keys}.new" "$keys"
+    logger -t ood-prehook "portal key of ${user} added to ${keys}"
+fi

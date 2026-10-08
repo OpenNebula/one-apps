@@ -1,0 +1,8 @@
+# SSH client configuration of the portal, read through /opt/one-appliance/OpenOnDemand/bin/ssh.
+# Each user reaches the controllers with the portal key in the home. The host keys of the
+# controllers are saved in /etc/ood/ssh/known_hosts when the portal is configured.
+Host *
+    IdentityFile ~/.ssh/id_ed25519_portal
+    GlobalKnownHostsFile /etc/ood/ssh/known_hosts
+    UserKnownHostsFile /dev/null
+    StrictHostKeyChecking yes

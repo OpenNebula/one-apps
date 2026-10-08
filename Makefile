@@ -59,6 +59,9 @@ packer-service_SlurmWorker: packer-ubuntu2604 $(DIR_EXPORT)/service_SlurmWorker.
 packer-service_SlurmWorker.aarch64: packer-ubuntu2604.aarch64 $(DIR_EXPORT)/service_SlurmWorker.aarch64.qcow2
 	@$(INFO) "Packer service_SlurmWorker.aarch64 done"
 
+packer-service_OpenOnDemand: packer-ubuntu2604 $(DIR_EXPORT)/service_OpenOnDemand.qcow2
+	@$(INFO) "Packer service_OpenOnDemand done"
+
 # airgapped version
 packer-service_OneKEa: PKR_VAR_airgapped := YES
 packer-service_OneKEa: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKEa.qcow2 $(DIR_EXPORT)/service_OneKE_storage.qcow2
