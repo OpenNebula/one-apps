@@ -1,0 +1,36 @@
+<%- interfaces.each do |i| -%>
+interface <%= i[:name] %>
+ ip ospf area <%= i[:area] %>
+<%- unless i[:password].nil? -%>
+ ip ospf authentication message-digest
+<%- end -%>
+<%- if i[:bfd] -%>
+ ip ospf bfd
+<%- end -%>
+ ip ospf cost <%= i[:cost] %>
+<%- unless i[:dead].nil? -%>
+ ip ospf dead-interval <%= i[:dead] %>
+<%- end -%>
+<%- unless i[:hello].nil? -%>
+ ip ospf hello-interval <%= i[:hello] %>
+<%- end -%>
+<%- unless i[:password].nil? -%>
+ ip ospf message-digest-key 1 md5 <%= i[:password] %>
+<%- end -%>
+<%- unless i[:network_type].nil? -%>
+ ip ospf network <%= i[:network_type] %>
+<%- end -%>
+<%- if i[:passive] -%>
+ ip ospf passive
+<%- end -%>
+exit
+<%- end -%>
+router ospf
+ ospf router-id <%= router_id %>
+<%- redistribute.each do |route| -%>
+ redistribute <%= route[:source] %><%= route[:metric].nil? ? '' : " metric #{route[:metric]}" %>
+<%- end -%>
+<%- unless default_originate.nil? -%>
+ default-information originate<%= default_originate == :always ? ' always' : '' %><%= default_metric.nil? ? '' : " metric #{default_metric}" %>
+<%- end -%>
+exit
