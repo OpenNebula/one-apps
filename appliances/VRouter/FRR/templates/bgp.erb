@@ -1,0 +1,99 @@
+<%- neighbors.each do |n| -%>
+<%- n[:import_prefixes].each_with_index do |entry, i| -%>
+<%= n[:prefix_list] %> <%= n[:name] %>-IN seq <%= (i + 1) * 10 %> permit <%= entry %>
+<%- end -%>
+route-map <%= n[:name] %>-IN <%= n[:import_mode] == :none ? 'deny' : 'permit' %> 10
+<%- if n[:import_mode] == :list -%>
+ match <%= n[:match] %> address prefix-list <%= n[:name] %>-IN
+<%- end -%>
+<%- unless n[:import_mode] == :none || n[:local_pref].nil? -%>
+ set local-preference <%= n[:local_pref] %>
+<%- end -%>
+exit
+<%- n[:export_prefixes].each_with_index do |entry, i| -%>
+<%= n[:prefix_list] %> <%= n[:name] %>-OUT seq <%= (i + 1) * 10 %> permit <%= entry %>
+<%- end -%>
+route-map <%= n[:name] %>-OUT <%= n[:export_mode] == :none ? 'deny' : 'permit' %> 10
+<%- if n[:export_mode] == :list -%>
+ match <%= n[:match] %> address prefix-list <%= n[:name] %>-OUT
+<%- end -%>
+<%- unless n[:export_mode] == :none || n[:med].nil? -%>
+ set metric <%= n[:med] %>
+<%- end -%>
+<%- unless n[:export_mode] == :none || n[:prepend].empty? -%>
+ set as-path prepend <%= n[:prepend].join(' ') %>
+<%- end -%>
+exit
+<%- end -%>
+<%- unless neighbors.none? { |n| n[:bfd_profile] } -%>
+bfd
+<%- neighbors.filter_map { |n| n[:bfd_profile] }.each do |profile| -%>
+ profile <%= profile[:name] %>
+  detect-multiplier <%= profile[:multiplier] %>
+  receive-interval <%= profile[:receive] %>
+  transmit-interval <%= profile[:transmit] %>
+ exit
+<%- end -%>
+exit
+<%- end -%>
+router bgp <%= asn %>
+ bgp router-id <%= router_id %>
+ no bgp default ipv4-unicast
+<%- neighbors.each do |n| -%>
+ neighbor <%= n[:address] %> remote-as <%= n[:asn] %>
+<%- unless n[:description].nil? -%>
+ neighbor <%= n[:address] %> description <%= n[:description] %>
+<%- end -%>
+<%- unless n[:password].nil? -%>
+ neighbor <%= n[:address] %> password <%= n[:password] %>
+<%- end -%>
+<%- if n[:bfd] -%>
+ neighbor <%= n[:address] %> bfd
+<%- end -%>
+<%- unless n[:bfd_profile].nil? -%>
+ neighbor <%= n[:address] %> bfd profile <%= n[:bfd_profile][:name] %>
+<%- end -%>
+<%- unless n[:timers].nil? -%>
+ neighbor <%= n[:address] %> timers <%= n[:timers] %>
+<%- end -%>
+<%- unless n[:update_source].nil? -%>
+ neighbor <%= n[:address] %> update-source <%= n[:update_source] %>
+<%- end -%>
+<%- end -%>
+<%- if v4 -%>
+ address-family ipv4 unicast
+<%- networks_v4.each do |prefix| -%>
+  network <%= prefix %>
+<%- end -%>
+<%- redistribute.each do |source| -%>
+  redistribute <%= source %>
+<%- end -%>
+<%- neighbors.select { |n| n[:family] == :ipv4 }.each do |n| -%>
+  neighbor <%= n[:address] %> activate
+  neighbor <%= n[:address] %> route-map <%= n[:name] %>-IN in
+  neighbor <%= n[:address] %> route-map <%= n[:name] %>-OUT out
+<%- unless n[:max_prefix].nil? -%>
+  neighbor <%= n[:address] %> maximum-prefix <%= n[:max_prefix] %>
+<%- end -%>
+<%- end -%>
+ exit-address-family
+<%- end -%>
+<%- if v6 -%>
+ address-family ipv6 unicast
+<%- networks_v6.each do |prefix| -%>
+  network <%= prefix %>
+<%- end -%>
+<%- redistribute.each do |source| -%>
+  redistribute <%= source %>
+<%- end -%>
+<%- neighbors.select { |n| n[:family] == :ipv6 }.each do |n| -%>
+  neighbor <%= n[:address] %> activate
+  neighbor <%= n[:address] %> route-map <%= n[:name] %>-IN in
+  neighbor <%= n[:address] %> route-map <%= n[:name] %>-OUT out
+<%- unless n[:max_prefix].nil? -%>
+  neighbor <%= n[:address] %> maximum-prefix <%= n[:max_prefix] %>
+<%- end -%>
+<%- end -%>
+ exit-address-family
+<%- end -%>
+exit
