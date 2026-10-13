@@ -9,8 +9,8 @@ variable "amazon" {
     }
     "2023.x86_64" = {
       # navigate via https://cdn.amazonlinux.com/al2023/os-images/latest/
-      iso_url      = "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260710.0/kvm/al2023-kvm-2023.12.20260710.0-kernel-6.1-x86_64.xfs.gpt.qcow2"
-      iso_checksum = "file:https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260710.0/kvm/SHA256SUMS"
+      iso_url      = "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20261012.0/kvm/al2023-kvm-2023.12.20261012.0-kernel-6.1-x86_64.xfs.gpt.qcow2"
+      iso_checksum = "file:https://cdn.amazonlinux.com/al2023/os-images/2023.12.20261012.0/kvm/SHA256SUMS"
     }
   }
 }
