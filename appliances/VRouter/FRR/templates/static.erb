@@ -1,0 +1,6 @@
+<%- static_v4.each do |route| -%>
+ip route <%= route.prefix %> <%= route.gateway %>
+<%- end -%>
+<%- static_v6.each do |route| -%>
+ipv6 route <%= route.prefix %> <%= route.gateway %>
+<%- end -%>
