@@ -88,6 +88,7 @@ export dns
 export search_domains
 export external
 export detach
+export zone
 export all_nameservers
 export all_search_domains
 
@@ -250,10 +251,33 @@ gen_dhcp6_conf()
 # arg: <interface-connection>
 nm_connection_exist()
 (
-    # VH-TODO: We should be better checking across all connections, if there
-    # isn't any with our device to avoid clashes and drop/rename that one
-    _iface=$(nmcli --field connection.interface-name con show "$1" | awk '{print $2}')
-    if [ "${_iface}" = "$1" ] ; then
+    _target_dev="$1"
+    _exact_uuid=""
+    _other_uuids=()
+
+    while IFS= read -r _uuid ; do
+        [ -n "${_uuid}" ] || continue
+        _ifname=$(nmcli -g connection.interface-name con show uuid "${_uuid}" 2>/dev/null)
+        if [ "${_ifname}" = "${_target_dev}" ] ; then
+            _con_id=$(nmcli -g connection.id con show uuid "${_uuid}" 2>/dev/null)
+            if [ "${_con_id}" = "${_target_dev}" ] && [ -z "${_exact_uuid}" ] ; then
+                _exact_uuid="${_uuid}"
+            else
+                _other_uuids+=("${_uuid}")
+            fi
+        fi
+    done < <(nmcli -g UUID con show 2>/dev/null)
+
+    if [ -n "${_exact_uuid}" ] ; then
+        for _u in "${_other_uuids[@]}" ; do
+            nmcli con del uuid "${_u}"
+        done
+        return 0
+    elif [ "${#_other_uuids[@]}" -gt 0 ] ; then
+        nmcli con mod uuid "${_other_uuids[0]}" connection.id "${_target_dev}"
+        for _u in "${_other_uuids[@]:1}" ; do
+            nmcli con del uuid "${_u}"
+        done
         return 0
     fi
 
@@ -294,6 +318,10 @@ gen_network_configuration()
         fi
 
         nmcli con mod "${dev}" connection.autoconnect yes
+
+        if [ -n "${zone}" ]; then
+            nmcli con mod "${dev}" connection.zone "${zone}"
+        fi
 
         if [ -n "${mtu}" ]; then
             nmcli con mod "${dev}" ethernet.mtu "${mtu}"
