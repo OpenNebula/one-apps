@@ -76,7 +76,6 @@ initialize_network()
         rm -f \
             "/etc/sysconfig/network-scripts/route-${_dev}" \
             "/etc/sysconfig/network-scripts/route6-${_dev}" \
-            "/etc/sysconfig/network-scripts/ifcfg-${_dev}" \
             "/etc/sysconfig/network/ifroute-${_dev}" \
             "/etc/sysconfig/network/ifsysctl-${_dev}" \
             "/etc/sysconfig/network/ifcfg-${_dev}"
@@ -87,11 +86,15 @@ initialize_network()
             "/etc/systemd/network/${_dev}.link"
 
         # nm (on RH systems it was deleted with ifcfg-*)
-        for _nm_con in /etc/NetworkManager/system-connections/* ; do
-            if [ -e "${_nm_con}" ] && grep -q "^interface-name=${_dev}$" "${_nm_con}" ; then
-                rm -f "${_nm_con}"
-            fi
-        done
+        # shellcheck disable=SC2154
+        if [ "${_cfgtype}" != 'nm' ]; then
+            rm -f "/etc/sysconfig/network-scripts/ifcfg-${_dev}"
+            for _nm_con in /etc/NetworkManager/system-connections/* ; do
+                if [ -e "${_nm_con}" ] && grep -q "^interface-name=${_dev}$" "${_nm_con}" ; then
+                    rm -f "${_nm_con}"
+                fi
+            done
+        fi
     done
 
     # To avoid clashes when running legacy network-scripts and
@@ -124,7 +127,9 @@ EOT
     # netplan
     rm -f /etc/netplan/50-one-context.yaml
 
-    nm_disable
+    if [ "${_cfgtype}" != 'nm' ]; then
+        nm_disable
+    fi
 }
 
 nm_disable() {
@@ -534,6 +539,7 @@ setup_iface_vars()
     export ip6_metric=$(get_iface_var "$1" "IP6_METRIC")
     export ip6_method=$(get_iface_var "$1" "IP6_METHOD")
     export static_routes=$(get_iface_var "$1" "ROUTES")
+    export zone=$(get_iface_var "$1" "ZONE")
 
     # backward compatibility
     [ -z "$ip6_gateway" ] && ip6_gateway=$(get_iface_var "$1" "GATEWAY6")
