@@ -114,6 +114,109 @@ RSpec.describe self do
         end
     end
 
+    # NOTE: Moving a NIC into a VRF flushes its IPv6 addresses and routes, so they must be put back
+    #       (inside the VRF table), the same way one-context applies them.
+    describe 'IPv6' do
+        let(:mgmt6) { mgmt.merge('ETH0_IP6' => 'fd00:128::210', 'ETH0_GATEWAY6' => 'fec0::2') }
+
+        it 'should put the static IPv6 address back after the NIC moved, with a /64 by default' do
+            cmds = run_execute(mgmt6)
+
+            expect(cmds).to include("ip -6 addr replace 'fd00:128::210/64' dev 'eth0'")
+        end
+
+        it 'should use the configured prefix length' do
+            cmds = run_execute(mgmt6.merge('ETH0_IP6_PREFIX_LENGTH' => '48'))
+
+            expect(cmds).to include("ip -6 addr replace 'fd00:128::210/48' dev 'eth0'")
+        end
+
+        it 'should accept ETH<n>_IPV6 as the alias of ETH<n>_IP6' do
+            cmds = run_execute(mgmt.merge('ETH0_IPV6' => 'fd00:128::211'))
+
+            expect(cmds).to include("ip -6 addr replace 'fd00:128::211/64' dev 'eth0'")
+        end
+
+        it 'should put the ULA address back as a /64' do
+            cmds = run_execute(mgmt6.merge('ETH0_IP6_ULA' => 'fd12:3456::210', 'ETH0_IP6_PREFIX_LENGTH' => '48'))
+
+            expect(cmds).to include("ip -6 addr replace 'fd12:3456::210/64' dev 'eth0'")
+        end
+
+        it 'should put the IPv6 default route into the VRF table' do
+            cmds = run_execute(mgmt6)
+
+            expect(cmds).to include("ip -6 route replace default via 'fec0::2' dev 'eth0' onlink table 1000")
+        end
+
+        it 'should prefer ETH<n>_IP6_GATEWAY over ETH<n>_GATEWAY6' do
+            cmds = run_execute(mgmt6.merge('ETH0_IP6_GATEWAY' => 'fec0::3'))
+
+            expect(cmds).to include("ip -6 route replace default via 'fec0::3' dev 'eth0' onlink table 1000")
+            expect(cmds.grep(/fec0::2/)).to be_empty
+        end
+
+        it 'should accept a link-local gateway' do
+            cmds = run_execute(mgmt6.merge('ETH0_GATEWAY6' => 'fe80::1'))
+
+            expect(cmds).to include("ip -6 route replace default via 'fe80::1' dev 'eth0' onlink table 1000")
+        end
+
+        it 'should move the NIC, then restore the address, then add the route' do
+            cmds = run_execute(mgmt6)
+
+            master = cmds.index { |c| c.include?('master') }
+            addr   = cmds.index { |c| c.start_with?('ip -6 addr') }
+            route  = cmds.index { |c| c.start_with?('ip -6 route') }
+
+            expect(master).to be < addr
+            expect(addr).to be < route
+        end
+
+        it 'should leave IPv6 alone when the NIC has no IPv6 configuration' do
+            expect(run_execute(mgmt).grep(/ip -6/)).to be_empty
+        end
+
+        it 'should not touch the IPv6 configuration of a NIC that is not marked' do
+            cmds = run_execute(mgmt6.merge('ETH1_IP6' => 'fd00:129::1', 'ETH1_GATEWAY6' => 'fec1::2'))
+
+            expect(cmds.grep(/eth1/)).to be_empty
+        end
+
+        [
+            'fd00::1; reboot', 'fd00::1 -j ACCEPT', '$(id)', '`id`', "fd00::1\nfoo",
+            'fe80::1%eth0', '1.2.3.4', 'zzzz::1', ':::', '12345::1', 'fd00::1/64'
+        ].each do |bad|
+            it "should reject the address #{bad.inspect} and add no IPv6 address" do
+                cmds = run_execute(mgmt6.merge('ETH0_IP6' => bad))
+
+                expect(cmds.grep(/ip -6 addr/)).to be_empty
+                expect(cmds).to include("ip link set 'eth0' master 'mgmt'")
+                expect(@scripts.join).not_to include('reboot', 'ACCEPT', '$(id)', '`id`', 'foo', '%eth0')
+                expect(@errors.join).to include('eth0')
+            end
+
+            it "should reject the IPv6 gateway #{bad.inspect} and add no IPv6 route" do
+                cmds = run_execute(mgmt6.merge('ETH0_GATEWAY6' => bad))
+
+                expect(cmds.grep(/ip -6 route/)).to be_empty
+                expect(cmds).to include("ip link set 'eth0' master 'mgmt'")
+                expect(@scripts.join).not_to include('reboot', 'ACCEPT', '$(id)', '`id`', 'foo', '%eth0')
+                expect(@errors.join).to include('eth0')
+            end
+        end
+
+        %w[0 129 -1 abc 64;reboot 6.4].each do |bad|
+            it "should reject the prefix length #{bad.inspect} and add no IPv6 address" do
+                cmds = run_execute(mgmt6.merge('ETH0_IP6_PREFIX_LENGTH' => bad))
+
+                expect(cmds.grep(/ip -6 addr/)).to be_empty
+                expect(@scripts.join).not_to include('reboot')
+                expect(@errors.join).to include('eth0')
+            end
+        end
+    end
+
     describe 'cleanup' do
         def run_cleanup
             clear_env

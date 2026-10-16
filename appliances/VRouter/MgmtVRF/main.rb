@@ -65,7 +65,9 @@ module MgmtVRF
         nics = ONEAPP_VNF_MGMT_VRF_ENABLED ? detect_mgmt_nics.sort_by { |nic| nic[/\d+/].to_i } : []
         return if nics.empty?
 
-        routes = default_routes nics
+        routes  = default_routes nics
+        addrs6  = ip6_addresses nics
+        routes6 = default_routes6 nics
 
         # NOTE: Let sshd and other listeners of the default VRF accept connections on the NIC of the VRF.
         file "#{basedir}/97-MgmtVRF.conf", <<~SYSCTL, mode: 'u=rw,go=r', overwrite: true
@@ -81,8 +83,16 @@ module MgmtVRF
             <%- nics.each do |nic| -%>
             ip link set '<%= nic %>' master '<%= VRF_NAME %>'
             <%- end -%>
+            <%- addrs6.each do |nic, addrs| -%>
+            <%- addrs.each do |addr| -%>
+            ip -6 addr replace '<%= addr %>' dev '<%= nic %>'
+            <%- end -%>
+            <%- end -%>
             <%- routes.each do |nic, gateway| -%>
             ip route replace default via '<%= gateway %>' dev '<%= nic %>' table <%= VRF_TABLE %>
+            <%- end -%>
+            <%- routes6.each do |nic, gateway| -%>
+            ip -6 route replace default via '<%= gateway %>' dev '<%= nic %>' onlink table <%= VRF_TABLE %>
             <%- end -%>
         SCRIPT
 
@@ -115,6 +125,69 @@ module MgmtVRF
 
             acc[nic] = gateway
         end
+    end
+
+    # NOTE: Moving a NIC into a VRF flushes its IPv6 addresses, so the static ones are put back the same
+    #       way one-context applies them: ETH<n>_IP6 (or ETH<n>_IPV6) with ETH<n>_IP6_PREFIX_LENGTH
+    #       (64 by default) and ETH<n>_IP6_ULA (always a /64).
+    def ip6_addresses(nics)
+        nics.each_with_object({}) do |nic, acc|
+            index = nic[/\d+/]
+            addrs = []
+
+            addr = env("ETH#{index}_IP6", '').to_s
+            addr = env("ETH#{index}_IPV6", '').to_s if addr.empty?
+            plen = env("ETH#{index}_IP6_PREFIX_LENGTH", '64').to_s
+
+            if !addr.empty?
+                if !valid_ipv6?(addr)
+                    msg :error, "MgmtVRF::execute: invalid ETH#{index}_IP6 #{addr[0, 40].inspect} for #{nic}, no IPv6 address restored"
+                elsif !/\A\d{1,3}\z/.match?(plen) || !(1..128).cover?(plen.to_i)
+                    msg :error, "MgmtVRF::execute: invalid ETH#{index}_IP6_PREFIX_LENGTH #{plen[0, 40].inspect} for #{nic}, no IPv6 address restored"
+                else
+                    addrs << "#{addr}/#{plen.to_i}"
+                end
+            end
+
+            ula = env("ETH#{index}_IP6_ULA", '').to_s
+
+            unless ula.empty?
+                if valid_ipv6?(ula)
+                    addrs << "#{ula}/64"
+                else
+                    msg :error, "MgmtVRF::execute: invalid ETH#{index}_IP6_ULA #{ula[0, 40].inspect} for #{nic}, no ULA address restored"
+                end
+            end
+
+            acc[nic] = addrs unless addrs.empty?
+        end
+    end
+
+    def default_routes6(nics)
+        nics.each_with_object({}) do |nic, acc|
+            index   = nic[/\d+/]
+            gateway = env("ETH#{index}_IP6_GATEWAY", '').to_s
+            gateway = env("ETH#{index}_GATEWAY6", '').to_s if gateway.empty?
+
+            next if gateway.empty?
+
+            unless valid_ipv6?(gateway)
+                msg :error, "MgmtVRF::execute: invalid ETH#{index}_GATEWAY6 #{gateway[0, 40].inspect} for #{nic}, no IPv6 default route in the VRF"
+                next
+            end
+
+            acc[nic] = gateway
+        end
+    end
+
+    # NOTE: The address ends up in a shell command, so only plain IPv6 notation is accepted (no prefix
+    #       length, no zone id, no embedded IPv4 part).
+    def valid_ipv6?(address)
+        return false unless /\A[0-9a-fA-F:]+\z/.match?(address)
+
+        IPAddr.new(address).ipv6?
+    rescue IPAddr::Error
+        false
     end
 
     def toggle(operations)
