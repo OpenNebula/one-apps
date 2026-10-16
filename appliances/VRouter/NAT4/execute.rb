@@ -51,6 +51,9 @@ module NAT4
             # Add MASQUERADE rules (SNAT to an address or to the VIP, if configured).
             bash ERB.new(<<~IPTABLES, trim_mode: '-').result(binding)
                 iptables -t nat -F NAT4-MASQ
+                <%- unless snat.empty? -%>
+                iptables -t nat -A NAT4-MASQ -m addrtype --src-type LOCAL -j RETURN
+                <%- end -%>
                 <%- nat4_vars[:masq].each do |nic| -%>
                 <%- if snat.key?(nic) -%>
                 iptables -t nat -A NAT4-MASQ -o '<%= nic %>' -j SNAT --to-source '<%= snat[nic] %>'

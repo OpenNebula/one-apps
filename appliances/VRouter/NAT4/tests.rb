@@ -278,5 +278,53 @@ RSpec.describe self do
                 expect(@errors.join).not_to include('y' * 41)
             end
         end
+
+        # NOTE: SNAT rewrites everything that leaves the NIC, including the packets the router sends itself.
+        #       VRRP advertisements would then carry the NAT address as source for both nodes, so neither
+        #       can win the election, and both keep the VIPs.
+        context 'with locally generated traffic' do
+            let(:return_local) { 'iptables -t nat -A NAT4-MASQ -m addrtype --src-type LOCAL -j RETURN' }
+
+            def all_rules
+                @scripts.flat_map(&:lines).map(&:strip).grep(/-A NAT4-MASQ/)
+            end
+
+            it 'should not SNAT packets with a local source address' do
+                masq_rules(address: '203.0.113.10', out: 'eth0')
+
+                expect(all_rules).to eq [
+                    return_local,
+                    "iptables -t nat -A NAT4-MASQ -o 'eth0' -j SNAT --to-source '203.0.113.10'"
+                ]
+            end
+
+            it 'should return local traffic before any SNAT rule when SNAT to the VIP is used' do
+                masq_rules(snat: 'YES') { ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '14.15.16.86' }
+
+                expect(all_rules.first).to eq return_local
+                expect(all_rules.index { |r| r.include?('SNAT --to-source') }).to be > 0
+            end
+
+            it 'should render the local return rule once, not once per NIC' do
+                masq_rules(address: '203.0.113.10')
+
+                expect(all_rules.count(return_local)).to eq 1
+            end
+
+            it 'should leave the MASQUERADE rules unchanged' do
+                masq_rules(out: 'eth0,eth1')
+
+                expect(all_rules).to eq [
+                    "iptables -t nat -A NAT4-MASQ -o 'eth0' -j MASQUERADE",
+                    "iptables -t nat -A NAT4-MASQ -o 'eth1' -j MASQUERADE"
+                ]
+            end
+
+            it 'should not add the local return rule when an invalid address keeps MASQUERADE' do
+                masq_rules(address: '1.2.3.4; reboot', out: 'eth0')
+
+                expect(all_rules).to eq ["iptables -t nat -A NAT4-MASQ -o 'eth0' -j MASQUERADE"]
+            end
+        end
     end
 end
