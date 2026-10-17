@@ -71,6 +71,7 @@ module MgmtVRF
         addrs6  = ip6_addresses nics
         routes6 = default_routes6 nics
         leak    = onegate_rule
+        others  = other_default_routes nics
 
         # NOTE: Let sshd and other listeners of the default VRF accept connections on the NIC of the VRF.
         file "#{basedir}/97-MgmtVRF.conf", <<~SYSCTL, mode: 'u=rw,go=r', overwrite: true
@@ -96,6 +97,12 @@ module MgmtVRF
             <%- end -%>
             <%- routes6.each do |nic, gateway| -%>
             ip -6 route replace default via '<%= gateway %>' dev '<%= nic %>' onlink table <%= VRF_TABLE %>
+            <%- end -%>
+            <%- others[:v4].each do |nic, gateway, metric| -%>
+            ip route add default via '<%= gateway %>' dev '<%= nic %>'<%= metric.nil? ? '' : ' metric ' + metric.to_s %> 2>/dev/null ||:
+            <%- end -%>
+            <%- others[:v6].each do |nic, gateway| -%>
+            ip -6 route add default via '<%= gateway %>' dev '<%= nic %>' 2>/dev/null ||:
             <%- end -%>
             <%- unless leak.nil? -%>
             <%= leak[:del] %>
@@ -144,6 +151,50 @@ module MgmtVRF
         { del: "#{family} rule del #{spec} 2>/dev/null ||:", add: "#{family} rule add #{spec}" }
     rescue URI::InvalidURIError
         nil
+    end
+
+    # NOTE: one-context adds the default route of every NIC with `ip route add`, so the first NIC wins and
+    #       the gateways of the others are never installed. With the gateway of the management NIC in the
+    #       VRF, the gateways of the other NICs are applied the way one-context would have done it (an
+    #       existing default route with the same metric stays, hence the harmless failure).
+    def other_default_routes(mgmt_nics)
+        nics = (detect_nics - mgmt_nics).sort_by { |nic| nic[/\d+/].to_i }
+
+        { v4: nics.map { |nic| other_gateway4(nic) }.compact, v6: nics.map { |nic| other_gateway6(nic) }.compact }
+    end
+
+    def other_gateway4(nic)
+        gateway = env("#{nic.upcase}_GATEWAY", '').to_s
+        metric  = env("#{nic.upcase}_METRIC", '').to_s
+
+        return nil if gateway.empty?
+
+        unless IPV4_RE.match?(gateway)
+            msg :error, "MgmtVRF::execute: invalid #{nic.upcase}_GATEWAY #{gateway[0, 40].inspect} for #{nic}, no default route"
+            return nil
+        end
+
+        unless metric.empty? || /\A\d{1,9}\z/.match?(metric)
+            msg :error, "MgmtVRF::execute: invalid #{nic.upcase}_METRIC #{metric[0, 40].inspect} for #{nic}, no default route"
+            return nil
+        end
+
+        [nic, gateway, metric.empty? ? nil : metric.to_i]
+    end
+
+    def other_gateway6(nic)
+        index   = nic[/\d+/]
+        gateway = env("ETH#{index}_IP6_GATEWAY", '').to_s
+        gateway = env("ETH#{index}_GATEWAY6", '').to_s if gateway.empty?
+
+        return nil if gateway.empty?
+
+        unless valid_ipv6?(gateway)
+            msg :error, "MgmtVRF::execute: invalid ETH#{index}_GATEWAY6 #{gateway[0, 40].inspect} for #{nic}, no IPv6 default route"
+            return nil
+        end
+
+        [nic, gateway]
     end
 
     def default_routes(nics)

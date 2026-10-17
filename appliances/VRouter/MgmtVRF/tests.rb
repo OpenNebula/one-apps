@@ -97,7 +97,7 @@ RSpec.describe self do
     it 'should leave a NIC that is not marked outside the VRF' do
         cmds = run_execute(mgmt.merge('ETH1_IP' => '100.126.128.43', 'ETH1_GATEWAY' => '100.126.128.1'))
 
-        expect(cmds.grep(/eth1/)).to be_empty
+        expect(cmds.grep(/eth1/).grep(/master|table/)).to be_empty
     end
 
     [
@@ -258,6 +258,109 @@ RSpec.describe self do
 
                 expect(cmds.grep(/ip (-6 )?rule/)).to be_empty
                 expect(@scripts.join).not_to include('reboot')
+            end
+        end
+    end
+
+    # NOTE: one-context adds the default route of every NIC with `ip route add`, so the first NIC wins and
+    #       the gateways of the others are never installed. Once the gateway of the management NIC is in
+    #       the VRF, the gateways of the other NICs are applied the way one-context would have done it.
+    describe 'gateways of the other NICs' do
+        let(:other) { mgmt.merge('ETH1_IP' => '198.51.100.2', 'ETH1_GATEWAY' => '198.51.100.1') }
+
+        it 'should apply the gateway of a NIC that is not management in the main table' do
+            cmds = run_execute(other)
+
+            expect(cmds).to include("ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:")
+        end
+
+        it 'should keep the gateway of the management NIC in the VRF table only' do
+            cmds = run_execute(other)
+
+            expect(cmds).to include("ip route replace default via '172.20.128.1' dev 'eth0' table 1000")
+            expect(cmds.grep(/172\.20\.128\.1/).grep_v(/table 1000/)).to be_empty
+            expect(cmds.grep(/198\.51\.100\.1/).grep(/table/)).to be_empty
+        end
+
+        it 'should apply it after the management NIC moved into the VRF' do
+            cmds = run_execute(other)
+
+            expect(cmds.index { |c| c.include?('master') }).to be < cmds.index { |c| c.include?("dev 'eth1'") }
+        end
+
+        it 'should honor the metric of the NIC' do
+            cmds = run_execute(other.merge('ETH1_METRIC' => '20'))
+
+            expect(cmds).to include("ip route add default via '198.51.100.1' dev 'eth1' metric 20 2>/dev/null ||:")
+        end
+
+        it 'should apply the gateways of several NICs in the order of their index' do
+            cmds = run_execute(other.merge('ETH2_IP' => '10.10.0.2', 'ETH2_GATEWAY' => '10.10.0.1', 'ETH2_METRIC' => '50'))
+
+            first  = cmds.index { |c| c.include?("dev 'eth1'") }
+            second = cmds.index { |c| c.include?("dev 'eth2'") }
+
+            expect(first).to be < second
+        end
+
+        it 'should apply the IPv6 gateway of a NIC that is not management in the main table' do
+            cmds = run_execute(other.merge('ETH1_IP6' => 'fd00:129::2', 'ETH1_GATEWAY6' => 'fd00:129::1'))
+
+            expect(cmds).to include("ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
+        end
+
+        it 'should prefer ETH<n>_IP6_GATEWAY over ETH<n>_GATEWAY6' do
+            cmds = run_execute(other.merge('ETH1_GATEWAY6' => 'fd00:129::1', 'ETH1_IP6_GATEWAY' => 'fd00:129::5'))
+
+            expect(cmds).to include("ip -6 route add default via 'fd00:129::5' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds.grep(/fd00:129::1'/)).to be_empty
+        end
+
+        it 'should touch nothing of a NIC without a gateway' do
+            cmds = run_execute(mgmt.merge('ETH1_IP' => '198.51.100.2'))
+
+            expect(cmds.grep(/eth1/)).to be_empty
+        end
+
+        it 'should do nothing for the other NICs without a management NIC' do
+            cmds = run_execute(other.reject { |k, _| k == 'ETH0_VROUTER_MANAGEMENT' })
+
+            expect(cmds).to be_empty
+        end
+
+        it 'should do nothing for the other NICs when disabled' do
+            expect(run_execute(other.merge('ONEAPP_VNF_MGMT_VRF_ENABLED' => 'NO'))).to be_empty
+        end
+
+        [
+            '1.2.3.4; reboot', '1.2.3.4 -j ACCEPT', '$(id)', '`id`', "1.2.3.4\nfoo", '999.1.1.1', '01.2.3.4', '2001:db8::1'
+        ].each do |bad|
+            it "should reject the gateway #{bad.inspect} of another NIC" do
+                cmds = run_execute(other.merge('ETH1_GATEWAY' => bad))
+
+                expect(cmds.grep(/dev 'eth1'/)).to be_empty
+                expect(@scripts.join).not_to include('reboot', 'ACCEPT', '$(id)', '`id`', 'foo', '999')
+                expect(@errors.join).to include('eth1')
+            end
+
+            next if bad == '2001:db8::1' # a valid IPv6 address
+
+            it "should reject the IPv6 gateway #{bad.inspect} of another NIC" do
+                cmds = run_execute(other.merge('ETH1_GATEWAY6' => bad))
+
+                expect(cmds.grep(/ip -6 route add/)).to be_empty
+                expect(@scripts.join).not_to include('reboot', 'ACCEPT', '$(id)', '`id`', 'foo', '999')
+                expect(@errors.join).to include('eth1')
+            end
+        end
+
+        %w[abc -1 5;reboot 1.5 1234567890123].each do |bad|
+            it "should reject the metric #{bad.inspect} and add no route for the NIC" do
+                cmds = run_execute(other.merge('ETH1_METRIC' => bad))
+
+                expect(cmds.grep(/ip route add/)).to be_empty
+                expect(@scripts.join).not_to include('reboot')
+                expect(@errors.join).to include('eth1')
             end
         end
     end
