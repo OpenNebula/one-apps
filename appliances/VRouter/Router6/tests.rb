@@ -83,4 +83,12 @@ RSpec.describe self do
 
         Service::Router6.configure
     end
+
+    # NOTE: The failover service starts and stops the routing services on the VRRP master, so a service
+    #       that is not in its table never runs.
+    it 'should be started by the failover service when it is enabled' do
+        load '../Failover/execute.rb'
+
+        expect(Service::Failover::SERVICES['one-router6']).to eq({ _ENABLED: 'ONEAPP_VNF_ROUTER6_ENABLED' })
+    end
 end
