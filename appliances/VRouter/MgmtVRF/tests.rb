@@ -4,7 +4,7 @@ require 'rspec'
 require 'tmpdir'
 
 def clear_env
-    ENV.delete_if { |name| name.start_with?('ETH') || name.include?('VROUTER_') || name.include?('_VNF_') }
+    ENV.delete_if { |name| name.start_with?('ETH') || name.start_with?('ONEGATE') || name.include?('VROUTER_') || name.include?('_VNF_') }
 end
 
 RSpec.describe self do
@@ -217,10 +217,56 @@ RSpec.describe self do
         end
     end
 
+    # NOTE: The default VRF cannot reach hosts behind the management NIC any more, but the appliance talks to
+    #       OneGate from the default VRF, so a policy rule sends the traffic for the OneGate address to the VRF table.
+    describe 'OneGate' do
+        it 'should route the OneGate IPv4 address through the VRF table' do
+            cmds = run_execute(mgmt.merge('ONEGATE_ENDPOINT' => 'http://10.0.2.2:5030'))
+
+            expect(cmds).to include("ip rule add pref 100 to '10.0.2.2/32' lookup 1000")
+        end
+
+        it 'should route the OneGate IPv6 address through the VRF table' do
+            cmds = run_execute(mgmt.merge('ONEGATE_ENDPOINT' => 'http://[fd00::1]:5030'))
+
+            expect(cmds).to include("ip -6 rule add pref 100 to 'fd00::1/128' lookup 1000")
+        end
+
+        it 'should remove a former rule first so that running twice does not pile up rules' do
+            cmds = run_execute(mgmt.merge('ONEGATE_ENDPOINT' => 'http://10.0.2.2:5030'))
+
+            del = cmds.index { |c| c.start_with?("ip rule del pref 100 to '10.0.2.2/32' lookup 1000") }
+            add = cmds.index { |c| c.start_with?("ip rule add") }
+
+            expect(del).not_to be_nil
+            expect(del).to be < add
+        end
+
+        it 'should add the rule after the NIC moved into the VRF' do
+            cmds = run_execute(mgmt.merge('ONEGATE_ENDPOINT' => 'http://10.0.2.2:5030'))
+
+            expect(cmds.index { |c| c.include?('master') }).to be < cmds.index { |c| c.start_with?('ip rule add') }
+        end
+
+        it 'should add no rule without a OneGate endpoint' do
+            expect(run_execute(mgmt).grep(/ip (-6 )?rule/)).to be_empty
+        end
+
+        ['http://onegate.example.com:5030', 'http://10.0.2.2;reboot:5030', 'http://999.1.1.1:5030', 'not a uri', 'http://[fd00::1%25eth0]:5030'].each do |bad|
+            it "should add no rule for the endpoint #{bad.inspect}" do
+                cmds = run_execute(mgmt.merge('ONEGATE_ENDPOINT' => bad))
+
+                expect(cmds.grep(/ip (-6 )?rule/)).to be_empty
+                expect(@scripts.join).not_to include('reboot')
+            end
+        end
+    end
+
     describe 'cleanup' do
-        def run_cleanup
+        def run_cleanup(env = {})
             clear_env
             ENV['ETH0_VROUTER_MANAGEMENT'] = 'YES'
+            env.each { |k, v| ENV[k] = v }
 
             load './main.rb'; include Service::MgmtVRF
 
@@ -240,6 +286,12 @@ RSpec.describe self do
 
         it 'should delete the VRF, which releases its NICs' do
             expect(run_cleanup).to include("ip link del 'mgmt'")
+        end
+
+        it 'should delete the OneGate rule' do
+            cmds = run_cleanup('ONEGATE_ENDPOINT' => 'http://10.0.2.2:5030')
+
+            expect(cmds).to include("ip rule del pref 100 to '10.0.2.2/32' lookup 1000 2>/dev/null ||:")
         end
 
         it 'should remove the sysctl file' do

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'erb'
+require 'uri'
 require_relative '../vrouter.rb'
 
 module Service
@@ -11,6 +12,7 @@ module MgmtVRF
 
     VRF_NAME  = 'mgmt'
     VRF_TABLE = 1000
+    RULE_PREF = 100
 
     ONEAPP_VNF_MGMT_VRF_ENABLED = env :ONEAPP_VNF_MGMT_VRF_ENABLED, 'YES'
 
@@ -68,6 +70,7 @@ module MgmtVRF
         routes  = default_routes nics
         addrs6  = ip6_addresses nics
         routes6 = default_routes6 nics
+        leak    = onegate_rule
 
         # NOTE: Let sshd and other listeners of the default VRF accept connections on the NIC of the VRF.
         file "#{basedir}/97-MgmtVRF.conf", <<~SYSCTL, mode: 'u=rw,go=r', overwrite: true
@@ -94,6 +97,10 @@ module MgmtVRF
             <%- routes6.each do |nic, gateway| -%>
             ip -6 route replace default via '<%= gateway %>' dev '<%= nic %>' onlink table <%= VRF_TABLE %>
             <%- end -%>
+            <%- unless leak.nil? -%>
+            <%= leak[:del] %>
+            <%= leak[:add] %>
+            <%- end -%>
         SCRIPT
 
         toggle [:reload]
@@ -102,14 +109,41 @@ module MgmtVRF
     def cleanup(basedir: '/etc/sysctl.d')
         msg :info, 'MgmtVRF::cleanup'
 
+        leak = onegate_rule
+
         # NOTE: Deleting the VRF device releases its NICs.
         bash ERB.new(<<~SCRIPT, trim_mode: '-').result(binding)
             if ip link show '<%= VRF_NAME %>' >/dev/null 2>&1; then
                 ip link del '<%= VRF_NAME %>'
             fi
+            <%- unless leak.nil? -%>
+            <%= leak[:del] %>
+            <%- end -%>
         SCRIPT
 
         FileUtils.rm_f "#{basedir}/97-MgmtVRF.conf"
+    end
+
+    # NOTE: The appliance talks to OneGate from the default VRF, which cannot reach hosts behind the
+    #       management NIC any more. A policy rule sends the traffic for the OneGate address to the VRF
+    #       table, and the lookup falls through to the main table when the VRF has no route for it.
+    #       Only an IP literal is accepted, since the address ends up in a shell command.
+    def onegate_rule
+        host = URI.parse(env(:ONEGATE_ENDPOINT, '').to_s).hostname.to_s
+
+        if IPV4_RE.match?(host)
+            ip, family, plen = host, 'ip', 32
+        elsif valid_ipv6?(host)
+            ip, family, plen = host, 'ip -6', 128
+        else
+            return nil
+        end
+
+        spec = "pref #{RULE_PREF} to '#{ip}/#{plen}' lookup #{VRF_TABLE}"
+
+        { del: "#{family} rule del #{spec} 2>/dev/null ||:", add: "#{family} rule add #{spec}" }
+    rescue URI::InvalidURIError
+        nil
     end
 
     def default_routes(nics)
