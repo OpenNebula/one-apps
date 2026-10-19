@@ -18,6 +18,7 @@ require_relative '../common/ldap'
 require_relative '../common/munge'
 require_relative '../common/slurm'
 require_relative '../common/infiniband'
+require_relative '../common/accounting'
 require_relative 'config'
 
 # Base module for OpenNebula services
@@ -32,6 +33,7 @@ module Service
         include OneSlurm::Munge
         include OneSlurm::Slurm
         include OneSlurm::Infiniband
+        include OneSlurm::Accounting
 
         DEPENDS_ON = []
 
@@ -70,8 +72,9 @@ module Service
         def configure
             msg(:info, 'SlurmWorker::configure')
 
-            # Discover the controller and coordination data through OneGate.
-            controller_ip, munge_key_b64, ldap = discover_controller
+            onegate_vm_update ['READY=NO']
+            accounting = discover_accounting
+            controller_ip = discover_controller
 
             msg(:info, "Controller IP specified: #{controller_ip}")
 
@@ -144,8 +147,10 @@ module Service
                 msg(:info, 'InfiniBand support disabled, skipping IPoIB configuration')
             end
 
-            # Decode and install the munge key from the controller
-            install_munge_key(munge_key_b64)
+            # Consume Accounting identity before starting the worker.
+            install_munge_key(accounting.fetch('munge_key_b64'))
+            ldap = accounting.fetch('ldap')
+            configure_discovered_ldap(ldap)
 
             # Wait and start the slurmd service
             sleep 5
@@ -162,7 +167,7 @@ module Service
             # node from the controller immediately.
             install_self_drain_hook
 
-            configure_worker_ldap(ldap)
+            onegate_vm_update ['READY=YES']
 
             msg(:info, 'Configuration completed successfully')
         end
@@ -224,20 +229,8 @@ module Service
 
                     ready = user_template['READY'] == 'YES'
                     ip    = vm_nic_ipv4(controller_vm)
-                    key   = user_template['SLURM_MUNGE_KEY'].to_s
-
-                    if ready && !ip.empty? && !key.empty?
-                        # The controller is the authority for cluster LDAP and
-                        # publishes its effective config through OneGate. The
-                        # worker consumes only these values and ignores the
-                        # ONEAPP_LDAP_* context OneFlow injects into every role.
-                        ldap = {
-                            'url'           => user_template['LDAP_URL'].to_s,
-                            'domain'        => user_template['LDAP_DOMAIN'].to_s,
-                            'bind_user'     => user_template['LDAP_BIND_USER'].to_s,
-                            'bind_password' => user_template['LDAP_BIND_PASSWORD'].to_s
-                        }
-                        return [ip, key, ldap]
+                    if ready && !ip.empty?
+                        return ip
                     end
 
                     msg(:warn, "Controller not ready yet (READY=#{user_template['READY']}), retrying in #{seconds}s...")
@@ -249,25 +242,6 @@ module Service
 
                 sleep seconds
             end
-        end
-
-        def configure_worker_ldap(ldap)
-            url    = ldap['url'].to_s
-            domain = ldap['domain'].to_s
-
-            if url.empty? || domain.empty?
-                msg(:info, 'No LDAP published by controller, skipping SSSD setup')
-                return
-            end
-
-            if url =~ %r{//(127\.0\.0\.1|localhost|\[?::1\]?)(:|/|$)}
-                msg(:warn, "Refusing to configure worker SSSD against loopback LDAP URL '#{url}'; skipping")
-                return
-            end
-
-            msg(:info, 'Configuring SSSD LDAP client from OneGate metadata')
-            apply_sssd_ldap_client(url, domain, ldap['bind_user'].to_s, ldap['bind_password'].to_s)
-            msg(:info, 'SSSD LDAP client configured successfully')
         end
 
         def bootstrap
