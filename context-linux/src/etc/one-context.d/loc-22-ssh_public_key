@@ -21,7 +21,26 @@ if [ "$1" != 'local' ] ; then
     exit 0
 fi
 
-[ -z "${SSH_PUBLIC_KEY}${EC2_PUBLIC_KEY}" ] && exit 0
+# The keys from the context (SSH_PUBLIC_KEY, EC2_PUBLIC_KEY) are kept in a
+# managed block of authorized_keys delimited by the markers below. The block
+# is rewritten on every contextualization to contain exactly the current
+# context keys, so removing a key from the context removes it from the VM.
+# Lines outside of the block (added manually or by other tools) are kept.
+#
+# SSH_PUBLIC_KEY_EXCLUSIVE=YES makes the context the only source of keys:
+# authorized_keys is replaced by the managed block alone and any other key
+# is dropped. Default NO keeps the lines outside of the block.
+BLOCK_BEGIN='# --- BEGIN OPENNEBULA CONTEXT KEYS ---'
+BLOCK_END='# --- END OPENNEBULA CONTEXT KEYS ---'
+
+SSH_PUBLIC_KEY_EXCLUSIVE=${SSH_PUBLIC_KEY_EXCLUSIVE:-NO}
+SSH_PUBLIC_KEY_EXCLUSIVE=$(echo "${SSH_PUBLIC_KEY_EXCLUSIVE}" | tr '[:lower:]' '[:upper:]')
+
+# Context keys, one per line, trimmed, without empty lines and duplicates
+KEYS=$(printf '%s\n%s\n' "${SSH_PUBLIC_KEY}" "${EC2_PUBLIC_KEY}" | \
+    tr -d '\r' | \
+    sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | \
+    awk 'NF && !seen[$0]++')
 
 if [ -z "${USERNAME}" ]
 then
@@ -41,30 +60,77 @@ fi
 
 AUTH_FILE="$AUTH_DIR/authorized_keys"
 
-function add_keys {
-    while read key; do
-        if ! grep -q -F "$key" $AUTH_FILE; then
-            echo "$key" >> $AUTH_FILE
-        fi
-    done
+# Nothing to do without context keys, unless there is already a managed
+# block to update or the exclusive mode requires to drop the other keys
+if [ -z "${KEYS}" ] && \
+   [ "${SSH_PUBLIC_KEY_EXCLUSIVE}" != 'YES' ] && \
+   ! grep -q -x -F -e "${BLOCK_BEGIN}" "${AUTH_FILE}" 2>/dev/null
+then
+    exit 0
+fi
+
+function is_context_key {
+    [ -n "${KEYS}" ] && [ -n "$1" ] && \
+        [[ $'\n'"${KEYS}"$'\n' == *$'\n'"$1"$'\n'* ]]
 }
 
-[ -z "${SSH_PUBLIC_KEY}${EC2_PUBLIC_KEY}" ] && exit 0
+# Print the lines of authorized_keys outside of the managed block(s).
+# Lines equal to a context key are dropped as well, so the keys appended
+# by older versions of this script are adopted into the managed block.
+function outside_block {
+    local line in_block=0
+    local -a buffer=()
 
-mkdir -m0700 -p $AUTH_DIR
+    [ -f "${AUTH_FILE}" ] || return 0
 
-[ ! -f $AUTH_FILE ] && touch $AUTH_FILE
+    while IFS= read -r line || [ -n "${line}" ]; do
+        if [ "${line}" = "${BLOCK_BEGIN}" ]; then
+            in_block=1
+            buffer=()
+        elif [ "${line}" = "${BLOCK_END}" ]; then
+            in_block=0
+            buffer=()
+        elif [ "${in_block}" = 1 ]; then
+            buffer+=("${line}")
+        elif ! is_context_key "${line}"; then
+            printf '%s\n' "${line}"
+        fi
+    done < "${AUTH_FILE}"
 
-if [ -n "$SSH_PUBLIC_KEY" ]; then
-    echo "$SSH_PUBLIC_KEY" | add_keys
+    # unterminated block: keep its content, only the marker is dropped
+    if [ "${in_block}" = 1 ]; then
+        for line in "${buffer[@]}"; do
+            if ! is_context_key "${line}"; then
+                printf '%s\n' "${line}"
+            fi
+        done
+    fi
+}
+
+mkdir -m0700 -p "${AUTH_DIR}"
+
+TMP_FILE=$(mktemp "${AUTH_DIR}/.authorized_keys.XXXXXX") || exit 1
+
+{
+    if [ "${SSH_PUBLIC_KEY_EXCLUSIVE}" != 'YES' ]; then
+        outside_block
+    fi
+
+    echo "${BLOCK_BEGIN}"
+    [ -n "${KEYS}" ] && echo "${KEYS}"
+    echo "${BLOCK_END}"
+} > "${TMP_FILE}"
+
+if [ -L "${AUTH_FILE}" ]; then
+    # write through the symlink rather than replacing it
+    cat "${TMP_FILE}" > "${AUTH_FILE}"
+    rm -f "${TMP_FILE}"
+else
+    mv -f "${TMP_FILE}" "${AUTH_FILE}"
 fi
 
-if [ -n "$EC2_PUBLIC_KEY" ]; then
-    echo "$EC2_PUBLIC_KEY" | add_keys
-fi
-
-chown "${USERNAME}": ${AUTH_DIR} ${AUTH_FILE}
-chmod 600 $AUTH_FILE
+chown "${USERNAME}": "${AUTH_DIR}" "${AUTH_FILE}"
+chmod 600 "${AUTH_FILE}"
 
 # restore SELinux contexts
 if which restorecon &>/dev/null; then
