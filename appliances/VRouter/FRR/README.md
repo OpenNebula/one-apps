@@ -29,6 +29,12 @@ Global:
 | `POLL_INTERVAL` | `30` | Seconds between runtime polls, 5..3600. | `60` |
 | `BACKUP_PREPEND` | `3` | Extra AS-path prepends on the HA BACKUP node, 0..10. | `3` |
 | `BACKUP_MED` | `200` | added to the MED of the exported routes on the HA BACKUP node (to the neighbor's `MED`, or to 0 when it has none), 0..4294967295. | `200` |
+| `GRACEFUL_RESTART` | `NO` | `NO` or `HELPER` (see "Graceful restart"). `YES` (restarter) is refused. Boot-only: taken from the VM context, a value in the user template is ignored. | `HELPER` |
+| `GR_RESTART_TIME` | `120` | The restart time this router advertises to its peers, in seconds, 0..4095 (`bgp graceful-restart restart-time`). Read and range-checked only with `HELPER`; ignored (not even validated) with `NO`. See "Graceful restart" for when a change takes effect. | `60` |
+| `GR_STALEPATH_TIME` | `360` | The stale-path time of FRR, 1..4095 (`bgp graceful-restart stalepath-time`), the upper bound for keeping a restarting peer's stale routes. Read and range-checked only with `HELPER`; ignored with `NO`. | `200` |
+| `MAXIMUM_PATHS` | `1` | Equal-cost eBGP paths FRR installs (`maximum-paths N`), 1..64. `1` renders nothing (FRR's default, one path). See "ECMP". | `4` |
+| `MAXIMUM_PATHS_IBGP` | `1` | The same for iBGP paths (`maximum-paths ibgp N`), 1..64. | `2` |
+| `MULTIPATH_RELAX` | `NO` | `YES`/`NO` (also `1`/`0`): `bgp bestpath as-path multipath-relax`, so paths with an equal AS-path length but different AS numbers (two different upstream ASes) can be multipath too. | `YES` |
 
 Per neighbor, `NEIGHBOR<N>_<KEY>`. `<N>` is a non-negative integer without leading zeros (`0`, `1`, `2`, ...; gaps are fine). `ADDRESS` and `ASN` are required for every `<N>` that is used; the same address twice is an error.
 
@@ -110,6 +116,28 @@ exit
 
 On the HA BACKUP node the same input renders `set metric 200` and `set as-path prepend 65010 65010 65010 65010` in `BGP-N1-OUT` (1 neighbor prepend + `BACKUP_PREPEND` 3).
 
+## Graceful restart
+
+Graceful restart (RFC 4724) lets a peer keep forwarding to the routes of a BGP speaker whose session drops because its `bgpd` restarts, for a while instead of withdrawing them at once.
+
+| Value of `GRACEFUL_RESTART` | Rendered | Meaning |
+|---|---|---|
+| `NO` (default) | nothing | FRR's own default applies: FRR acts as a helper for a peer that announces graceful restart (`show bgp neighbor` says `Local GR Mode: Helper*`, the `*` is the inherited global mode). Existing configurations render exactly as before. |
+| `HELPER` | `neighbor <address> graceful-restart-helper` for every neighbor | Explicit helper mode: when the session of a peer that is a real graceful restarter drops, its routes are kept as stale. How long they are kept follows the restart time that the *peer* advertises, bounded by the stale-path time (`GR_STALEPATH_TIME`); `GR_RESTART_TIME` does not govern this. In helper mode FRR may still send the graceful restart capability to its peers (restarting bit not set, with our restart time); this was not checked on the wire. |
+| `YES` | refused | Restarter mode is rejected with a validation error (`GRACEFUL_RESTART=YES (restarter) is not supported ...`). |
+
+`GRACEFUL_RESTART` is boot-only, like `ASN` and `ROUTER_ID`: the first successful apply pins it; a value in the user template is dropped before the apply, and a later change that still reaches the apply is ignored with the usual `ignored runtime change of graceful_restart` message. Reason: changing the mode changes the graceful restart capability, and FRR then asks to reset the session (`Graceful restart configuration changed, reset this peer to take effect`), possibly of every session at once, which the live changes of this module must not do. Change it in the VM context and re-context or reboot.
+
+`GR_RESTART_TIME` is the restart time this router *advertises* to its peers; it does not change how the router helps a restarting peer. `GR_RESTART_TIME` and `GR_STALEPATH_TIME` are read only with `HELPER` (not validated with `NO`), are live-changeable, and are rendered (`bgp graceful-restart restart-time N`, `bgp graceful-restart stalepath-time N`) only with `HELPER` and only when they differ from FRR's defaults (120 and 360), because FRR does not print the defaults back and a candidate that differs from the running config would be re-planned on every apply. A changed timer is applied to the running config at once but is used by a session only after that session is reset (FRR prints `reset this peer to take effect`); the module does not reset sessions. Per-neighbor overrides are not supported.
+
+**Why there is no restarter mode.** Being a restarter needs bgpd started with `-K` (`bgpd_options` in `/etc/frr/daemons`), zebra preserving the forwarding state across the restart, and the `F` bit (`bgp graceful-restart preserve-fw-state`). The module restarts the whole `frr` service (all daemons, zebra included) and does not set any of this, so a restart would flush the routes and a peer gets nothing from the capability. Instead of shipping a value that silently does not work, `YES` is a validation error. Restarter mode needs a restart path that restarts only `bgpd` with `-K`; that is not part of this module.
+
+**What it protects.** FRR runs on both HA nodes and the standby keeps its sessions (the backup advertises with the BACKUP prepend and MED). Helper mode keeps the routes learned from a peer while that peer restarts its BGP; it does nothing for a VRRP failover, which is handled by the MASTER/BACKUP profile above. **BFD can bypass graceful restart**: when `BFD` is on for a neighbor and the BFD session goes down, the BGP session is torn down at once and the peer's routes are removed, so graceful restart does not hold them. Use BFD for fast failure detection and graceful restart for planned or software restarts, knowing that the two do not combine.
+
+Verified (FRR 10.2.1, Alpine, two routers on one host, real BGP sessions): `vtysh` accepts the lines and prints them back as rendered (`bgp graceful-restart stalepath-time`, then `restart-time`, `neighbor X graceful-restart-helper`); a neighbor without the setting shows `Local GR Mode: Helper*`; `GRACEFUL_RESTART=YES` is rejected as designed; a change of the user template for the timers applied in about 30 s without resetting sessions. Against a real restarter (a peer with `bgp graceful-restart` configured by hand) the router kept the route as stale with both next hops in the FIB, and removed it after the restart time the *peer* advertised (120 s), not after its own `GR_RESTART_TIME` (100 s). Between two routers that both only run helper mode nothing is retained: a helper-only peer advertises no graceful restart address families, so the route is dropped at once. Helper mode therefore keeps routes only against peers that are real restarters (for example the upstream MCCP). A timer change does not apply to an established session until it is reset.
+
+Not tested: restarter mode (refused), the capability actually sent on the wire in helper mode, and timer changes combined with a session reset on a production-like setup.
+
 ## Static routes
 
 `ONEAPP_VNF_STATIC_ROUTES` adds static routes to FRR. It is a global attribute, not a BGP one, and it works with or without BGP. The format is the one OpenNebula uses for `ETHx_ROUTES` and the network `ROUTES`: a comma-separated list of `<prefix> via <gateway>`, IPv4 or IPv6 (see "IPv6").
@@ -118,16 +146,39 @@ On the HA BACKUP node the same input renders `set metric 200` and `set as-path p
 ONEAPP_VNF_STATIC_ROUTES = "1.1.1.1/32 via 172.16.100.1, 9.9.9.9/32 via 172.16.100.1"
 ```
 
-Each entry is rendered as a top-level `ip route <prefix> <gateway>` (IPv4) or `ipv6 route <prefix> <gateway>` (IPv6) line of `frr.conf`, the IPv4 lines first, sorted the way FRR prints them (verified with FRR 10.2.1: `show running-config` prints exactly these lines, so re-applying the same attributes plans no change). The routes are the same on the HA master and backup.
+Each entry is rendered as a top-level `ip route <prefix> <gateway>` (IPv4) or `ipv6 route <prefix> <gateway>` (IPv6) line of `frr.conf`, the IPv4 lines first, sorted the way FRR prints them (prefix length, address, then gateway; verified with FRR 10.2.1: `show running-config` prints exactly these lines, so re-applying the same attributes plans no change). The gateways of one prefix are ordered numerically, not as text (`10.0.0.2`, `10.0.0.9`, `10.0.0.10`; `fd77::2`, `fd77::a`, `fd77::10`); this was verified in a lab FRR 10.2.1, which prints them in this order whatever the order they were loaded in. The routes are the same on the HA master and backup.
 
+- **Several gateways for one prefix (ECMP).** The same prefix may be listed with different gateways (`10.50.0.0/16 via 172.16.100.1, 10.50.0.0/16 via 172.16.100.2`); FRR installs them as one multipath route. See "ECMP".
 - **Live changes.** Like the BGP attributes, the attribute is read from the context (baseline) and from the VM user template (override, picked up within `POLL_INTERVAL` seconds). Only the added or removed routes change; the BGP sessions are not reset. A blank override or a deleted line falls back to the context value.
 - **`NONE`.** Because a blank override falls back to the context value, the keyword `NONE` (any case) means an empty list. Setting `ONEAPP_VNF_STATIC_ROUTES="NONE"` in the user template removes all routes, including those from the context; deleting the line brings the context routes back.
 - **Without BGP.** If `ONEAPP_VNF_BGP_ENABLED` is not `YES` but the context has `ONEAPP_VNF_STATIC_ROUTES`, FRR starts with only the static routes: no `router bgp` block, no neighbors, no boot pin, and the other `ONEAPP_VNF_BGP_*` attributes are not validated. The poller still runs when OneGate is available, so the routes can be changed live. When BGP is disabled and the attribute is not set, nothing changes: FRR and the poller are stopped and disabled. To start a router without BGP and without routes and add routes later through the user template, set `ONEAPP_VNF_STATIC_ROUTES="NONE"` in the context (`NONE` counts as set for this purpose, so FRR runs with an empty config). `ONEAPP_VNF_BGP_ENABLED` stays boot-only: a value in the user template is ignored.
-- **Validation.** Every entry must be `<prefix>/<length> via <gateway>` with a valid prefix without host bits and a valid global gateway of the same family as the prefix. Duplicate prefixes, an empty entry (a stray comma) and unknown syntax are errors; the error names `ONEAPP_VNF_STATIC_ROUTES`, and the whole configuration is rejected like any other invalid attribute (the running config stays as it is, `FRR_APPLY` says `rejected`). `dev`, `blackhole`, `reject`, metrics, `distance`, `tag` and similar options are refused with "not supported yet". A static default route is allowed: `0.0.0.0/0 via <gateway>` is an explicit opt-in.
+- **Validation.** Every entry must be `<prefix>/<length> via <gateway>` with a valid prefix without host bits and a valid global gateway of the same family as the prefix. The same prefix with the same gateway twice (after normalizing the spelling), an empty entry (a stray comma) and unknown syntax are errors; the error names `ONEAPP_VNF_STATIC_ROUTES`, and the whole configuration is rejected like any other invalid attribute (the running config stays as it is, `FRR_APPLY` says `rejected`). `dev`, `blackhole`, `reject`, metrics, `distance`, `tag` and similar options are refused with "not supported yet". A static default route is allowed: `0.0.0.0/0 via <gateway>` is an explicit opt-in.
 - **Announcing the routes.** Static routes are not announced by default. Add `static` to `ONEAPP_VNF_BGP_REDISTRIBUTE` (or list the prefix in `ONEAPP_VNF_BGP_NETWORKS`). A route whose gateway is the BGP peer itself was not announced to that peer; use a gateway other than the peer you want to announce to.
 - **Routes that `ETHx_ROUTES` already installed.** One-context installs the network's routes as plain kernel routes. Verified on real FRR: if the same prefix exists as a kernel route and as a static route, FRR lists both, the kernel route (`distance 0`) is `best` and installed, and the static route (`distance 1`) is not installed. FRR keeps the `ip route` line in its configuration, and the kernel table keeps only the kernel route. So a static route for a prefix that the network already provides has no effect; do not list those prefixes. Not tested: what happens when the kernel route disappears later.
 
 `FRR_APPLY` reports the result of a route change like any other apply. The messages stay OneGate-safe: `=` `,` `[` `]` are replaced before they are stored.
+
+## ECMP
+
+Equal-cost multipath spreads traffic for one prefix over several next hops. Both sources are off by default and the default output is unchanged.
+
+- **BGP.** `MAXIMUM_PATHS` (eBGP) and `MAXIMUM_PATHS_IBGP` render `maximum-paths N` and `maximum-paths ibgp N` inside every rendered address family (`ipv4 unicast`, `ipv6 unicast`), only when the value is above 1. `MULTIPATH_RELAX=YES` renders `bgp bestpath as-path multipath-relax` in the `router bgp` block. FRR only makes paths multipath when they tie on weight, local preference, AS-path length, origin and MED; without the relax option the AS-path must also be the same sequence, so two upstreams in different ASes need `MULTIPATH_RELAX`.
+- **Static routes.** List the same prefix with different gateways, see "Static routes". Order in the attribute does not matter: the gateways are rendered in ascending order, as FRR prints them.
+
+Constraints:
+
+- **The HA backup never takes a share.** The BACKUP node exports with `BACKUP_PREPEND` and `BACKUP_MED`, so a peer sees its path as longer and with a higher MED and does not treat it as equal to the master's. ECMP therefore spreads the load across the *upstream peers* of one router, never across our two routers. This is intended: only the VRRP master forwards (the standby has forwarding stopped).
+- **LVS NAT mode.** The load balancer needs the replies of a connection to return through the same router that did the NAT. Do not use ECMP on routes toward LB backends or toward clients of an LVS virtual service: a reply that leaves on another path than the request arrived on breaks the connection. Use ECMP for plain routed traffic.
+- **Per-flow hashing.** The kernel decides how flows are hashed over the next hops (`net.ipv4.fib_multipath_hash_policy`); this module does not set it, so the kernel default (the L3 hash) applies.
+- Each member of a multipath route is a normal next hop: when one session or gateway goes away FRR removes only that next hop.
+
+Verified with FRR 10.2 in the lab image only that `vtysh` accepts the rendered lines, prints them back in the same places (`maximum-paths` after the neighbor lines of its address family, the gateways of a prefix in ascending order).
+
+Verified on real routers (FRR 10.2.1, Alpine, a router with two BGP peers on one host): `maximum-paths` with `MULTIPATH_RELAX` gives two next hops for a prefix learned from two peers; a live change of `MAXIMUM_PATHS` through the user template applied in about 30 s without resetting the sessions; static ECMP on a VM gives two next hops. Not tested: traffic distribution over the next hops, and setups with more than two peers or iBGP multipath (`MAXIMUM_PATHS_IBGP`) with real peers.
+
+`MULTIPATH_RELAX=YES` with `MAXIMUM_PATHS=1` and `MAXIMUM_PATHS_IBGP=1` is accepted but has no effect: with a single path allowed there is nothing to spread over, so raise `MAXIMUM_PATHS` as well.
+
+A live change back to a default value (`MAXIMUM_PATHS=1`, `MULTIPATH_RELAX=NO`, timers equal to FRR's defaults) renders no line, so the candidate config omits it and the reload removes the old line (`no ...`).
 
 ## Where to set the attributes
 
@@ -153,7 +204,7 @@ ONEAPP_VNF_BGP_NEIGHBOR2_ADDRESS="10.0.1.1"
 ONEAPP_VNF_BGP_NEIGHBOR2_ASN="65002"
 ```
 
-A non-empty value overrides the context value; an empty value, or a deleted line, falls back to the context value. Changes are picked up within `POLL_INTERVAL` seconds. `ONEAPP_VNF_BGP_ASN` and `ONEAPP_VNF_BGP_ROUTER_ID` are taken from the context only: in the user template they are ignored, at runtime and at the next boot. Editing the user template from Sunstone is also possible, but the exact UI path is not documented here (unverified).
+A non-empty value overrides the context value; an empty value, or a deleted line, falls back to the context value. Changes are picked up within `POLL_INTERVAL` seconds. `ONEAPP_VNF_BGP_ASN`, `ONEAPP_VNF_BGP_ROUTER_ID` and `ONEAPP_VNF_BGP_GRACEFUL_RESTART` are taken from the context only: in the user template they are ignored, at runtime and at the next boot. Editing the user template from Sunstone is also possible, but the exact UI path is not documented here (unverified).
 
 `BGP_STATE` and `FRR_APPLY` show up in that same user template. The poller writes them; do not edit them by hand.
 
@@ -161,7 +212,7 @@ A non-empty value overrides the context value; an empty value, or a deleted line
 
 At boot, `configure` writes `/etc/frr/frr.conf` and (re)starts FRR. The first usable source wins:
 
-1. The context plus the last remembered runtime overrides (`/var/lib/one-frr/overrides.json`), except `ASN` and `ROUTER_ID`, which always come from the context.
+1. The context plus the last remembered runtime overrides (`/var/lib/one-frr/overrides.json`), except `ASN`, `ROUTER_ID` and `GRACEFUL_RESTART`, which always come from the context.
 2. If those attributes are invalid (for example a rejected runtime override that is still remembered): `/var/lib/one-frr/last-good.conf`, the last config that FRR accepted (written by `configure` once FRR started with the boot config, and by every successful apply), if it exists and is not empty. The log names the file used.
 3. Otherwise a minimal `frr.conf` without BGP and without static routes. BGP stays down until the attributes are fixed (at runtime if OneGate is available, otherwise at the next boot).
 
@@ -184,7 +235,7 @@ Every `frr-reload.py` and `vtysh` run is killed (with its process group) after 6
 
 What it affects:
 - Changing a neighbor's `ASN`, `PASSWORD` or `UPDATE_SOURCE` resets that neighbor's session (FRR behavior).
-- `ASN` and `ROUTER_ID` are boot-only: `configure` pins them from the boot config to `/var/lib/one-frr/boot.json` (the poller also writes the pin after its first successful apply if none exists). The same holds for `ONEAPP_VNF_BGP_ROUTER_ID`, `ONEAPP_VNF_OSPF_ROUTER_ID` and `ONEAPP_VNF_FRR_ROUTER_ID`. A value in the user template is dropped before the apply (the poller logs `ignoring boot-only <names> in the user template`, and `FRR_APPLY` ends with `ignored boot-only <names> in the user template (set it in the VM context)`; the value itself is never shown) and is not used at the next boot either. To change them, change the VM context (e.g. `onevm updateconf`), then re-context or reboot the VM. A new boot rewrites the pin, or clears it if the config is invalid.
+- `ASN`, `ROUTER_ID` and `GRACEFUL_RESTART` are boot-only: `configure` pins them from the boot config to `/var/lib/one-frr/boot.json` (the poller also writes the pin after its first successful apply if none exists). The same holds for `ONEAPP_VNF_BGP_ROUTER_ID`, `ONEAPP_VNF_OSPF_ROUTER_ID` and `ONEAPP_VNF_FRR_ROUTER_ID`. A value in the user template is dropped before the apply (the poller logs `ignoring boot-only <names> in the user template`, and `FRR_APPLY` ends with `ignored boot-only <names> in the user template (set it in the VM context)`; the value itself is never shown) and is not used at the next boot either. To change them, change the VM context (e.g. `onevm updateconf`), then re-context or reboot the VM. A new boot rewrites the pin, or clears it if the config is invalid.
 - `ENABLED` is read only at boot.
 - Static routes (`ONEAPP_VNF_STATIC_ROUTES`) are added and removed live without touching the BGP sessions. Without BGP the apply skips the BGP soft refresh.
 - Changes to `POLL_INTERVAL` take effect after the next applied change. Until an apply succeeds the poller uses the `POLL_INTERVAL` of the context (an integer from 5 to 3600, otherwise 30), so a poller started while the user template is invalid still polls at the interval of the context. A rejected or failed apply keeps the interval in use.

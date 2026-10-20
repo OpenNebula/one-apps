@@ -20,14 +20,27 @@ module Bgp
     NAME   = :bgp
     PREFIX = 'ONEAPP_VNF_BGP_'
 
-    Settings = Data.define(:asn, :router_id, :networks, :redistribute, :backup_prepend, :backup_med, :neighbors)
+    Settings = Data.define(:asn, :router_id, :networks, :redistribute, :backup_prepend, :backup_med,
+                           :graceful_restart, :gr_restart_time, :gr_stalepath_time,
+                           :maximum_paths, :maximum_paths_ibgp, :multipath_relax, :neighbors)
 
-    GLOBAL_KEYS   = %w[ENABLED ASN ROUTER_ID NETWORKS REDISTRIBUTE POLL_INTERVAL BACKUP_PREPEND BACKUP_MED].freeze
+    GLOBAL_KEYS   = %w[ENABLED ASN ROUTER_ID NETWORKS REDISTRIBUTE POLL_INTERVAL BACKUP_PREPEND BACKUP_MED
+                       GRACEFUL_RESTART GR_RESTART_TIME GR_STALEPATH_TIME MAXIMUM_PATHS MAXIMUM_PATHS_IBGP
+                       MULTIPATH_RELAX].freeze
     NEIGHBOR_KEYS = %w[ADDRESS ASN DESCRIPTION PASSWORD BFD BFD_TIMERS TIMERS UPDATE_SOURCE MAX_PREFIX
                        LOCAL_PREF MED PREPEND IMPORT_PREFIXES EXPORT_PREFIXES].freeze
     REDISTRIBUTE  = %w[connected static kernel].freeze
 
     DEFAULT_BFD_TIMERS = '3 300 300'
+
+    PATHS_RANGE = (1..64) # FRR takes up to 128; 64 is a deliberate cap
+
+    GR_MODES = { 'no' => :no, 'helper' => :helper }.freeze
+    # FRR's ranges and defaults; a timer equal to its default is not rendered, as FRR does not print it back.
+    GR_RESTART_RANGE   = (0..4095)
+    GR_STALEPATH_RANGE = (1..4095)
+    GR_RESTART_DEFAULT   = 120
+    GR_STALEPATH_DEFAULT = 360
     NEIGHBOR_KEY  = /\A#{PREFIX}NEIGHBOR(0|[1-9]\d*)_(.+)\z/
 
     def owns?(name) = name.start_with?(PREFIX)
@@ -42,7 +55,9 @@ module Bgp
 
     def enabled_keys = ["#{PREFIX}ENABLED"]
 
-    def boot_only_keys = %w[ASN ROUTER_ID].map { |key| "#{PREFIX}#{key}" }
+    # GRACEFUL_RESTART is boot-only too: changing it changes the capability sent to every peer and FRR then asks for
+    # a reset of the sessions, which a live change must not do.
+    def boot_only_keys = %w[ASN ROUTER_ID GRACEFUL_RESTART].map { |key| "#{PREFIX}#{key}" }
 
     def daemons = ['bgpd']
 
@@ -60,12 +75,19 @@ module Bgp
         duplicates = neighbors.map(&:address).compact.tally.select { |_, count| count > 1 }.keys
         errors << "duplicate neighbor address: #{duplicates.join(', ')}" unless duplicates.empty?
 
+        mode = graceful_restart(reader, errors)
         Settings.new(
             asn: asn, router_id: router_id,
             networks: reader.prefixes('NETWORKS', errors, ranges: false),
             redistribute: redistribute(reader, errors),
             backup_prepend: reader.integer('BACKUP_PREPEND', 0..10, errors, default: 3),
             backup_med: reader.integer('BACKUP_MED', Parsing::UINT32, errors, default: 200),
+            graceful_restart: mode,
+            gr_restart_time: gr_timer(reader, 'GR_RESTART_TIME', GR_RESTART_RANGE, GR_RESTART_DEFAULT, mode, errors),
+            gr_stalepath_time: gr_timer(reader, 'GR_STALEPATH_TIME', GR_STALEPATH_RANGE, GR_STALEPATH_DEFAULT, mode, errors),
+            maximum_paths: reader.integer('MAXIMUM_PATHS', PATHS_RANGE, errors, default: 1),
+            maximum_paths_ibgp: reader.integer('MAXIMUM_PATHS_IBGP', PATHS_RANGE, errors, default: 1),
+            multipath_relax: reader.boolean('MULTIPATH_RELAX', errors),
             neighbors: neighbors.freeze
         )
     end
@@ -75,13 +97,15 @@ module Bgp
 
     # Boot-only values: only the first successful apply pins them (boot.json), later changes are ignored.
     def pin_values(cfg)
-        { 'asn' => cfg.asn, 'router_id' => cfg.router_id }
+        # The mode is stored as a string: the pin goes through JSON.
+        { 'asn' => cfg.asn, 'router_id' => cfg.router_id, 'graceful_restart' => cfg.graceful_restart.to_s }
     end
 
     def pinned(frr_config, pin)
         settings = frr_config.section(NAME)
         frr_config.with_section(
-            NAME, settings.with(asn: pin.fetch('asn', settings.asn), router_id: pin.fetch('router_id', settings.router_id))
+            NAME, settings.with(asn: pin.fetch('asn', settings.asn), router_id: pin.fetch('router_id', settings.router_id),
+                                graceful_restart: GR_MODES.fetch(pin['graceful_restart'].to_s, settings.graceful_restart))
         )
     end
 
@@ -115,11 +139,27 @@ module Bgp
 
         {
             asn: settings.asn, router_id: settings.router_id, networks_v4: networks_v4, networks_v6: networks_v6,
-            redistribute: settings.redistribute, neighbors: neighbors, v4: v4, v6: v6
+            redistribute: settings.redistribute, neighbors: neighbors, v4: v4, v6: v6,
+            maximum_paths: settings.maximum_paths > 1 ? settings.maximum_paths : nil,
+            maximum_paths_ibgp: settings.maximum_paths_ibgp > 1 ? settings.maximum_paths_ibgp : nil,
+            multipath_relax: settings.multipath_relax,
+            gr_helper: settings.graceful_restart == :helper,
+            gr_restart_time: non_default(settings.gr_restart_time, GR_RESTART_DEFAULT, settings.graceful_restart),
+            gr_stalepath_time: non_default(settings.gr_stalepath_time, GR_STALEPATH_DEFAULT, settings.graceful_restart)
         }
     end
 
     private
+
+    # The timers only matter with HELPER: with NO they are neither read nor range-checked (FRR's default stands).
+    def gr_timer(reader, name, range, default, mode, errors)
+        mode == :helper ? reader.integer(name, range, errors, default: default) : default
+    end
+
+    # nil (nothing to render) while graceful restart is off or the timer is FRR's default.
+    def non_default(value, default, mode)
+        mode == :no || value == default ? nil : value
+    end
 
     def family_entries(entries, family)
         entries.select { |entry| Addresses.entry_family(entry) == family }
@@ -297,6 +337,23 @@ module Bgp
 
         errors << "#{reader.key(name)} must be an address of the neighbor's family or an interface like eth1, got #{raw.inspect}"
         nil
+    end
+
+    # NO (FRR's own default: it only helps a peer that announces graceful restart) or HELPER (explicit helper mode).
+    # YES (restarter) is refused: the module restarts the whole frr service, which flushes zebra's routes, and bgpd
+    # is not started with -K, so a restarting node would not preserve forwarding and the peers would gain nothing.
+    def graceful_restart(reader, errors)
+        raw = reader.value('GRACEFUL_RESTART')
+        return :no if raw.nil?
+        return GR_MODES[raw.strip.downcase] if GR_MODES.key?(raw.strip.downcase)
+
+        errors << if raw.strip.casecmp?('YES')
+                      "#{reader.key('GRACEFUL_RESTART')}=YES (restarter) is not supported: restarting FRR flushes the " \
+                          'routes, so only helper mode works; use HELPER'
+                  else
+                      "#{reader.key('GRACEFUL_RESTART')} must be NO or HELPER, got #{raw.inspect}"
+                  end
+        :no
     end
 
     def redistribute(reader, errors)

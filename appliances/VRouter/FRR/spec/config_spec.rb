@@ -363,8 +363,14 @@ RSpec.describe Service::FRR::Config do
             expect(routes_error('10.0.0.0/24 via 10.0.0.300')).to include('invalid gateway')
         end
 
-        it 'rejects duplicate prefixes, even with different gateways' do
-            expect(routes_error('1.1.1.1/32 via 10.0.0.1, 1.1.1.1/32 via 10.0.0.2')).to include('duplicate prefix 1.1.1.1/32')
+        it 'allows the same prefix with different gateways (ECMP), ordered by gateway' do
+            expect(routes_of('1.1.1.1/32 via 10.0.0.2, 1.1.1.1/32 via 10.0.0.1'))
+                .to eq [%w[1.1.1.1/32 10.0.0.1], %w[1.1.1.1/32 10.0.0.2]]
+        end
+
+        it 'rejects the same prefix with the same gateway' do
+            expect(routes_error('1.1.1.1/32 via 10.0.0.1, 1.1.1.1/32 via 10.0.0.1'))
+                .to include('duplicate route 1.1.1.1/32 via 10.0.0.1')
         end
 
         it 'says that dev, blackhole and metrics are not supported yet' do
@@ -383,8 +389,14 @@ RSpec.describe Service::FRR::Config do
             expect(parsed.last.gateway).to eq 'fd77::1'
         end
 
-        it 'detects duplicate IPv6 prefixes in two spellings' do
-            expect(routes_error('2001:db8::/32 via fd77::1, 2001:DB8:0::/32 via fd77::2')).to include('duplicate prefix 2001:db8::/32')
+        it 'detects duplicate IPv6 routes in two spellings' do
+            expect(routes_error('2001:db8::/32 via fd77::1, 2001:DB8:0::/32 via FD77:0::1'))
+                .to include('duplicate route 2001:db8::/32 via fd77::1')
+        end
+
+        it 'allows IPv6 ECMP' do
+            expect(routes_of('2001:db8::/32 via fd77::2, 2001:DB8:0::/32 via fd77::1'))
+                .to eq [%w[2001:db8::/32 fd77::1], %w[2001:db8::/32 fd77::2]]
         end
 
         it 'rejects a gateway of the other family, link-local gateways and host bits' do

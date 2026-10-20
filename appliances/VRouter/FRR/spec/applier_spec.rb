@@ -346,6 +346,16 @@ RSpec.describe Service::FRR::Applier do
         expect(result.config.section(:bgp).asn).to eq 65_010
     end
 
+    it 'ignores a runtime change of the graceful restart mode, which would reset every session' do
+        File.write(File.join(dir, 'boot.json'), '{"asn":65010,"router_id":"10.0.0.1","graceful_restart":"no"}')
+
+        result = applier(FakeReloader.new).call(attrs.merge("#{p}GRACEFUL_RESTART" => 'HELPER'))
+
+        expect(result.status).to eq :applied
+        expect(result.message).to include('ignored runtime change of graceful_restart')
+        expect(result.config.section(:bgp).graceful_restart).to eq :no
+    end
+
     it 'does not blank a value the pin file does not have' do
         File.write(File.join(dir, 'boot.json'), '{"asn":65010}')
 
@@ -374,7 +384,7 @@ RSpec.describe Service::FRR::Applier do
             expect(result.message).not_to include('asn')
             expect(result.config.section(:ospf).router_id).to eq '10.0.0.5'
             expect(JSON.parse(File.read(File.join(dir, 'boot.json')))).to eq(
-                'asn' => 65_010, 'router_id' => '10.0.0.1', 'ospf_router_id' => '10.0.0.5'
+                'asn' => 65_010, 'router_id' => '10.0.0.1', 'graceful_restart' => 'no', 'ospf_router_id' => '10.0.0.5'
             )
         end
 
@@ -403,7 +413,7 @@ RSpec.describe Service::FRR::Applier do
             applier(FakeReloader.new).call(both.merge("#{p}ASN" => '65099'))
 
             expect(JSON.parse(File.read(File.join(dir, 'boot.json')))).to eq(
-                'asn' => 65_010, 'router_id' => '10.0.0.1', 'ospf_router_id' => '10.0.0.5'
+                'asn' => 65_010, 'router_id' => '10.0.0.1', 'graceful_restart' => 'no', 'ospf_router_id' => '10.0.0.5'
             )
         end
 

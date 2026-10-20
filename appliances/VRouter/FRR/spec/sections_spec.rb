@@ -60,8 +60,31 @@ RSpec.describe Service::FRR::Sections::Bgp do
     let(:config) { frr_config.section(:bgp) }
 
     it 'pins the ASN and the router-id' do
-        expect(described_class.pin_values(config).keys).to eq %w[asn router_id]
-        expect(described_class.pin_values(config)).to eq('asn' => 65_010, 'router_id' => '10.99.37.2')
+        expect(described_class.pin_values(config).keys).to eq %w[asn router_id graceful_restart]
+        expect(described_class.pin_values(config)).to eq('asn' => 65_010, 'router_id' => '10.99.37.2', 'graceful_restart' => 'no')
+    end
+
+    it 'pins the graceful restart mode as a string, so that it survives the JSON round trip' do
+        helper = Service::FRR::Config.parse_frr(
+            { 'ONEAPP_VNF_BGP_ENABLED' => 'YES', 'ONEAPP_VNF_BGP_ASN' => '65010', 'ONEAPP_VNF_BGP_ROUTER_ID' => '10.99.37.2',
+              'ONEAPP_VNF_BGP_GRACEFUL_RESTART' => 'HELPER' }
+        )
+        pin = JSON.parse(JSON.generate(described_class.pin_values(helper.section(:bgp))))
+
+        expect(pin['graceful_restart']).to eq 'helper'
+        expect(described_class.pinned(frr_config, pin).section(:bgp).graceful_restart).to eq :helper
+    end
+
+    it 'lets the pinned graceful restart mode win over the configured one' do
+        pinned = described_class.pinned(frr_config, 'graceful_restart' => 'helper')
+
+        expect(frr_config.section(:bgp).graceful_restart).to eq :no
+        expect(pinned.section(:bgp).graceful_restart).to eq :helper
+        expect(described_class.pinned(pinned, 'graceful_restart' => 'no').section(:bgp).graceful_restart).to eq :no
+    end
+
+    it 'keeps the configured graceful restart mode when the pin does not have it' do
+        expect(described_class.pinned(frr_config, 'asn' => 65_011).section(:bgp).graceful_restart).to eq :no
     end
 
     it 'replaces the pinned values in a config' do
@@ -134,7 +157,7 @@ RSpec.describe Service::FRR::Sections::Bgp do
 
     it 'keeps its enabled flag and the boot-only keys out of runtime overrides' do
         expect(described_class.enabled_keys).to eq ['ONEAPP_VNF_BGP_ENABLED']
-        expect(described_class.boot_only_keys).to eq %w[ONEAPP_VNF_BGP_ASN ONEAPP_VNF_BGP_ROUTER_ID]
+        expect(described_class.boot_only_keys).to eq %w[ONEAPP_VNF_BGP_ASN ONEAPP_VNF_BGP_ROUTER_ID ONEAPP_VNF_BGP_GRACEFUL_RESTART]
         expect(described_class.daemons).to eq ['bgpd']
     end
 end

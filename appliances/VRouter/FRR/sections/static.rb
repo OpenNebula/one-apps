@@ -72,22 +72,24 @@ module Static
     end
 
     # `<prefix> via <gateway>, ...`, or NONE for no routes. Sorted the way FRR prints
-    # them (IPv4 first, then length, then address), so the order of the attribute never changes the config.
+    # them (IPv4 first, then length, then address, then gateway), so the order of the attribute never changes the config.
     def routes(attrs, errors)
         raw = attrs[ATTRIBUTE].to_s.strip
         return [].freeze if raw.empty? || raw.casecmp?(NO_ROUTES)
 
         found = raw.split(',', -1).filter_map { |entry| route(entry.strip, errors) }
-        duplicates = found.map(&:prefix).tally.select { |_, count| count > 1 }.keys
-        errors << "#{ATTRIBUTE} has duplicate prefix #{duplicates.join(', ')}" unless duplicates.empty?
+        duplicates = found.map { |item| "#{item.prefix} via #{item.gateway}" }.tally.select { |_, count| count > 1 }.keys
+        errors << "#{ATTRIBUTE} has duplicate route #{duplicates.join(', ')}" unless duplicates.empty?
 
-        found.sort_by { |item| route_order(item.prefix) }.freeze
+        found.sort_by { |item| route_order(item) }.freeze
     end
 
-    def route_order(prefix)
-        address, length = prefix.split('/')
+    # The same prefix with several gateways is allowed: FRR installs them as one multipath (ECMP) route,
+    # and prints the gateways in ascending order.
+    def route_order(item)
+        address, length = item.prefix.split('/')
         ip = IPAddr.new(address)
-        [ip.ipv6? ? 1 : 0, length.to_i, ip.to_i]
+        [ip.ipv6? ? 1 : 0, length.to_i, ip.to_i, IPAddr.new(item.gateway).to_i]
     end
 
     def route(entry, errors)

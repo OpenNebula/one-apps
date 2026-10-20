@@ -39,6 +39,15 @@ exit
 router bgp <%= asn %>
  bgp router-id <%= router_id %>
  no bgp default ipv4-unicast
+<%- if multipath_relax -%>
+ bgp bestpath as-path multipath-relax
+<%- end -%>
+<%- unless gr_stalepath_time.nil? -%>
+ bgp graceful-restart stalepath-time <%= gr_stalepath_time %>
+<%- end -%>
+<%- unless gr_restart_time.nil? -%>
+ bgp graceful-restart restart-time <%= gr_restart_time %>
+<%- end -%>
 <%- neighbors.each do |n| -%>
  neighbor <%= n[:address] %> remote-as <%= n[:asn] %>
 <%- unless n[:description].nil? -%>
@@ -46,6 +55,9 @@ router bgp <%= asn %>
 <%- end -%>
 <%- unless n[:password].nil? -%>
  neighbor <%= n[:address] %> password <%= n[:password] %>
+<%- end -%>
+<%- if gr_helper -%>
+ neighbor <%= n[:address] %> graceful-restart-helper
 <%- end -%>
 <%- if n[:bfd] -%>
  neighbor <%= n[:address] %> bfd
@@ -76,6 +88,12 @@ router bgp <%= asn %>
   neighbor <%= n[:address] %> maximum-prefix <%= n[:max_prefix] %>
 <%- end -%>
 <%- end -%>
+<%- unless maximum_paths.nil? -%>
+  maximum-paths <%= maximum_paths %>
+<%- end -%>
+<%- unless maximum_paths_ibgp.nil? -%>
+  maximum-paths ibgp <%= maximum_paths_ibgp %>
+<%- end -%>
  exit-address-family
 <%- end -%>
 <%- if v6 -%>
@@ -93,6 +111,12 @@ router bgp <%= asn %>
 <%- unless n[:max_prefix].nil? -%>
   neighbor <%= n[:address] %> maximum-prefix <%= n[:max_prefix] %>
 <%- end -%>
+<%- end -%>
+<%- unless maximum_paths.nil? -%>
+  maximum-paths <%= maximum_paths %>
+<%- end -%>
+<%- unless maximum_paths_ibgp.nil? -%>
+  maximum-paths ibgp <%= maximum_paths_ibgp %>
 <%- end -%>
  exit-address-family
 <%- end -%>

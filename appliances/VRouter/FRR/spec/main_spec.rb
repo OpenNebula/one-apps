@@ -368,7 +368,7 @@ RSpec.describe Service::FRR do
                 conf = File.read(conf_path)
                 expect(conf).to include('router bgp 65010', 'bgp router-id 10.99.37.2', 'neighbor 10.99.37.1 remote-as 65100')
                 expect(conf).not_to include('65999', '10.9.9.9')
-                expect(JSON.parse(File.read(File.join(state, 'boot.json')))).to eq('asn' => 65_010, 'router_id' => '10.99.37.2')
+                expect(JSON.parse(File.read(File.join(state, 'boot.json')))).to eq('asn' => 65_010, 'router_id' => '10.99.37.2', 'graceful_restart' => 'no')
             end
 
             it 'is not broken by an invalid stored ASN' do

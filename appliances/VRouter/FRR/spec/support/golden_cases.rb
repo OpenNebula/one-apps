@@ -11,6 +11,14 @@ module GoldenCases
 
     STATIC = { 'ONEAPP_VNF_STATIC_ROUTES' => '2001:db8::/32 via fd77::1, 1.1.1.1/32 via 172.16.100.1' }.freeze
 
+    ECMP_STATIC = { 'ONEAPP_VNF_STATIC_ROUTES' => '10.50.0.0/16 via 172.16.100.2, 10.50.0.0/16 via 172.16.100.1, ' \
+                                                   '2001:db8:50::/48 via fd77::2, 2001:db8:50::/48 via fd77::1' }.freeze
+
+    # Numeric, not textual, gateway order (.9 before .10, ::a before ::10), IPv6 listed first on purpose.
+    ECMP_ORDER = { 'ONEAPP_VNF_STATIC_ROUTES' => '2001:db8:50::/48 via fd77::10, 2001:db8:50::/48 via fd77::a, ' \
+                                                 '2001:db8:50::/48 via fd77::2, 10.50.0.0/16 via 10.0.0.10, ' \
+                                                 '10.50.0.0/16 via 10.0.0.2, 10.50.0.0/16 via 10.0.0.9' }.freeze
+
     O  = 'ONEAPP_VNF_OSPF_'
     OB = { "#{O}ENABLED" => 'YES', "#{O}ROUTER_ID" => '10.99.37.2', "#{O}INTERFACE0_NAME" => 'eth1' }.freeze
 
@@ -35,7 +43,19 @@ module GoldenCases
                            "#{P}BACKUP_PREPEND" => '2', "#{P}BACKUP_MED" => '300'),
             ha_state: :backup
         },
+        'bgp-ecmp' => {
+            attrs: bgp(N0, N1, V6.transform_keys { |key| key.sub('NEIGHBOR1', 'NEIGHBOR2') },
+                       "#{P}MAXIMUM_PATHS" => '4', "#{P}MAXIMUM_PATHS_IBGP" => '2', "#{P}MULTIPATH_RELAX" => 'YES')
+        },
+        'bgp-ecmp-ebgp-only' => { attrs: bgp(N0, N1, "#{P}MAXIMUM_PATHS" => '8') },
+        'static-ecmp' => { attrs: ECMP_STATIC.dup },
+        'static-ecmp-gateway-order' => { attrs: ECMP_ORDER.dup },
         'two-v4-neighbors' => { attrs: bgp(N0, N1) },
+        'bgp-gr-helper' => { attrs: bgp(N0, N1, "#{P}GRACEFUL_RESTART" => 'HELPER') },
+        'bgp-gr-helper-timers' => {
+            attrs: bgp(N0, V6, "#{P}GRACEFUL_RESTART" => 'HELPER', "#{P}GR_RESTART_TIME" => '60',
+                               "#{P}GR_STALEPATH_TIME" => '200')
+        },
         'ipv6-only' => {
             attrs: bgp({ "#{P}NEIGHBOR0_ADDRESS" => 'fd77::21', "#{P}NEIGHBOR0_ASN" => '65002' },
                        "#{P}NETWORKS" => '2001:db8::/48')
