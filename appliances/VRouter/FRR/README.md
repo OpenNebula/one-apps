@@ -172,7 +172,7 @@ Constraints:
 - **Per-flow hashing.** The kernel decides how flows are hashed over the next hops (`net.ipv4.fib_multipath_hash_policy`); this module does not set it, so the kernel default (the L3 hash) applies.
 - Each member of a multipath route is a normal next hop: when one session or gateway goes away FRR removes only that next hop.
 
-Verified with FRR 10.2 in the lab image only that `vtysh` accepts the rendered lines, prints them back in the same places (`maximum-paths` after the neighbor lines of its address family, the gateways of a prefix in ascending order).
+Verified with FRR 10.2 in a Docker test image only that `vtysh` accepts the rendered lines, prints them back in the same places (`maximum-paths` after the neighbor lines of its address family, the gateways of a prefix in ascending order).
 
 Verified on real routers (FRR 10.2.1, Alpine, a router with two BGP peers on one host): `maximum-paths` with `MULTIPATH_RELAX` gives two next hops for a prefix learned from two peers; a live change of `MAXIMUM_PATHS` through the user template applied in about 30 s without resetting the sessions; static ECMP on a VM gives two next hops. Not tested: traffic distribution over the next hops, and setups with more than two peers or iBGP multipath (`MAXIMUM_PATHS_IBGP`) with real peers.
 
@@ -258,7 +258,7 @@ They are updated when the text changes.
 
 ## High availability
 
-The module needs the failover hooks (`/etc/one-appliance/ha-hooks.d/`, the change in OpenNebula/one-apps PR #405): the stock Failover of an image without them never runs `10-frr`, so both nodes would keep the MASTER profile and advertise the same attributes. FRR runs on both nodes and keeps its BGP sessions on the standby; it is not in Failover's service list. On a state change Failover runs the hooks in `/etc/one-appliance/ha-hooks.d/` with `up` (MASTER) or `down` (BACKUP), each bounded by a 30 s timeout (the hook's process group is killed). On `up` the hooks run last, after the stock services (`Router4`, `NAT4`, ...) were restarted, so forwarding never waits for them; on `down` they run first, before the services are stopped.
+The module needs the failover hooks (`/etc/one-appliance/ha-hooks.d/`, OpenNebula/one-apps PR #415): the stock Failover of an image without them never runs `10-frr`, so both nodes would keep the MASTER profile and advertise the same attributes. FRR runs on both nodes and keeps its BGP sessions on the standby; it is not in Failover's service list. On a state change Failover runs the hooks in `/etc/one-appliance/ha-hooks.d/` with `up` (MASTER) or `down` (BACKUP), each bounded by a 30 s timeout (the hook's process group is killed). On `up` the hooks run last, after the stock services (`Router4`, `NAT4`, ...) were restarted, so forwarding never waits for them; on `down` they run first, before the services are stopped.
 
 The FRR hook `10-frr` writes `master` or `backup` to `/run/one-frr/ha-state` and re-applies the config offline: from the context and the remembered overrides, with no OneGate request and no status publish. The poller picks up the new HA state on its next poll and publishes `BGP_STATE`/`FRR_APPLY`.
 
