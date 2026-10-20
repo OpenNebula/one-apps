@@ -1,6 +1,7 @@
 # frozen_string_literal: false
 
 require 'json'
+require 'tempfile'
 
 module Service
 module Failover
@@ -31,6 +32,9 @@ module Failover
 
     FIFO_PATH  = '/run/keepalived/vrrp_notify_fifo.sock'
     STATE_PATH = '/run/one-failover.state'
+    HOOKS_DIR  = '/etc/one-appliance/ha-hooks.d'
+    HOOK_TIMEOUT = 30
+    HOOK_LOG_TAIL = 4096
 
     STATE_TO_DIRECTION = {
         'BACKUP'  => :down,
@@ -143,6 +147,58 @@ module Failover
         process_events
     end
 
+    # Runs /etc/one-appliance/ha-hooks.d/* with "up" (MASTER) or "down" (BACKUP).
+    # Hooks must never break the failover itself, so every failure is only logged.
+    # Each hook runs synchronously but bounded: output goes to a file (not a pipe,
+    # so leftover children cannot block us) and a hook past the timeout is killed
+    # together with its whole process group.
+    def run_hooks(direction, dir: HOOKS_DIR, timeout: HOOK_TIMEOUT)
+        Dir.glob(File.join(dir, '*')).sort.each do |hook|
+            next unless File.file?(hook) && File.executable?(hook)
+
+            run_hook hook, direction, timeout
+        end
+    end
+
+    def run_hook(hook, direction, timeout)
+        Tempfile.create('one-ha-hook') do |out|
+            pid = Process.spawn hook, direction.to_s, pgroup: true, [:out, :err] => out
+            status = wait_hook pid, Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+
+            if status.nil?
+                msg :error, "hook #{hook} #{direction} timed out after #{timeout}s, killed"
+            elsif !status.success?
+                msg :error, "hook #{hook} #{direction} failed (#{status.exitstatus || status}): #{hook_output out}"
+            end
+        end
+    rescue StandardError => e
+        msg :error, "hook #{hook} #{direction} raised: #{e.message}"
+    end
+
+    # Returns the exit status, or nil after killing the process group on timeout.
+    def wait_hook(pid, deadline)
+        loop do
+            _, status = Process.wait2 pid, Process::WNOHANG
+            return status if status
+            break if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+
+            sleep 0.05
+        end
+        begin
+            Process.kill 'KILL', -pid
+        rescue Errno::ESRCH, Errno::EPERM
+            nil
+        end
+        Process.wait pid
+        nil
+    end
+
+    def hook_output(file)
+        file.flush
+        file.seek [file.size - HOOK_LOG_TAIL, 0].max
+        file.read.to_s
+    end
+
     def stay
         msg :debug, ":STAY (pid = #{Process.pid})"
     end
@@ -169,10 +225,14 @@ module Failover
         end
 
         puts bash 'rc-update -v -u ||:', terminate: false
+
+        run_hooks :up # after the stock services: forwarding must not wait for hooks
     end
 
     def down
         msg :debug, ":DOWN (pid = #{Process.pid})"
+
+        run_hooks :down
 
         wait_ready :standby
 
