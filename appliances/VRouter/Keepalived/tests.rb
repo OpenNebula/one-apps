@@ -303,4 +303,201 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
     end
+
+    # NOTE: ONEAPP_VNF_NAT4_SNAT_ADDRESS is not configured on the router. Keepalived owns it as a /32
+    #       virtual address on the first outgoing NIC, so it is present on the VRRP MASTER only.
+    describe 'NAT4 SNAT address' do
+        let(:addr) { '203.0.113.10' }
+
+        def vrrp_conf(address: nil, out: 'eth1', enabled: 'YES', &block)
+            clear_env
+
+            ENV['ONEGATE_ENDPOINT'] = 'http://127.0.0.1:5030'
+            ENV['ONEAPP_VNF_KEEPALIVED_INTERFACES'] = 'eth0 eth1'
+            ENV['ONEAPP_VNF_KEEPALIVED_ETH0_VRID'] = '30'
+            ENV['ONEAPP_VNF_KEEPALIVED_ETH1_VRID'] = '30'
+            ENV['ETH0_IP'] = '10.2.30.2'
+            ENV['ETH1_IP'] = '10.2.31.2'
+            ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '10.2.30.69'
+            ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.2.31.69'
+
+            ENV['ONEAPP_VNF_NAT4_ENABLED'] = enabled
+            ENV['ONEAPP_VNF_NAT4_INTERFACES_OUT'] = out unless out.nil?
+            ENV['ONEAPP_VNF_NAT4_SNAT_ADDRESS'] = address unless address.nil?
+
+            block&.call
+
+            load './main.rb'; include Service::Keepalived
+
+            allow(OneGate.instance).to receive(:service_show).and_return(nil)
+            allow(Service::Keepalived).to receive(:ip_link_set_up).and_return(nil)
+            allow(Service::Keepalived).to receive(:detect_nics).and_return(%w[eth0 eth1])
+            allow(Service::Keepalived).to receive(:toggle).and_return(nil)
+
+            clear_vars Service::Keepalived
+
+            Dir.mktmpdir do |dir|
+                Service::Keepalived.configure basedir: dir
+                return File.read("#{dir}/conf.d/vrrp.conf")
+            end
+        end
+
+        def vip_lines(conf)
+            conf[/virtual_ipaddress \{\n(.*?)\n\s*\}/m, 1].lines.map(&:strip)
+        end
+
+        it 'should render the address as /32 after the VIPs, on the outgoing NIC' do
+            expect(vip_lines(vrrp_conf(address: addr))).to eq [
+                '10.2.30.69/8 dev eth0', '10.2.31.69/8 dev eth1', "#{addr}/32 dev eth1"
+            ]
+        end
+
+        it 'should always use /32, whatever prefix length is given' do
+            expect(vip_lines(vrrp_conf(address: "#{addr}/24"))).to include "#{addr}/32 dev eth1"
+        end
+
+        it 'should render a single copy on the first outgoing NIC' do
+            conf = vrrp_conf(address: addr, out: 'eth1,eth0')
+
+            expect(conf.scan(addr).count).to eq 1
+            expect(vip_lines(conf)).to include "#{addr}/32 dev eth0"
+        end
+
+        it 'should leave the real VIPs untouched in the parsed vars' do
+            vrrp_conf(address: addr)
+
+            expect(Service::Keepalived.parse_env[:by_nic]['eth1'][:vips]).to eq ['10.2.31.69/8']
+        end
+
+        it 'should render nothing when the attribute is unset' do
+            expect(vrrp_conf).not_to include '/32'
+        end
+
+        it 'should render nothing when NAT4 is disabled' do
+            expect(vrrp_conf(address: addr, enabled: 'NO')).not_to include addr
+        end
+
+        it 'should render nothing when NAT4 has no outgoing NIC' do
+            expect(vrrp_conf(address: addr, out: nil)).not_to include addr
+        end
+
+        it 'should render nothing for a NIC that has no VRRP instance' do
+            expect(vrrp_conf(address: addr, out: 'eth5')).not_to include addr
+        end
+
+        it 'should not use a management NIC' do
+            conf = vrrp_conf(address: addr, out: 'eth0,eth1') { ENV['ETH0_VROUTER_MANAGEMENT'] = 'YES' }
+
+            expect(vip_lines(conf)).to include "#{addr}/32 dev eth1"
+        end
+
+        ['1.2.3.4; reboot', '999.1.1.1', '2001:db8::1', 'eth0', '0.0.0.0', '127.0.0.1', '224.0.0.1',
+         '240.0.0.1', '255.255.255.255'].each do |bad|
+            it "should render nothing for #{bad.inspect}" do
+                expect(vip_lines(vrrp_conf(address: bad))).to eq ['10.2.30.69/8 dev eth0', '10.2.31.69/8 dev eth1']
+            end
+        end
+
+        it 'should not duplicate an address that is already a VIP' do
+            conf = vrrp_conf(address: '10.2.31.69')
+
+            expect(conf.scan('10.2.31.69').count).to eq 1
+        end
+
+        it 'should not duplicate an address that is a NIC address' do
+            expect(vrrp_conf(address: '10.2.31.2')).not_to include '10.2.31.2'
+        end
+
+        context 'when the outgoing NIC gets no VRRP instance' do
+            def eth_vrids(vrid0, vrid1)
+                ENV['ONEAPP_VNF_KEEPALIVED_ETH0_VRID'] = vrid0
+                ENV['ONEAPP_VNF_KEEPALIVED_ETH1_VRID'] = vrid1
+            end
+
+            it 'should skip a NIC with SKIP=YES that is alone in its VRID group' do
+                conf = vrrp_conf(address: addr) { eth_vrids('30', '31'); ENV['ONEAPP_VNF_KEEPALIVED_ETH1_SKIP'] = 'YES' }
+
+                expect(conf).not_to include addr
+            end
+
+            it 'should use a later eligible NIC when the first outgoing NIC is skipped' do
+                conf = vrrp_conf(address: addr, out: 'eth0,eth1') { ENV['ONEAPP_VNF_KEEPALIVED_ETH0_SKIP'] = 'YES' }
+
+                expect(vip_lines(conf)).to include "#{addr}/32 dev eth1"
+                expect(conf.scan(addr).count).to eq 1
+            end
+
+            it 'should use a later NIC in another VRID group when the first is skipped' do
+                conf = vrrp_conf(address: addr, out: 'eth0,eth1') { eth_vrids('30', '31'); ENV['ONEAPP_VNF_KEEPALIVED_ETH0_SKIP'] = 'YES' }
+
+                expect(vip_lines(conf.split('vrrp_instance ').last)).to include "#{addr}/32 dev eth1"
+            end
+
+            it 'should not use a floating-only NIC (no IP)' do
+                conf = vrrp_conf(address: addr, out: 'eth1') { ENV.delete('ETH1_IP') }
+
+                expect(conf).not_to include addr
+            end
+
+            it 'should use the next NIC with an IP when the first outgoing NIC is floating-only' do
+                conf = vrrp_conf(address: addr, out: 'eth0,eth1') { ENV.delete('ETH0_IP') }
+
+                expect(vip_lines(conf)).to include "#{addr}/32 dev eth1"
+            end
+
+            it 'should use the first outgoing NIC when each NIC has its own VRID' do
+                conf = vrrp_conf(address: addr, out: 'eth0,eth1') { eth_vrids('30', '31') }
+
+                expect(conf.scan(addr).count).to eq 1
+                expect(conf).to match(/vrrp_instance ETH0 \{.*#{addr}\/32 dev eth0.*vrrp_instance ETH1/m)
+            end
+        end
+
+        context 'when the address is unusable' do
+            it 'should render nothing for an address inside the subnet of a NIC' do
+                expect(vrrp_conf(address: '10.9.9.9')).not_to include '10.9.9.9'
+            end
+
+            it 'should render nothing for an address inside the subnet of a non-outgoing NIC' do
+                conf = vrrp_conf(address: '192.168.5.7', out: 'eth1') do
+                    ENV['ETH0_IP'] = '192.168.5.2'
+                    ENV['ETH0_MASK'] = '255.255.255.0'
+                end
+
+                expect(conf).not_to include '192.168.5.7'
+            end
+
+            it 'should render nothing for an address that is an alias of a NIC' do
+                expect(vrrp_conf(address: addr) { ENV['ETH1_ALIAS0_IP'] = addr }).not_to include addr
+            end
+
+            it 'should render nothing for an address inside the subnet of an alias with a mask' do
+                conf = vrrp_conf(address: '172.20.0.9') do
+                    ENV['ETH1_ALIAS0_IP'] = '172.20.0.2'
+                    ENV['ETH1_ALIAS0_MASK'] = '255.255.255.0'
+                end
+
+                expect(conf).not_to include '172.20.0.9'
+            end
+
+            it 'should render a valid address next to unrelated aliases' do
+                conf = vrrp_conf(address: addr) { ENV['ETH1_ALIAS0_IP'] = '198.51.100.5' }
+
+                expect(vip_lines(conf)).to include "#{addr}/32 dev eth1"
+            end
+
+            it 'should not raise on odd alias values and render nothing' do
+                conf = nil
+                expect do
+                    conf = vrrp_conf(address: addr) do
+                        ENV['ETH1_ALIAS0_IP'] = '198.51.100.5'
+                        ENV['ETH1_ALIAS0_MASK'] = 'bogus'
+                    end
+                end.not_to raise_error
+
+                expect(conf).not_to include addr
+                expect(vip_lines(conf)).to eq ['10.2.30.69/8 dev eth0', '10.2.31.69/8 dev eth1']
+            end
+        end
+    end
 end
