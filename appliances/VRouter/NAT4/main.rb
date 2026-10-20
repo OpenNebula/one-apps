@@ -16,7 +16,28 @@ module NAT4
 
     ONEAPP_VNF_NAT4_SNAT_TO_VIP = env :ONEAPP_VNF_NAT4_SNAT_TO_VIP, 'NO' # YES -> SNAT to the VIP instead of MASQUERADE
 
-    ONEAPP_VNF_NAT4_SNAT_ADDRESS = env :ONEAPP_VNF_NAT4_SNAT_ADDRESS, '' # SNAT to this address instead of MASQUERADE
+    # SNAT to this address instead of MASQUERADE. A unicast IPv4 address, a prefix length is ignored.
+    # The address is usually not configured on any NIC (a public address the upstream routes to the VIP).
+    # Without an owner, a packet for it with no conntrack entry (scans, flows not yet synced after a
+    # failover) would be forwarded, leave via the default route and be routed back to the VIP by the
+    # upstream: a loop until the TTL runs out. Keepalived therefore adds the address as an extra /32
+    # virtual_ipaddress (no connected route) on the first outgoing NIC of the VRRP instance, see
+    # Keepalived::snat_address. It is present on the VRRP MASTER only; Keepalived removes it on BACKUP,
+    # fault, stop and when the value changes (it re-renders its config). NAT4 itself never touches addresses.
+    #
+    # Requirements and behavior (ONEAPP_VNF_NAT4_SNAT_ADDRESS / ONEAPP_VNF_NAT4_SNAT_TO_VIP):
+    #   - The address is configured as a /32 on the VRRP MASTER only, never on BACKUP.
+    #   - It must be outside the on-link subnet of every NIC and must not be a NIC, alias (ETHn_ALIASm_IP) or
+    #     VIP address. Otherwise it is ignored with a warning.
+    #   - It is only used when Keepalived owns it (same helper, nat4_snat_address: a NAT4 outgoing NIC that
+    #     gets a VRRP instance, so it is in ONEAPP_VNF_KEEPALIVED_INTERFACES, has an IP and is not skipped).
+    #     When it is configured but not owned, NAT4 logs a warning and keeps MASQUERADE (it does not fall
+    #     back to the VIP).
+    #   - Being a local address on the MASTER, services not bound to a specific address (sshd, DNS) also
+    #     answer on it there, the same exposure as the VIP.
+    #   - ONEAPP_VNF_NAT4_SNAT_ADDRESS wins over ONEAPP_VNF_NAT4_SNAT_TO_VIP.
+    # The upstream must route the address to the VIP and must not have it on-link (ARP).
+    ONEAPP_VNF_NAT4_SNAT_ADDRESS = env :ONEAPP_VNF_NAT4_SNAT_ADDRESS, ''
 
     def parse_env
         @interfaces_out ||= parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
@@ -63,8 +84,6 @@ module NAT4
         end
     end
 
-    IPV4_RE = /\A(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\z/
-
     # NOTE: NIC -> source address, for the NICs that are not masqueraded.
     #       ONEAPP_VNF_NAT4_SNAT_ADDRESS (one address for every outgoing NIC, for example a public address
     #       routed to the VIP) wins over ONEAPP_VNF_NAT4_SNAT_TO_VIP (the first IPv4 VIP of the NIC).
@@ -82,8 +101,13 @@ module NAT4
     def snat_address_sources(nics)
         addr = ONEAPP_VNF_NAT4_SNAT_ADDRESS.strip.split(%[/])[0].to_s
 
-        unless IPV4_RE.match?(addr)
+        unless unicast_ipv4?(addr)
             msg :error, "NAT4::snat_sources: invalid ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr[0, 40].inspect}, using MASQUERADE"
+            return {}
+        end
+
+        if nat4_snat_address(@mgmt || detect_mgmt_nics).nil?
+            msg :warn, "NAT4::snat_sources: ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr} is not owned by Keepalived on this router, using MASQUERADE"
             return {}
         end
 

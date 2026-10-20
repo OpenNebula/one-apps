@@ -742,4 +742,119 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
   end
+
+    # NOTE: ONEAPP_VNF_NAT4_SNAT_ADDRESS is not configured on the router. Keepalived owns it as a /32 on the
+    #       MASTER only (see Keepalived::snat_address), and LVS accepts it as a virtual IP in the same cases.
+    describe 'NAT4 SNAT address' do
+        let(:addr) { '203.0.113.10' }
+
+        def lvs_conf(lbs, address: nil, enabled: 'YES', out: 'eth1', &block)
+            clear_env
+            ENV.delete_if { |name| name.start_with?('ONEAPP_VNF_NAT4_') || name.start_with?('ONEAPP_VNF_KEEPALIVED_') }
+            ENV.delete_if { |name| name.start_with?('ONEAPP_VROUTER_') }
+
+            ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+            ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.2.20.69'
+
+            lbs.each_with_index do |ip, i|
+                ENV["ONEAPP_VNF_LB#{i}_IP"] = ip
+                ENV["ONEAPP_VNF_LB#{i}_PORT"] = '80'
+                ENV["ONEAPP_VNF_LB#{i}_PROTOCOL"] = 'TCP'
+                ENV["ONEAPP_VNF_LB#{i}_SERVER0_HOST"] = '10.2.100.10'
+                ENV["ONEAPP_VNF_LB#{i}_SERVER0_PORT"] = '80'
+            end
+
+            ENV['ONEAPP_VNF_NAT4_ENABLED'] = enabled
+            ENV['ONEAPP_VNF_NAT4_INTERFACES_OUT'] = out unless out.nil?
+            ENV['ONEAPP_VNF_NAT4_SNAT_ADDRESS'] = address unless address.nil?
+
+            block&.call
+
+            load './main.rb'; include Service::LVS
+
+            allow(Service::LVS).to receive(:toggle).and_return(nil)
+            allow(Service::LVS).to receive(:sleep).and_return(nil)
+            allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+            allow(Service::LVS).to receive(:addrs_to_nics).and_return({
+                '10.2.10.69' => ['eth0'],
+                '10.2.20.2'  => ['eth1']
+            })
+
+            clear_vars Service::LVS
+
+            Dir.mktmpdir do |dir|
+                Service::LVS.execute basedir: dir
+                return File.read("#{dir}/conf.d/lvs.conf")
+            end
+        end
+
+        def servers(conf)
+            conf.scan(/^virtual_server (\S+) /).flatten
+        end
+
+        it 'should render a load balancer on the SNAT address' do
+            expect(servers(lvs_conf([addr], address: addr))).to eq [addr]
+        end
+
+        it 'should ignore a prefix length on the attribute' do
+            expect(servers(lvs_conf([addr], address: "#{addr}/24"))).to eq [addr]
+        end
+
+        it 'should keep the NIC and VIP load balancers' do
+            conf = lvs_conf(['10.2.10.69', '10.2.20.69', addr], address: addr)
+
+            expect(servers(conf)).to eq ['10.2.10.69', '10.2.20.69', addr]
+        end
+
+        it 'should render NIC and VIP load balancers as before when the attribute is unset' do
+            expect(servers(lvs_conf(['10.2.10.69', '10.2.20.69', addr]))).to eq ['10.2.10.69', '10.2.20.69']
+        end
+
+        it 'should skip the SNAT address when NAT4 is disabled' do
+            expect(servers(lvs_conf([addr], address: addr, enabled: 'NO'))).to eq []
+        end
+
+        it 'should skip the SNAT address when NAT4 has no outgoing NIC' do
+            expect(servers(lvs_conf([addr], address: addr, out: nil))).to eq []
+        end
+
+        it 'should skip the SNAT address when the outgoing NIC has no VRRP instance' do
+            expect(servers(lvs_conf([addr], address: addr, out: 'eth5'))).to eq []
+        end
+
+        it 'should skip the SNAT address when the outgoing NIC is not in the Keepalived interfaces' do
+            conf = lvs_conf([addr], address: addr) { ENV['ONEAPP_VNF_KEEPALIVED_INTERFACES'] = 'eth0' }
+
+            expect(servers(conf)).to eq []
+        end
+
+        ['1.2.3.4; reboot', '999.1.1.1', '2001:db8::1', 'eth0', '0.0.0.0', '127.0.0.1', '224.0.0.1',
+         '240.0.0.1', '255.255.255.255'].each do |bad|
+            it "should skip a load balancer on the invalid SNAT address #{bad.inspect}" do
+                expect(servers(lvs_conf([bad, '10.2.10.69'], address: bad))).to eq ['10.2.10.69']
+            end
+        end
+
+        it 'should still skip an address that is neither a NIC, a VIP nor the SNAT address' do
+            expect(servers(lvs_conf(['198.51.100.7', addr], address: addr))).to eq [addr]
+        end
+
+        it 'should skip the SNAT address when the outgoing NIC is skipped in Keepalived' do
+            conf = lvs_conf([addr], address: addr) { ENV['ONEAPP_VNF_KEEPALIVED_ETH1_SKIP'] = 'YES' }
+
+            expect(servers(conf)).to eq []
+        end
+
+        it 'should use a later eligible NIC when the first outgoing NIC is skipped in Keepalived' do
+            conf = lvs_conf([addr], address: addr, out: 'eth0,eth1') { ENV['ONEAPP_VNF_KEEPALIVED_ETH0_SKIP'] = 'YES' }
+
+            expect(servers(conf)).to eq [addr]
+        end
+
+        it 'should skip an address inside a NIC subnet' do
+            conf = lvs_conf(['10.2.20.77'], address: '10.2.20.77') { ENV['ETH1_IP'] = '10.2.20.2' }
+
+            expect(servers(conf)).to eq []
+        end
+    end
 end

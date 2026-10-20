@@ -32,8 +32,14 @@ module LVS
         @interfaces ||= parse_interfaces ONEAPP_VNF_LB_INTERFACES
         @mgmt       ||= detect_mgmt_nics
 
+        # NOTE: The NAT4 SNAT address is also a valid virtual IP (a /32 that Keepalived adds on the MASTER only).
+        #       The VRRP NICs come from the same helper as in Keepalived (keepalived_vrrp_nics, from the
+        #       environment only), so this does not depend on the Keepalived or NAT4 modules being loaded.
+        @snat ||= nat4_snat_address(@mgmt)
+
         @allowed ||= addrs_to_nics(@interfaces.keys - @mgmt).keys +
-                     detect_vips.values.map(&:values).flatten.map { |v| v.split(%[/])[0] }
+                     detect_vips.values.map(&:values).flatten.map { |v| v.split(%[/])[0] } +
+                     [@snat&.last].compact
 
         file "#{basedir}/conf.d/lvs.conf", ERB.new(<<~LVS, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- lvs_vars[:by_endpoint]&.each do |(lb_idx, ip, port), servers| -%>
