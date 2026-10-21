@@ -167,7 +167,7 @@ Equal-cost multipath spreads traffic for one prefix over several next hops. Both
 
 Constraints:
 
-- **The HA backup never takes a share.** The BACKUP node exports with `BACKUP_PREPEND` and `BACKUP_MED`, so a peer sees its path as longer and with a higher MED and does not treat it as equal to the master's. ECMP therefore spreads the load across the *upstream peers* of one router, never across our two routers. This is intended: only the VRRP master forwards (the standby has forwarding stopped).
+- **The HA backup never takes a share.** The BACKUP node exports with `BACKUP_PREPEND` and `BACKUP_MED`, so a peer sees its path as longer and with a higher MED and does not treat it as equal to the master's. ECMP therefore spreads the load across the *upstream peers* of one router, never across our two routers. This is intended: the VIP, and with it the traffic, is on the master only (see "Forwarding on the standby").
 - **LVS NAT mode.** The load balancer needs the replies of a connection to return through the same router that did the NAT. Do not use ECMP on routes toward LB backends or toward clients of an LVS virtual service: a reply that leaves on another path than the request arrived on breaks the connection. Use ECMP for plain routed traffic.
 - **Per-flow hashing.** The kernel decides how flows are hashed over the next hops (`net.ipv4.fib_multipath_hash_policy`); this module does not set it, so the kernel default (the L3 hash) applies.
 - Each member of a multipath route is a normal next hop: when one session or gateway goes away FRR removes only that next hop.
@@ -266,7 +266,7 @@ The FRR hook `10-frr` writes `master` or `backup` to `/run/one-frr/ha-state` and
 - BACKUP: the export route-map of every neighbor raises the MED by `BACKUP_MED` (on top of the neighbor's own `MED`, so the backup is never better than the master) and prepends the local ASN `NEIGHBOR<N>_PREPEND + BACKUP_PREPEND` times. Local preference is not part of the profile (it is not sent over eBGP); `LOCAL_PREF` stays a static import setting.
 - A single VM, with no peer, elects itself VRRP MASTER, and the stock services (`Router4`, `NAT4`, ...) start through Failover `up`.
 
-Known limitation: the standby has forwarding stopped by the stock Failover. If the master's BGP session fails while VRRP stays healthy, traffic can still reach the backup (which advertises the routes too, de-preferred) and be dropped there. The follow-up is BFD plus a VRRP track on the BGP session.
+Known limitation: if the master's BGP session fails while VRRP stays healthy, traffic can still reach the backup (which advertises the routes too, de-preferred). The backup forwards it (see "Forwarding on the standby"), without the NAT rules of the master. The follow-up is BFD plus a VRRP track on the BGP session.
 
 ## OSPF
 
@@ -393,9 +393,13 @@ The renderer puts an IPv6 neighbor in `address-family ipv6 unicast`, with `ipv6 
 - No NAT66.
 - No link-local peers: neighbor addresses and static route gateways must be global or ULA.
 - No dual-stack sessions: one neighbor is one family, a second family needs a second neighbor.
-- Applying a configuration through `frr-reload` turned `net.ipv6.conf.all.forwarding` on (measured), so with FRR active IPv6 may be forwarded after the first apply. There is no IPv6 filtering in the image.
+- Applying a configuration through `frr-reload` turned `net.ipv6.conf.all.forwarding` on (measured), so with FRR active IPv6 may be forwarded after the first apply. There is no IPv6 filtering in the image. See also "Forwarding on the standby" for IPv4.
 - IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) are rejected.
 - The router-id must be an IPv4 address.
+
+## Forwarding on the standby
+
+The stock Failover turns forwarding off on the standby, but zebra turns IPv4 and IPv6 forwarding on whenever it starts (measured: after `rc-service frr restart` with forwarding at 0, both were 1 again). With FRR running, the standby therefore forwards what reaches it. It has no VIP, so normally nothing is sent through it, and the NAT rules exist on the master only. The module does not change this.
 
 ## Known limitations
 
