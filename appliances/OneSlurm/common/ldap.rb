@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'shellwords'
+
 # LDAP / SSSD helpers for both Slurm roles.
 #
 module OneSlurm
@@ -217,13 +219,13 @@ module OneSlurm
             msg :info, 'OpenLDAP server configured successfully'
         end
 
-        def configure_controller_ldap
+        def configure_accounting_ldap
             if ONEAPP_LDAP_ENABLE
                 unless ONEAPP_LDAP_URL.to_s.empty?
                     msg :info, 'ONEAPP_LDAP_ENABLE=YES; external LDAP URL inputs are ignored'
                 end
                 configure_local_ldap
-                "ldap://#{controller_ipv4}"
+                "ldap://#{accounting_ipv4}"
             elsif ldap_client_enabled?
                 stop_local_ldap
                 configure_external_ldap_client
@@ -235,8 +237,32 @@ module OneSlurm
             end
         end
 
+        def configure_discovered_ldap(ldap)
+            validate_discovered_ldap(ldap)
+            if ldap.fetch('url').empty?
+                stop_sssd
+            else
+                apply_sssd_ldap_client(*ldap.values_at('url', 'domain', 'bind_user', 'bind_password'))
+            end
+        end
+
+        def validate_discovered_ldap(ldap)
+            fields = %w[url domain bind_user bind_password]
+            unless ldap.is_a?(Hash) && fields.all? { |field| ldap[field].is_a?(String) }
+                raise ArgumentError, 'Invalid Accounting LDAP metadata'
+            end
+            return if fields.all? { |field| ldap[field].empty? }
+
+            if ldap['url'].empty? || ldap['domain'].empty?
+                raise ArgumentError, 'Incomplete Accounting LDAP metadata'
+            end
+            if ldap['url'] =~ %r{//(127\.0\.0\.1|localhost|\[?::1\]?)(:|/|$)}
+                raise ArgumentError, 'Accounting LDAP endpoint must be remotely reachable'
+            end
+        end
+
         def configure_local_ldap
-            msg :info, 'LDAP enabled, configuring controller local LDAP'
+            msg :info, 'LDAP enabled, configuring Accounting local LDAP'
             install_ldap_server
             setup_ldap_database
             setup_ldap_client
@@ -253,15 +279,15 @@ module OneSlurm
         end
 
         def configure_external_ldap_client
-            msg :info, 'Configuring controller external LDAP client'
+            msg :info, 'Configuring Accounting external LDAP client'
             apply_sssd_ldap_client(ONEAPP_LDAP_URL)
-            msg :info, 'SSSD external LDAP client configured successfully on controller'
+            msg :info, 'SSSD external LDAP client configured successfully on Accounting'
         end
 
         def setup_ldap_client
-            msg :info, 'Configuring SSSD LDAP client on controller'
+            msg :info, 'Configuring SSSD LDAP client on Accounting'
             apply_sssd_ldap_client('ldap://127.0.0.1')
-            msg :info, 'SSSD LDAP client configured successfully on controller'
+            msg :info, 'SSSD LDAP client configured successfully on Accounting'
         end
 
         def apply_sssd_ldap_client(ldap_uri, domain = ONEAPP_LDAP_DOMAIN,
@@ -312,6 +338,28 @@ module OneSlurm
             bash 'systemctl enable sssd'
             bash 'systemctl restart sssd'
             bash 'systemctl is-active sssd'
+        end
+
+        def verify_ldap_client(ldap_uri, domain, bind_user, bind_password, attempts: 10, delay: 3)
+            raise ArgumentError, 'LDAP health check requires positive attempts' unless attempts.is_a?(Integer) && attempts.positive?
+
+            args = ['timeout', '10', 'ldapsearch', '-x', '-H', ldap_uri, '-o', 'nettimeout=5',
+                    '-l', '5', '-LLL', '-b', ldap_base_dn(domain), '-s', 'base']
+            bind_dn = ldap_bind_dn(domain, bind_user)
+            args.concat ['-D', bind_dn, '-w', bind_password] unless bind_dn.empty?
+            args.concat ['(objectClass=*)', 'dn']
+            attempts.times do |i|
+                begin
+                    result = bash(args.shelljoin, chomp: true)
+                    raise 'LDAP base is unavailable' unless result.match?(/^dn:[: ]/)
+
+                    return nil
+                rescue StandardError
+                    raise "LDAP client health check failed after #{attempts} attempts", cause: nil if i + 1 == attempts
+
+                    sleep delay
+                end
+            end
         end
 
         def ensure_nsswitch_sss
