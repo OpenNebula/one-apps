@@ -26,7 +26,9 @@ module Failover
         'one-dhcp4v2' => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED' },
         'coredhcp'    => { _ENABLED: 'ONEAPP_VNF_DHCP4_ENABLED', dependency: true },
 
-        'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED' }
+        'one-wg'      => { _ENABLED: 'ONEAPP_VNF_WG_ENABLED' },
+
+        'one-gre'     => { _ENABLED: 'ONEAPP_VNF_GRE_ENABLED' }
     }
 
     FIFO_PATH  = '/run/keepalived/vrrp_notify_fifo.sock'
