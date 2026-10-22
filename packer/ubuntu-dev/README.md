@@ -3,6 +3,12 @@
 Uses the same cloud images, upgrade, boot configuration, OpenNebula context,
 SSH configuration, and cleanup as `packer/ubuntu`, with those files linked to
 the base image scripts. The development image has a 100 GiB disk.
+Source downloads and extraction use `/var/tmp`, with `TMPDIR` set to the same
+working directory, to avoid filling a memory-backed `/tmp`. The directory is
+removed when the dependency script exits. Filesystem capacity and inode usage
+are printed before installation to help diagnose space issues.
+During `mk-build-deps`, `TMPDIR` points to the current source directory so
+`equivs-build` creates the dependency package where the installer expects it.
 
 `20-install-build-dependencies.sh` follows the default Ubuntu tasks from
 one-infra's `microenvs/ansible/roles/packages-build-dependencies`: install

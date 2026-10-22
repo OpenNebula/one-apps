@@ -18,9 +18,15 @@ package_version="${source_version}-1"
 repo_url="https://downloads.opennebula.io/repo/${source_version}/Ubuntu/${VERSION_ID}"
 dsc_url="${repo_url}/opennebula-${package_version}-amd64/source/opennebula_${package_version}.dsc"
 
-work_dir=$(mktemp -d)
+# /tmp may be a small tmpfs, independent of the virtual disk size.
+# Keep downloads, extraction, and tool scratch files on the root disk.
+work_dir=$(mktemp -d /var/tmp/opennebula-build-deps.XXXXXX)
 trap 'rm -rf "$work_dir"' EXIT
+export TMPDIR="$work_dir"
 cd "$work_dir"
+
+df -h / /tmp "$work_dir"
+df -i "$work_dir"
 
 policy_rc_d_disable
 
@@ -49,7 +55,9 @@ apt-get update -y
 # Derive the full dependency set from the source package's debian/control.
 dget -u "$dsc_url"
 cd "opennebula-${source_version}"
-mk-build-deps -i --tool 'apt-get -y --no-remove -o Debug::pkgProblemResolver=yes'
+# equivs-build writes its output into TMPDIR, while mk-build-deps expects it
+# in the current directory. Keep both paths identical and on the root disk.
+TMPDIR="$PWD" mk-build-deps -i --tool 'apt-get -y --no-remove -o Debug::pkgProblemResolver=yes'
 dpkg-checkbuilddeps
 
 # Ensure the role's gRPC dependencies are present even for older source packages.
