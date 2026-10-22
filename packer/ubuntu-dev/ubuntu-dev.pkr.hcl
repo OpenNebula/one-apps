@@ -24,7 +24,7 @@ build {
 
 locals {
   # Allow room for the source package and installed build dependencies.
-  disk_size = 20480
+  disk_size = 102400
 }
 
 # Build VM image

@@ -2,7 +2,7 @@
 
 Uses the same cloud images, upgrade, boot configuration, OpenNebula context,
 SSH configuration, and cleanup as `packer/ubuntu`, with those files linked to
-the base image scripts. The development image has a 20 GiB disk.
+the base image scripts. The development image has a 100 GiB disk.
 
 `20-install-build-dependencies.sh` follows the default Ubuntu tasks from
 one-infra's `microenvs/ansible/roles/packages-build-dependencies`: install
