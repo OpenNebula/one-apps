@@ -116,13 +116,23 @@ module Keepalived
 
         keepalived_vars = parse_env default_vrid
 
+        # NOTE: IPv6 VIPs are installed with "preferred_lft 0" (deprecated). Otherwise the kernel
+        #       picks the VIP as the source address of the router's own IPv6 traffic (measured on
+        #       the VRRP master: `ip -6 route get` -> src <VIP>), and sessions to a peer that only
+        #       knows the node address (routing daemons, for example) never came up. The VIP stays on the NIC and is
+        #       still answered for. IPv4 is not affected (the primary address is used).
         file "#{basedir}/conf.d/vrrp.conf", ERB.new(<<~VRRP, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             <%- unless keepalived_vars[:by_vrid].nil? || keepalived_vars[:by_vrid].empty? -%>
             vrrp_sync_group VRouter {
                 group {
             <%- keepalived_vars[:by_vrid].each do |_, nics| -%>
             <%- unless ((k, _) = nics.find { |_, opt| !opt[:skip] && !opt[:noip] }).nil? -%>
+            <%- if ipv4_instance?(nics) -%>
                     <%= k.upcase %>
+            <%- end -%>
+            <%- unless group_vips(nics, :ipv6).empty? -%>
+                    <%= k.upcase %>_6
+            <%- end -%>
             <%- end -%>
             <%- end -%>
                 }
@@ -130,6 +140,7 @@ module Keepalived
 
             <%- keepalived_vars[:by_vrid].each do |vrid, nics| -%>
             <%- unless ((k, v) = nics.find { |_, opt| !opt[:skip] && !opt[:noip] }).nil? -%>
+            <%- if ipv4_instance?(nics) -%>
             vrrp_instance <%= k.upcase %> {
                 state             BACKUP
                 interface         <%= k.downcase %>
@@ -139,7 +150,7 @@ module Keepalived
 
                 virtual_ipaddress {
             <%- nics.each do |nic, opt| -%>
-            <%- opt[:vips].compact.reject(&:empty?).each do |vip| -%>
+            <%- opt[:vips].compact.reject(&:empty?).reject { |vip| vip.include?(':') }.each do |vip| -%>
                     <%= vip %> dev <%= nic.downcase %>
             <%- end -%>
             <%- end -%>
@@ -161,6 +172,24 @@ module Keepalived
             <%- end -%>
             }
             <%- end -%>
+            <%- unless group_vips(nics, :ipv6).empty? -%>
+            vrrp_instance <%= k.upcase %>_6 {
+                state             BACKUP
+                interface         <%= k.downcase %>
+                virtual_router_id <%= vrid %>
+                priority          <%= v[:priority] %>
+                advert_int        <%= v[:interval] -%>
+
+                virtual_ipaddress {
+            <%- nics.each do |nic, opt| -%>
+            <%- opt[:vips].compact.reject(&:empty?).select { |vip| vip.include?(':') }.each do |vip| -%>
+                    <%= vip %> dev <%= nic.downcase %> preferred_lft 0
+            <%- end -%>
+            <%- end -%>
+                }
+            }
+            <%- end -%>
+            <%- end -%>
             <%- end -%>
             <%- end -%>
         VRRP
@@ -178,6 +207,18 @@ module Keepalived
         #       Re-configure can be triggered by direct context changes
         #       or for example a NIC hotplug.
         toggle [:enable, :restart]
+    end
+
+    # The VIPs of one address family of all the NICs of a VRRP group.
+    # A group needs one VRRP instance per family.
+    def group_vips(nics, family)
+        nics.values.flat_map { |opt| opt[:vips].compact.reject(&:empty?) }
+            .select { |vip| (vip.include?(':') ? :ipv6 : :ipv4) == family }
+    end
+
+    # Rendered unless the group has IPv6 VIPs only.
+    def ipv4_instance?(nics)
+        !group_vips(nics, :ipv4).empty? || group_vips(nics, :ipv6).empty?
     end
 
     def toggle(operations)
@@ -202,12 +243,10 @@ module Keepalived
 
     def ready(role = :master)
         detect_vips.each do |nic, vips|
-            vips = vips.values.map do |vip|
-                vip.split(%[/])[0] # remove the CIDR "prefixlen" if present
-            end
+            vips = vips.values.map { |vip| normalize_addr(vip) }
 
-            addrs = ip_addr_show(nic)['addr_info']&.each_with_object([]) do |item, acc|
-                acc << item['local'] unless item['local'].nil?
+            addrs = (ip_addr_show(nic)['addr_info'] || []).filter_map do |item|
+                normalize_addr(item['local']) unless item['local'].nil?
             end
 
             if role == :master ? (vips & addrs) != vips : (vips & addrs) == vips
