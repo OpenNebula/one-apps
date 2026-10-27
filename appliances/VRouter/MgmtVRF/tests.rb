@@ -271,7 +271,19 @@ RSpec.describe self do
         it 'should apply the gateway of a NIC that is not management in the main table' do
             cmds = run_execute(other)
 
-            expect(cmds).to include("ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:")
+        end
+
+        it 'should add a gateway only when the NIC has no default route yet' do
+            cmds = run_execute(other)
+
+            expect(cmds.grep(/198\.51\.100\.1/)).to eq(["ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:"])
+        end
+
+        it 'should not add a default route for a management NIC without a gateway' do
+            cmds = run_execute('ETH0_VROUTER_MANAGEMENT' => 'YES', 'ETH0_IP' => '172.20.128.210', 'ETH1_IP' => '198.51.100.2', 'ETH1_GATEWAY' => '198.51.100.1')
+
+            expect(cmds.grep(/table 1000/).grep(/default/)).to be_empty
         end
 
         it 'should keep the gateway of the management NIC in the VRF table only' do
@@ -291,7 +303,7 @@ RSpec.describe self do
         it 'should honor the metric of the NIC' do
             cmds = run_execute(other.merge('ETH1_METRIC' => '20'))
 
-            expect(cmds).to include("ip route add default via '198.51.100.1' dev 'eth1' metric 20 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' metric 20 2>/dev/null ||:")
         end
 
         it 'should apply the gateways of several NICs in the order of their index' do
@@ -306,13 +318,13 @@ RSpec.describe self do
         it 'should apply the IPv6 gateway of a NIC that is not management in the main table' do
             cmds = run_execute(other.merge('ETH1_IP6' => 'fd00:129::2', 'ETH1_GATEWAY6' => 'fd00:129::1'))
 
-            expect(cmds).to include("ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
         end
 
         it 'should prefer ETH<n>_IP6_GATEWAY over ETH<n>_GATEWAY6' do
             cmds = run_execute(other.merge('ETH1_GATEWAY6' => 'fd00:129::1', 'ETH1_IP6_GATEWAY' => 'fd00:129::5'))
 
-            expect(cmds).to include("ip -6 route add default via 'fd00:129::5' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::5' dev 'eth1' 2>/dev/null ||:")
             expect(cmds.grep(/fd00:129::1'/)).to be_empty
         end
 
@@ -365,6 +377,46 @@ RSpec.describe self do
         end
     end
 
+    describe 'static routes of the management NIC' do
+        let(:routed) { mgmt.merge('ETH0_ROUTES' => '10.50.0.0/16 via 172.20.128.254, 192.0.2.7 via 172.20.128.253') }
+
+        it 'should put them into the VRF table' do
+            cmds = run_execute(routed)
+
+            expect(cmds).to include("ip route replace '10.50.0.0/16' via '172.20.128.254' dev 'eth0' table 1000")
+            expect(cmds).to include("ip route replace '192.0.2.7' via '172.20.128.253' dev 'eth0' table 1000")
+        end
+
+        it 'should add them after the NIC moved into the VRF' do
+            cmds = run_execute(routed)
+
+            expect(cmds.index { |c| c.include?('master') }).to be < cmds.index { |c| c.include?("'10.50.0.0/16'") }
+        end
+
+        it 'should not touch the main table for them' do
+            cmds = run_execute(routed)
+
+            expect(cmds.grep(/10\.50\.0\.0/).grep_v(/table 1000/)).to be_empty
+        end
+
+        it 'should add nothing without ETH0_ROUTES' do
+            expect(run_execute(mgmt).grep(/replace '/)).to be_empty
+        end
+
+        it 'should skip an invalid entry, log it and keep the others' do
+            cmds = run_execute(mgmt.merge('ETH0_ROUTES' => "10.50.0.0/16 via 1.1.1.1; reboot, 10.60.0.0/33 via 1.1.1.1, bogus, 10.70.0.0/24 via 172.20.128.254"))
+
+            expect(cmds.grep(/replace '/)).to eq(["ip route replace '10.70.0.0/24' via '172.20.128.254' dev 'eth0' table 1000"])
+            expect(@errors.grep(/invalid ETH0_ROUTES entry/).size).to eq(3)
+        end
+
+        it 'should leave the routes of a NIC that is not management alone' do
+            cmds = run_execute(mgmt.merge('ETH1_IP' => '198.51.100.2', 'ETH1_ROUTES' => '10.80.0.0/16 via 198.51.100.254'))
+
+            expect(cmds.grep(/10\.80/)).to be_empty
+        end
+    end
+
     describe 'cleanup' do
         def run_cleanup(env = {})
             clear_env
@@ -401,6 +453,66 @@ RSpec.describe self do
             run_cleanup
 
             expect(@conf_left).to be false
+        end
+
+        it 'should give the default route of the management NIC back to the main table' do
+            cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1')
+
+            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip route add default via '172.20.128.1' dev 'eth0' 2>/dev/null ||:")
+        end
+
+        it 'should keep the metric of the NIC' do
+            cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1', 'ETH0_METRIC' => '20')
+
+            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip route add default via '172.20.128.1' dev 'eth0' metric 20 2>/dev/null ||:")
+        end
+
+        it 'should give the static routes back to the main table' do
+            cmds = run_cleanup('ETH0_ROUTES' => '10.50.0.0/16 via 172.20.128.254')
+
+            expect(cmds).to include("ip route replace '10.50.0.0/16' via '172.20.128.254' dev 'eth0'")
+        end
+
+        it 'should give the IPv6 default route and addresses back' do
+            cmds = run_cleanup('ETH0_IP6' => '2001:db8::10', 'ETH0_IP6_GATEWAY' => '2001:db8::1')
+
+            expect(cmds).to include("ip -6 addr replace '2001:db8::10/64' dev 'eth0'")
+            expect(cmds).to include("ip -6 route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip -6 route add default via '2001:db8::1' dev 'eth0' onlink 2>/dev/null ||:")
+        end
+
+        it 'should restore the routes only after the VRF was deleted' do
+            cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1', 'ETH0_ROUTES' => '10.50.0.0/16 via 172.20.128.254')
+
+            expect(cmds.index { |c| c.include?('ip link del') }).to be < cmds.index { |c| c.include?('ip route') }
+        end
+
+        it 'should give the default routes of the other NICs back where they are missing' do
+            cmds = run_cleanup('ETH1_IP' => '198.51.100.2', 'ETH1_GATEWAY' => '198.51.100.1', 'ETH1_METRIC' => '5',
+                               'ETH1_IP6_GATEWAY' => 'fd00:129::1')
+
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' metric 5 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
+        end
+
+        it 'should only add a default route when the NIC has none' do
+            cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1')
+
+            expect(cmds.grep(/172\.20\.128\.1/).first).to start_with("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ")
+        end
+
+        it 'should add no route without a gateway or routes' do
+            expect(run_cleanup.grep(/ip (-6 )?route/)).to be_empty
+        end
+
+        it 'should do nothing about routes without a management NIC' do
+            clear_env
+            load './main.rb'; include Service::MgmtVRF
+            scripts = []
+            allow(Service::MgmtVRF).to receive(:bash) { |script| scripts << script; '' }
+            allow(Service::MgmtVRF).to receive(:msg)
+            Dir.mktmpdir { |dir| Service::MgmtVRF.cleanup basedir: dir }
+
+            expect(scripts.join).not_to match(/ip (-6 )?route/)
         end
     end
 end

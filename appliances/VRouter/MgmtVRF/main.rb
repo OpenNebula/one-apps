@@ -68,6 +68,7 @@ module MgmtVRF
         return if nics.empty?
 
         routes  = default_routes nics
+        statics = static_routes nics
         addrs6  = ip6_addresses nics
         routes6 = default_routes6 nics
         leak    = onegate_rule
@@ -98,11 +99,14 @@ module MgmtVRF
             <%- routes6.each do |nic, gateway| -%>
             ip -6 route replace default via '<%= gateway %>' dev '<%= nic %>' onlink table <%= VRF_TABLE %>
             <%- end -%>
+            <%- statics.each do |nic, dst, gateway| -%>
+            ip route replace '<%= dst %>' via '<%= gateway %>' dev '<%= nic %>' table <%= VRF_TABLE %>
+            <%- end -%>
             <%- others[:v4].each do |nic, gateway, metric| -%>
-            ip route add default via '<%= gateway %>' dev '<%= nic %>'<%= metric.nil? ? '' : ' metric ' + metric.to_s %> 2>/dev/null ||:
+            <%= default_if_missing nic, gateway, metric: metric %>
             <%- end -%>
             <%- others[:v6].each do |nic, gateway| -%>
-            ip -6 route add default via '<%= gateway %>' dev '<%= nic %>' 2>/dev/null ||:
+            <%= default_if_missing nic, gateway, v6: true %>
             <%- end -%>
             <%- unless leak.nil? -%>
             <%= leak[:del] %>
@@ -116,15 +120,43 @@ module MgmtVRF
     def cleanup(basedir: '/etc/sysctl.d')
         msg :info, 'MgmtVRF::cleanup'
 
-        leak = onegate_rule
+        leak    = onegate_rule
+        nics    = detect_mgmt_nics.sort_by { |nic| nic[/\d+/].to_i }
+        routes  = default_routes nics
+        routes6 = default_routes6 nics
+        statics = static_routes nics
+        addrs6  = ip6_addresses nics
+        others  = other_default_routes nics
 
-        # NOTE: Deleting the VRF device releases its NICs.
+        # NOTE: Deleting the VRF device releases its NICs, and the routes of the VRF table are gone with it.
+        #       one-context does not run again at this point, so the routes of the management NICs, and the
+        #       default routes of the other NICs, go back into the main table here, where they are missing.
         bash ERB.new(<<~SCRIPT, trim_mode: '-').result(binding)
             if ip link show '<%= VRF_NAME %>' >/dev/null 2>&1; then
                 ip link del '<%= VRF_NAME %>'
             fi
             <%- unless leak.nil? -%>
             <%= leak[:del] %>
+            <%- end -%>
+            <%- addrs6.each do |nic, addrs| -%>
+            <%- addrs.each do |addr| -%>
+            ip -6 addr replace '<%= addr %>' dev '<%= nic %>'
+            <%- end -%>
+            <%- end -%>
+            <%- routes.each do |nic, gateway| -%>
+            <%= default_if_missing nic, gateway, metric: main_metric(nic) %>
+            <%- end -%>
+            <%- routes6.each do |nic, gateway| -%>
+            <%= default_if_missing nic, gateway, v6: true, onlink: true %>
+            <%- end -%>
+            <%- statics.each do |nic, dst, gateway| -%>
+            ip route replace '<%= dst %>' via '<%= gateway %>' dev '<%= nic %>'
+            <%- end -%>
+            <%- others[:v4].each do |nic, gateway, metric| -%>
+            <%= default_if_missing nic, gateway, metric: metric %>
+            <%- end -%>
+            <%- others[:v6].each do |nic, gateway| -%>
+            <%= default_if_missing nic, gateway, v6: true %>
             <%- end -%>
         SCRIPT
 
@@ -195,6 +227,42 @@ module MgmtVRF
         end
 
         [nic, gateway]
+    end
+
+    # NOTE: Moving a NIC into a VRF drops its static routes (ETH<n>_ROUTES, "<destination> via <gateway>",
+    #       separated by commas), so they are put into the VRF table next to the default route.
+    #       Only an IPv4 destination (with an optional prefix length) and an IPv4 gateway are accepted.
+    def static_routes(nics)
+        nics.flat_map do |nic|
+            env("#{nic.upcase}_ROUTES", '').to_s.split(',').map(&:strip).reject(&:empty?).filter_map do |route|
+                dst, via, gateway, extra = route.split
+                prefix = dst.to_s.split('/')
+
+                if via == 'via' && extra.nil? && IPV4_RE.match?(prefix[0].to_s) && IPV4_RE.match?(gateway.to_s) &&
+                   (prefix.size == 1 || (prefix.size == 2 && /\A(?:[0-9]|[12][0-9]|3[0-2])\z/.match?(prefix[1])))
+                    [nic, dst, gateway]
+                else
+                    msg :error, "MgmtVRF: invalid #{nic.upcase}_ROUTES entry #{route[0, 40].inspect} for #{nic}, route skipped"
+                    nil
+                end
+            end
+        end
+    end
+
+    # NOTE: A default route that one-context installed (for example with a metric) stays as it is: the
+    #       route of a NIC is only added when the NIC has no default route in the main table.
+    def default_if_missing(nic, gateway, metric: nil, v6: false, onlink: false)
+        family = v6 ? 'ip -6' : 'ip'
+        extra  = (metric.nil? ? '' : " metric #{metric}") + (onlink ? ' onlink' : '')
+
+        "#{family} route show dev '#{nic}' 2>/dev/null | grep -q '^default' || " \
+            "#{family} route add default via '#{gateway}' dev '#{nic}'#{extra} 2>/dev/null ||:"
+    end
+
+    def main_metric(nic)
+        metric = env("#{nic.upcase}_METRIC", '').to_s
+
+        /\A\d{1,9}\z/.match?(metric) ? metric.to_i : nil
     end
 
     def default_routes(nics)

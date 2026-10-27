@@ -34,10 +34,11 @@ The `one-mgmt-vrf` OpenRC service runs after `sysctl` and `net`. On start it doe
 2. Creates the VRF device `mgmt` (table 1000) if it does not exist, sets it up and moves every management NIC into it.
 3. Puts the IPv6 configuration of the NIC back. Moving a NIC into a VRF flushes its IPv6 addresses and routes, so the static ones are restored the way one-context applies them: `ETH<n>_IP6` (or `ETH<n>_IPV6`) with `ETH<n>_IP6_PREFIX_LENGTH` (default 64), and `ETH<n>_IP6_ULA` as a `/64`.
 4. Adds the default routes of the management NIC to table 1000: `ETH<n>_GATEWAY` for IPv4, and `ETH<n>_IP6_GATEWAY` (or `ETH<n>_GATEWAY6`) for IPv6 with `onlink`.
-5. Adds the default routes of the NICs that are not management to the main table: `ETH<n>_GATEWAY` with `ETH<n>_METRIC` for IPv4, and `ETH<n>_IP6_GATEWAY` (or `ETH<n>_GATEWAY6`) for IPv6. one-context would have done this itself if the gateway of the management NIC had not come first. A route that already exists is left as it is (the failure of `ip route add` is ignored).
-6. Adds a policy rule `pref 100 to <OneGate address> lookup 1000`. The appliance talks to OneGate from the default VRF, which cannot reach hosts behind the management NIC once it is enslaved; the rule sends that traffic to the VRF table, and the lookup falls through to the main table if the VRF has no route for it. A rule of an earlier run is deleted first, so repeated runs do not pile up rules.
+5. Adds the static routes of the management NIC to table 1000: the entries of `ETH<n>_ROUTES` (`<destination> via <gateway>`, separated by commas). Moving the NIC into the VRF drops them from the main table.
+6. Adds the default routes of the NICs that are not management to the main table: `ETH<n>_GATEWAY` with `ETH<n>_METRIC` for IPv4, and `ETH<n>_IP6_GATEWAY` (or `ETH<n>_GATEWAY6`) for IPv6. one-context would have done this itself if the gateway of the management NIC had not come first. A NIC that already has a default route in the main table (for example one that one-context installed with a metric) keeps it, and nothing is added.
+7. Adds a policy rule `pref 100 to <OneGate address> lookup 1000`. The appliance talks to OneGate from the default VRF, which cannot reach hosts behind the management NIC once it is enslaved; the rule sends that traffic to the VRF table, and the lookup falls through to the main table if the VRF has no route for it. A rule of an earlier run is deleted first, so repeated runs do not pile up rules.
 
-On stop the service deletes the VRF device, which releases its NICs, deletes the policy rule and removes `/etc/sysctl.d/97-MgmtVRF.conf`.
+On stop the service deletes the VRF device, which releases its NICs, deletes the policy rule and removes `/etc/sysctl.d/97-MgmtVRF.conf`. The routes of the VRF table are gone with the device, and one-context does not run again, so the service puts the IPv6 addresses, the default routes (`ETH<n>_GATEWAY` with `ETH<n>_METRIC`, and the IPv6 gateway) and the `ETH<n>_ROUTES` of the management NIC back into the main table, and the default routes of the other NICs where they are missing. A NIC that already has a default route in the main table keeps it.
 
 With `ONEAPP_VNF_MGMT_VRF_ENABLED=NO` the service is stopped and disabled at every boot and re-contexting, also when someone enabled it by hand.
 
@@ -49,6 +50,7 @@ Values end up in shell commands, so only plain notations are accepted. A rejecte
 |---|---|
 | IPv4 gateway | dotted quad, each octet 0..255 |
 | `ETH<n>_METRIC` | 1 to 9 digits |
+| `ETH<n>_ROUTES` | comma-separated `<destination> via <gateway>` entries; the destination is a dotted quad with an optional prefix length 0..32, the gateway a dotted quad. Other entries are logged and skipped |
 | IPv6 address, ULA, gateway | plain IPv6 notation (no prefix length, zone id or embedded IPv4 part); a link-local gateway is accepted |
 | `ETH<n>_IP6_PREFIX_LENGTH` | 1..128 |
 | OneGate address | taken from `ONEGATE_ENDPOINT`, only if the host is an IPv4 or IPv6 literal; a host name gets no rule |
