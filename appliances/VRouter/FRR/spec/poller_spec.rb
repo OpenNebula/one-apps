@@ -58,9 +58,9 @@ RSpec.describe Service::FRR::Poller do
 
     after { FileUtils.remove_entry(dir) }
 
-    def poller(onegate: self.onegate)
+    def poller(onegate: self.onegate, **extra)
         described_class.new(applier: applier, onegate: onegate, store: store, context: context,
-                            ha_state: -> { ha.first }, reporter: reporter, sleeper: ->(_) {})
+                            ha_state: -> { ha.first }, reporter: reporter, sleeper: ->(_) {}, **extra)
     end
 
     it 'applies the context merged with the user-template overrides' do
@@ -95,6 +95,18 @@ RSpec.describe Service::FRR::Poller do
         expect(reporter.results.last.message).to include("ignored boot-only #{p}ASN in the user template")
         expect(reporter.results.last.message).not_to include('64999')
         expect(subject.tick).to eq :unchanged
+    end
+
+    it 'calls after_apply with the HA state after each apply, and not when nothing is applied' do
+        seen = []
+        subject = poller(after_apply: ->(state) { seen << state })
+
+        subject.tick
+        subject.tick
+        ha[0] = :backup
+        subject.tick
+
+        expect(seen).to eq %i[master backup]
     end
 
     it 'does nothing while neither the attributes nor the HA state change' do

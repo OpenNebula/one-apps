@@ -266,7 +266,7 @@ The FRR hook `10-frr` writes `master` or `backup` to `/run/one-frr/ha-state` and
 - BACKUP: the export route-map of every neighbor raises the MED by `BACKUP_MED` (on top of the neighbor's own `MED`, so the backup is never better than the master) and prepends the local ASN `NEIGHBOR<N>_PREPEND + BACKUP_PREPEND` times. Local preference is not part of the profile (it is not sent over eBGP); `LOCAL_PREF` stays a static import setting.
 - A single VM, with no peer, elects itself VRRP MASTER, and the stock services (`Router4`, `NAT4`, ...) start through Failover `up`.
 
-Known limitation: if the master's BGP session fails while VRRP stays healthy, traffic can still reach the backup (which advertises the routes too, de-preferred). The backup forwards it (see "Forwarding on the standby"), without the NAT rules of the master. The follow-up is BFD plus a VRRP track on the BGP session.
+Known limitation: if the master's BGP session fails while VRRP stays healthy, traffic can still reach the backup (which advertises the routes too, de-preferred) and be dropped there, because the standby has forwarding stopped (see "Forwarding on the standby"). The follow-up is BFD plus a VRRP track on the BGP session.
 
 ## OSPF
 
@@ -393,13 +393,15 @@ The renderer puts an IPv6 neighbor in `address-family ipv6 unicast`, with `ipv6 
 - No NAT66.
 - No link-local peers: neighbor addresses and static route gateways must be global or ULA.
 - No dual-stack sessions: one neighbor is one family, a second family needs a second neighbor.
-- Applying a configuration through `frr-reload` turned `net.ipv6.conf.all.forwarding` on (measured), so with FRR active IPv6 may be forwarded after the first apply. There is no IPv6 filtering in the image. See also "Forwarding on the standby" for IPv4.
+- Applying a configuration through `frr-reload` turned `net.ipv6.conf.all.forwarding` on (measured), so with FRR active IPv6 may be forwarded after the first apply. There is no IPv6 filtering in the image.
 - IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) are rejected.
 - The router-id must be an IPv4 address.
 
 ## Forwarding on the standby
 
-The stock Failover turns forwarding off on the standby, but zebra turns IPv4 and IPv6 forwarding on whenever it starts (measured: after `rc-service frr restart` with forwarding at 0, both were 1 again). With FRR running, the standby therefore forwards what reaches it. It has no VIP, so normally nothing is sent through it, and the NAT rules exist on the master only. The module does not change this.
+The stock Failover keeps forwarding off on the standby. zebra turns IPv4 and IPv6 forwarding on whenever it starts (measured: after `rc-service frr restart` with forwarding at 0, both were 1 again), and the stock Failover does not switch it off, because it skips the stop of a service that is not running. A standby that forwards would send traffic out without the NAT rules of the master: when the VIP moves, clients reach the new master before its NAT4 rules are in place, and the server resets the connections it still knows under the old address.
+
+On `down` the `10-frr` hook writes 0 to every `ipv4/ip_forward`, `ipv4/conf/*/forwarding` and `ipv6/conf/*/forwarding` file after its apply. The poller does the same after each apply while the node is BACKUP (`frr-reload` can turn IPv6 forwarding on). The master is not touched: the stock Failover turns forwarding on at `up`. Until the node learns its role at boot, forwarding stays as zebra left it.
 
 ## Known limitations
 

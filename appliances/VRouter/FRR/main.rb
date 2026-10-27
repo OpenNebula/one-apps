@@ -11,6 +11,7 @@ require_relative 'override_store'
 require_relative 'applier'
 require_relative 'poller'
 require_relative 'ha_state'
+require_relative 'forwarding'
 require_relative 'secure_file'
 require_relative 'sections'
 
@@ -110,6 +111,14 @@ module FRR
             # The failover hook must not fail; the poller converges on its next tick.
             msg :error, "FRR::ha_transition: apply after #{direction} failed: #{e.message}"
         end
+
+        hold_forwarding_off if state == :backup
+    end
+
+    # zebra enables forwarding when it starts; the standby must not forward (see Forwarding).
+    def hold_forwarding_off
+        failed = Forwarding.off
+        msg :warn, "FRR: could not switch forwarding off: #{failed.join(', ')}" unless failed.empty?
     end
 
     # bfdd belongs to the core (more than one protocol can use BFD); the sections add their own daemons.
@@ -319,7 +328,7 @@ module FRR
                                conf_writer: method(:write_frr_conf))
 
         Poller.new(applier: applier, onegate: onegate, store: OverrideStore.new(File.join(STATE_DIR, 'overrides.json')),
-                   context: ENV.to_h, ha_state: -> { HaState.read },
+                   context: ENV.to_h, ha_state: -> { HaState.read }, after_apply: ->(ha) { hold_forwarding_off if ha == :backup },
                    reporter: Reporter.new(onegate: onegate, reloader: reloader,
                                           sections: Sections::ALL.select { |section| section.in_context?(ENV) }))
     end

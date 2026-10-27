@@ -587,6 +587,7 @@ RSpec.describe Service::FRR do
             before do
                 ENV["#{p}ENABLED"] = 'YES'
                 allow(Service::FRR::HaState).to receive(:write)
+                allow(Service::FRR::Forwarding).to receive(:off).and_return([])
             end
 
             it 'applies once through the poller tick' do
@@ -617,6 +618,47 @@ RSpec.describe Service::FRR do
                 expect(built).to include(reporter: nil)
             ensure
                 ENV.delete 'ONEGATE_ENDPOINT'
+            end
+
+            it 'switches forwarding off when the node became backup, after the apply' do
+                order = []
+                poller = instance_double(Service::FRR::Poller)
+                allow(poller).to receive(:tick) { order << :tick }
+                allow(Service::FRR::Forwarding).to receive(:off) { order << :off; [] }
+                allow(described_class).to receive(:build_poller).and_return(poller)
+
+                described_class.ha_transition('down')
+
+                expect(order).to eq %i[tick off]
+            end
+
+            it 'leaves forwarding alone when the node became master' do
+                allow(described_class).to receive(:build_poller).and_return(instance_double(Service::FRR::Poller, tick: nil))
+
+                described_class.ha_transition('up')
+
+                expect(Service::FRR::Forwarding).not_to have_received(:off)
+            end
+
+            it 'switches forwarding off even when the apply fails' do
+                poller = instance_double(Service::FRR::Poller)
+                allow(poller).to receive(:tick).and_raise('apply blew up')
+                allow(described_class).to receive(:build_poller).and_return(poller)
+
+                described_class.ha_transition('down')
+
+                expect(Service::FRR::Forwarding).to have_received(:off)
+            end
+
+            it 'warns about the paths it could not switch off, and does not raise' do
+                warnings = []
+                allow(Service::FRR::Forwarding).to receive(:off).and_return(['/proc/sys/net/ipv4/ip_forward'])
+                allow(described_class).to receive(:build_poller).and_return(instance_double(Service::FRR::Poller, tick: nil))
+                allow(described_class).to receive(:msg) { |level, text| warnings << text if level == :warn }
+
+                expect { described_class.ha_transition('down') }.not_to raise_error
+
+                expect(warnings.grep(/could not switch forwarding off: \/proc\/sys\/net\/ipv4\/ip_forward/)).not_to be_empty
             end
 
             it 'records the state and returns normally when the apply fails' do

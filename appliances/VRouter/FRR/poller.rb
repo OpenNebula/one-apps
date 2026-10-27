@@ -18,12 +18,13 @@ class Poller
     MAX_WAIT_TICKS   = 19  # ticks skipped between retries of a failed apply (10 minutes at the default interval)
     MAX_TEST_RETRIES = 3   # retries of an apply that `frr-reload.py --test` rejected (it may have been transient)
 
-    def initialize(applier:, onegate:, store:, context:, ha_state:, reporter:, sleeper: ->(seconds) { sleep seconds })
+    def initialize(applier:, onegate:, store:, context:, ha_state:, reporter:, after_apply: ->(_ha) {}, sleeper: ->(seconds) { sleep seconds })
         @applier     = applier
         @onegate     = onegate
         @store       = store
         @context     = Attributes.pick(context)
         @ha_state    = ha_state
+        @after_apply = after_apply
         @reporter    = reporter
         @sleeper     = sleeper
         @known       = @store.load
@@ -73,6 +74,7 @@ class Poller
 
     def apply(attrs, ha, digest, ignored)
         result = note_ignored(call_applier(attrs, ha), ignored)
+        @after_apply.call(ha)
         @interval = result.config.poll_interval if usable_config?(result)
         settle(digest, result)
         @reporter.apply_result(result)
