@@ -35,6 +35,7 @@ module Keepalived
                 vrid:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_VRID", default_vrid),
                 skip:       env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_SKIP", 'NO'),
                 vips:       @vips[nic]&.values || [],
+                extra_vips: [],
                 noip:       !@nics.include?(nic),
                 gw:         env("#{nic.upcase}_GATEWAY", ''),
                 gw_default: false
@@ -47,7 +48,22 @@ module Keepalived
             unless ((nic, _) = vars[:by_nic].find { |_, opt| opt[:noip] && !opt[:gw].empty? }).nil?
                 vars[:by_nic][nic][:gw_default] = true
             end
+            unless ((nic, addr) = snat_address).nil?
+                vars[:by_nic][nic][:extra_vips] << "#{addr}/32"
+            end
             vars
+        end
+    end
+
+    # NOTE: ONEAPP_VNF_NAT4_SNAT_ADDRESS is usually not configured on the router (a public address routed by
+    #       the upstream to the VIP). A packet for it without a conntrack entry would be forwarded and loop
+    #       between the router and the upstream. The address is therefore a /32 virtual address of the first
+    #       NAT4 outgoing NIC that gets a VRRP instance (not skipped, not floating only): Keepalived adds it on the MASTER only, removes it on BACKUP / fault
+    #       / stop, and re-renders it when the value changes. It is not part of the real VIPs (detect_vips)
+    #       and is ignored (with a warning) when it is inside a NIC subnet or already a VIP, NIC or alias address. Returns [nic, address] or nil.
+    def snat_address
+        nat4_snat_address(@mgmt).tap do |nic, addr|
+            msg :info, "Keepalived::snat_address: #{addr}/32 -> #{nic}" unless nic.nil?
         end
     end
 
@@ -140,6 +156,9 @@ module Keepalived
                 virtual_ipaddress {
             <%- nics.each do |nic, opt| -%>
             <%- opt[:vips].compact.reject(&:empty?).each do |vip| -%>
+                    <%= vip %> dev <%= nic.downcase %>
+            <%- end -%>
+            <%- opt[:extra_vips].each do |vip| -%>
                     <%= vip %> dev <%= nic.downcase %>
             <%- end -%>
             <%- end -%>
