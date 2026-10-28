@@ -255,7 +255,7 @@ module MgmtVRF
         family = v6 ? 'ip -6' : 'ip'
         extra  = (metric.nil? ? '' : " metric #{metric}") + (onlink ? ' onlink' : '')
 
-        "#{family} route show dev '#{nic}' 2>/dev/null | grep -q '^default' || " \
+        "#{family} route show dev '#{nic}' 2>/dev/null | grep '^default' >/dev/null || " \
             "#{family} route add default via '#{gateway}' dev '#{nic}'#{extra} 2>/dev/null ||:"
     end
 

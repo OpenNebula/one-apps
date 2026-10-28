@@ -271,13 +271,13 @@ RSpec.describe self do
         it 'should apply the gateway of a NIC that is not management in the main table' do
             cmds = run_execute(other)
 
-            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:")
         end
 
         it 'should add a gateway only when the NIC has no default route yet' do
             cmds = run_execute(other)
 
-            expect(cmds.grep(/198\.51\.100\.1/)).to eq(["ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:"])
+            expect(cmds.grep(/198\.51\.100\.1/)).to eq(["ip route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '198.51.100.1' dev 'eth1' 2>/dev/null ||:"])
         end
 
         it 'should not add a default route for a management NIC without a gateway' do
@@ -303,7 +303,7 @@ RSpec.describe self do
         it 'should honor the metric of the NIC' do
             cmds = run_execute(other.merge('ETH1_METRIC' => '20'))
 
-            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' metric 20 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '198.51.100.1' dev 'eth1' metric 20 2>/dev/null ||:")
         end
 
         it 'should apply the gateways of several NICs in the order of their index' do
@@ -318,13 +318,13 @@ RSpec.describe self do
         it 'should apply the IPv6 gateway of a NIC that is not management in the main table' do
             cmds = run_execute(other.merge('ETH1_IP6' => 'fd00:129::2', 'ETH1_GATEWAY6' => 'fd00:129::1'))
 
-            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
         end
 
         it 'should prefer ETH<n>_IP6_GATEWAY over ETH<n>_GATEWAY6' do
             cmds = run_execute(other.merge('ETH1_GATEWAY6' => 'fd00:129::1', 'ETH1_IP6_GATEWAY' => 'fd00:129::5'))
 
-            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::5' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip -6 route add default via 'fd00:129::5' dev 'eth1' 2>/dev/null ||:")
             expect(cmds.grep(/fd00:129::1'/)).to be_empty
         end
 
@@ -458,13 +458,13 @@ RSpec.describe self do
         it 'should give the default route of the management NIC back to the main table' do
             cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1')
 
-            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip route add default via '172.20.128.1' dev 'eth0' 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '172.20.128.1' dev 'eth0' 2>/dev/null ||:")
         end
 
         it 'should keep the metric of the NIC' do
             cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1', 'ETH0_METRIC' => '20')
 
-            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip route add default via '172.20.128.1' dev 'eth0' metric 20 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth0' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '172.20.128.1' dev 'eth0' metric 20 2>/dev/null ||:")
         end
 
         it 'should give the static routes back to the main table' do
@@ -477,7 +477,7 @@ RSpec.describe self do
             cmds = run_cleanup('ETH0_IP6' => '2001:db8::10', 'ETH0_IP6_GATEWAY' => '2001:db8::1')
 
             expect(cmds).to include("ip -6 addr replace '2001:db8::10/64' dev 'eth0'")
-            expect(cmds).to include("ip -6 route show dev 'eth0' 2>/dev/null | grep -q '^default' || ip -6 route add default via '2001:db8::1' dev 'eth0' onlink 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth0' 2>/dev/null | grep '^default' >/dev/null || ip -6 route add default via '2001:db8::1' dev 'eth0' onlink 2>/dev/null ||:")
         end
 
         it 'should restore the routes only after the VRF was deleted' do
@@ -490,14 +490,14 @@ RSpec.describe self do
             cmds = run_cleanup('ETH1_IP' => '198.51.100.2', 'ETH1_GATEWAY' => '198.51.100.1', 'ETH1_METRIC' => '5',
                                'ETH1_IP6_GATEWAY' => 'fd00:129::1')
 
-            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip route add default via '198.51.100.1' dev 'eth1' metric 5 2>/dev/null ||:")
-            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep -q '^default' || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
+            expect(cmds).to include("ip route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip route add default via '198.51.100.1' dev 'eth1' metric 5 2>/dev/null ||:")
+            expect(cmds).to include("ip -6 route show dev 'eth1' 2>/dev/null | grep '^default' >/dev/null || ip -6 route add default via 'fd00:129::1' dev 'eth1' 2>/dev/null ||:")
         end
 
         it 'should only add a default route when the NIC has none' do
             cmds = run_cleanup('ETH0_GATEWAY' => '172.20.128.1')
 
-            expect(cmds.grep(/172\.20\.128\.1/).first).to start_with("ip route show dev 'eth0' 2>/dev/null | grep -q '^default' || ")
+            expect(cmds.grep(/172\.20\.128\.1/).first).to start_with("ip route show dev 'eth0' 2>/dev/null | grep '^default' >/dev/null || ")
         end
 
         it 'should add no route without a gateway or routes' do
@@ -513,6 +513,31 @@ RSpec.describe self do
             Dir.mktmpdir { |dir| Service::MgmtVRF.cleanup basedir: dir }
 
             expect(scripts.join).not_to match(/ip (-6 )?route/)
+        end
+    end
+
+    # The bash helper runs scripts with pipefail. A guard that ends in `grep -q` makes grep leave at the first
+    # match, ip then gets SIGPIPE while it still writes, and the pipeline fails although a default exists.
+    describe 'the default route guard under pipefail' do
+        def guard_output(routes)
+            ip = <<~SH
+                ip() { case "$*" in *show*) #{routes};; *) echo ADDED;; esac; }
+            SH
+            guard = Service::MgmtVRF.send(:default_if_missing, 'eth1', '198.51.100.1')
+
+            IO.popen(['/bin/bash', '-c', "set -o errexit -o nounset -o pipefail\n#{ip}#{guard}"], err: File::NULL, &:read)
+        end
+
+        it 'does not add a route when a default exists and the dump is long' do
+            expect(guard_output("echo 'default via 198.51.100.1 metric 1 onlink'; seq 1 100000")).not_to include('ADDED')
+        end
+
+        it 'does not add a route when the default is the only line' do
+            expect(guard_output("echo 'default via 198.51.100.1 metric 1 onlink'")).not_to include('ADDED')
+        end
+
+        it 'adds the route when the NIC has no default' do
+            expect(guard_output("echo '198.51.100.0/24 proto kernel scope link'")).to include('ADDED')
         end
     end
 end
