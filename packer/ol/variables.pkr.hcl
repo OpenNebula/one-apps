@@ -9,8 +9,8 @@ variable "ol" {
     }
 
     "9.x86_64" = {
-      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL9/u7/x86_64/OL9U7_x86_64-kvm-b289.qcow2"
-      iso_checksum = "81b61a7b3fb3279d8758c82c625cce7c770123f193cb37960971ba58aa9e025f"
+      iso_url      = "https://yum.oracle.com/templates/OracleLinux/OL9/u8/x86_64/OL9U8_x86_64-kvm-b293.qcow2"
+      iso_checksum = "b12103391327abee8090686759c0d62dac9a7af2bf0f45fdf6b0d085a0fbb52b"
     }
 
     "10.x86_64" = {
