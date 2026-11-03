@@ -22,7 +22,7 @@ case "${TARGET}" in
         TYPE=${TYPE:-freebsd}
         EXT=${EXT:-txz}
         TAGS=${TAGS:-bsd bsd_rc one sysv crond}
-        DEPENDS=${DEPENDS:-sudo bash curl base64 ruby gawk virt-what}
+        DEPENDS=${DEPENDS:-sudo bash curl base64 ruby rubygem-base64 gawk virt-what}
         PROVIDES=${PROVIDES:-}
         REPLACES=${REPLACES:-addon-context}
         CONFLICTS=${CONFLICTS:-${REPLACES} one-context-ec2}

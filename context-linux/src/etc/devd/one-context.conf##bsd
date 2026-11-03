@@ -35,7 +35,9 @@ notify 20 {
 
 # Handle disk resize
 # NOTE: Event not generated on FreeBSD 12 and older
-notify 20 {
+# NOTE: Only the highest priority matching rule runs, must beat the
+# GEOM/DEV catch-all in /etc/devd/autofs.conf (priority 100)
+notify 200 {
     match "system"      "GEOM";
     match "subsystem"   "DEV";
     match "type"        "SIZECHANGE";
