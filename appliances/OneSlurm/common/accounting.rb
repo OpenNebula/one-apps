@@ -130,6 +130,7 @@ module OneSlurm
                 AccountingStoragePort=6819
                 JobAcctGatherType=jobacct_gather/cgroup
                 JobAcctGatherFrequency=30
+                AccountingStorageTRES=gres/gpu
             CONF
         end
 

@@ -53,7 +53,7 @@ module OneSlurm
             File.write('/etc/slurm/slurm.conf', slurm_conf)
 
             gres_conf = <<~CONF
-                AutoDetect=nvidia
+                AutoDetect=nvml
             CONF
             File.write('/etc/slurm/gres.conf', gres_conf)
 
