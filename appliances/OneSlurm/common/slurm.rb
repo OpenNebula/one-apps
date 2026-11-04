@@ -13,11 +13,13 @@ module OneSlurm
                   .ip_address
         end
 
-        def write_controller_slurm_config
+        def write_controller_slurm_config(accounting_host:)
             infiniband_config = slurm_infiniband_enabled? ? <<~CONF : ''
                 MpiDefault=pmix
                 PropagateResourceLimitsExcept=MEMLOCK
             CONF
+
+            accounting_config = slurm_accounting_config(accounting_host: accounting_host)
 
             # Create slurm.conf
             slurm_conf = <<~CONF
@@ -29,6 +31,7 @@ module OneSlurm
                 SelectType=select/cons_tres
                 GresTypes=gpu
                 TaskPlugin=task/cgroup,task/affinity
+                #{accounting_config}
 
                 SlurmUser=slurm
                 StateSaveLocation=/var/spool/slurmctld
@@ -50,7 +53,7 @@ module OneSlurm
             File.write('/etc/slurm/slurm.conf', slurm_conf)
 
             gres_conf = <<~CONF
-                AutoDetect=nvidia
+                AutoDetect=nvml
             CONF
             File.write('/etc/slurm/gres.conf', gres_conf)
 

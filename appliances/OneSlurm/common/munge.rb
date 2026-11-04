@@ -2,8 +2,7 @@
 
 require 'base64'
 
-# Munge key handling shared by both Slurm roles: the controller generates and
-# publishes the key, the worker fetches and installs it.
+# Accounting generates and publishes the key; Controller and Workers install it.
 module OneSlurm
 
     module Munge
@@ -47,11 +46,12 @@ module OneSlurm
         end
 
         def install_munge_key(munge_key_b64)
-            # Decode and install the munge key from the controller
-            msg(:info, 'Installing munge key from controller')
+            # Decode and install the munge key from Accounting
+            msg(:info, 'Installing munge key from Accounting')
             munge_key = Base64.decode64(munge_key_b64)
             File.write(MUNGE_KEY_PATH, munge_key, mode: 'wb')
             FileUtils.chmod(0600, MUNGE_KEY_PATH)
+            FileUtils.chown('munge', 'munge', MUNGE_KEY_PATH)
 
             # Enable and restart the munge service
             bash('systemctl enable munge')

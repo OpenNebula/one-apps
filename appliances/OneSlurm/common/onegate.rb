@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require 'shellwords'
 
 # OneGate service / role discovery shared by both Slurm roles.
 
@@ -29,7 +30,12 @@ def onegate_vm_show(vmid = '')
 end
 
 def onegate_vm_update(data, vmid = '')
-    bash "onegate vm update #{vmid} --data \"#{Array(data).join('\n')}\""
+    args = ['onegate', 'vm', 'update']
+    args << vmid.to_s unless vmid.to_s.empty?
+    # OneGate's attribute escaping needs explicit quotes for empty values at EOF.
+    payload = Array(data).map { |item| item.to_s.sub(/\A([A-Za-z_][A-Za-z0-9_]*)=\z/, '\1=""') }
+    args.concat ['--data', payload.join('\n')]
+    bash args.shelljoin
 end
 
 def vm_nic_ipv4(vm)
@@ -71,21 +77,19 @@ def role_vm_show(name) # Shows the first one..
     onegate_service = onegate_service_show
 
     if (roles = onegate_service.dig 'SERVICE', 'roles').nil? || roles.empty?
-        msg :error, 'No roles found in OneGate'
-        exit 1
+        raise 'No roles found in OneGate'
     end
 
     if (role = roles.find { |item| item['name'] == name }).nil?
-        msg :error, "No '#{name}' role found in OneGate"
-        exit 1
+        raise "No '#{name}' role found in OneGate"
     end
 
     if (nodes = role.dig 'nodes').nil? || nodes.empty?
-        msg :error, "No '#{name}' nodes found in OneGate"
-        exit 1
+        raise "No '#{name}' nodes found in OneGate"
     end
 
     vmid = nodes.first.dig 'vm_info', 'VM', 'ID'
+    raise "Missing '#{name}' VM membership in OneGate" if vmid.to_s.empty?
 
     onegate_vm_show vmid
 end
