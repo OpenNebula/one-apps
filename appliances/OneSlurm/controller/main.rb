@@ -38,6 +38,7 @@ module Service
 
         def install
             msg :info, 'SlurmController::install'
+            add_slurm_ppa
 
             # Install dependencies
             bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins ldap-utils sssd sssd-ldap libnss-sss libpam-sss nfs-common -y'
