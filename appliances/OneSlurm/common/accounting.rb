@@ -15,6 +15,14 @@ module OneSlurm
 
         SLURMDBD_CONF_PATH = '/etc/slurm/slurmdbd.conf'
 
+        # Slurm 25.11.2 in Ubuntu 26.04 stores no job memory or disk usage with glibc 2.43
+        # (LP: #2169842). This PPA has the same package plus the upstream fix, until the SRU.
+        SLURM_PPA = 'ppa:pdelarco/oneslurm'
+
+        def add_slurm_ppa
+            bash "apt update && apt install -y software-properties-common && add-apt-repository -y #{SLURM_PPA}"
+        end
+
         def discover_accounting(attempts: 20, delay: 15)
             raise ArgumentError, 'Accounting discovery requires positive attempts' unless attempts.is_a?(Integer) && attempts.positive?
 

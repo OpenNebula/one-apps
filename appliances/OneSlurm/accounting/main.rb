@@ -27,6 +27,7 @@ module Service
 
         def install
             msg :info, 'SlurmAccounting::install'
+            add_slurm_ppa
             bash 'apt update && apt install munge libmunge-dev slurm-client slurm-wlm-basic-plugins slurmdbd slurm-wlm-mysql-plugin mariadb-server ldap-utils sssd sssd-ldap libnss-sss libpam-sss -y'
             install_ldap_server
             msg :info, 'Installation completed successfully'
