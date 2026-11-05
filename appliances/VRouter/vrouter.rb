@@ -114,6 +114,8 @@ def infer_pfxlen(eth_index, ip)
             next pfxlen.to_i
         end
 
+        next 64 if ip.include?(':') # IPv6: ETHx_MASK, ETHx_NETWORK and the range guesses below are IPv4 only
+
         unless (mask = env("ETH#{eth_index}_MASK", nil)).nil?
             next IPAddr.new("#{ip}/#{mask}").prefix.to_i
         end
@@ -122,20 +124,42 @@ def infer_pfxlen(eth_index, ip)
             next 32 - 8 * network.split(%[.]).map(&:to_i).reverse.take_while(&:zero?).count
         end
 
-        case (ip = IPAddr.new(ip)).family
-        when Socket::AF_INET
-            next  8 if ip.to_i & 0xff00_0000 == 0x0a00_0000 # A 10.x.y.z/8
-            next 16 if ip.to_i & 0xfff0_0000 == 0xac10_0000 # B 172.16.x.y/16
-            next 24 if ip.to_i & 0xffff_0000 == 0xc0a8_0000 # C 192.168.x.y/24
-        end
-
-        next 24 # guess/fallback
+        guess = guess_pfxlen(ip)
+        warn_guessed_pfxlen(eth_index, ip, guess)
+        next guess
     end
-    return pfxlen.zero? ? 32 : pfxlen
+    return pfxlen.zero? ? (ip.include?(':') ? 128 : 32) : pfxlen
+end
+
+# Private ranges get their classful length (10/8, 172.16/16, 192.168/24), anything else /24.
+def guess_pfxlen(ip)
+    case (ip = IPAddr.new(ip)).family
+    when Socket::AF_INET
+        return  8 if ip.to_i & 0xff00_0000 == 0x0a00_0000 # A 10.x.y.z/8
+        return 16 if ip.to_i & 0xfff0_0000 == 0xac10_0000 # B 172.16.x.y/16
+        return 24 if ip.to_i & 0xffff_0000 == 0xc0a8_0000 # C 192.168.x.y/24
+    end
+
+    24 # guess/fallback
+end
+
+GUESSED_PFXLEN_WARNED = {} # [nic index, address] => true, one warning each
+
+def warn_guessed_pfxlen(eth_index, ip, pfxlen)
+    GUESSED_PFXLEN_WARNED.fetch([eth_index.to_s, ip]) do
+        GUESSED_PFXLEN_WARNED[[eth_index.to_s, ip]] = true
+        msg :warn, "ETH#{eth_index}: no netmask in the context, guessing /#{pfxlen} for #{ip}; " \
+                   'set a netmask on the virtual network or give an explicit prefix length'
+    end
 end
 
 def append_pfxlen(eth_index, ip)
     return "#{ip.split(%[/])[0]}/#{infer_pfxlen(eth_index, ip)}"
+end
+
+# Address without prefix length, in the form `ip -j addr` prints (IPv6 compressed, lower case).
+def normalize_addr(addr)
+    IPAddr.new(addr.to_s.split(%[/])[0]).to_s
 end
 
 def detect_addrs
@@ -156,11 +180,52 @@ def detect_vips
         when /^ETH(\d+)_VROUTER_IP$/
             acc["eth#{$1}"] ||= {}
             acc["eth#{$1}"]["ETH#{$1}_VIP0"] ||= append_pfxlen($1, v)
+        when /^ETH(\d+)_VROUTER_IP6$/
+            next unless usable_vip?($1, name, v)
+            acc["eth#{$1}"] ||= {}
+            acc["eth#{$1}"]["ETH#{$1}_VIP_IP6"] = append_pfxlen($1, v)
         when /^ONEAPP_VROUTER_ETH(\d+)_VIP(\d+)$/
+            next unless usable_vip?($1, name, v)
             acc["eth#{$1}"] ||= {}
             acc["eth#{$1}"]["ETH#{$1}_VIP#{$2}"] = append_pfxlen($1, v)
         end
-    end
+    end.transform_values { |vips| drop_duplicate_floating_vips(vips) }
+end
+
+# IPv4 values are not checked here (stock behavior); a value with ':' must be a well-formed IPv6 address.
+def usable_vip?(eth_index, attribute, value)
+    return true if !value.include?(':') || valid_ipv6_vip?(value)
+
+    msg :error, "ETH#{eth_index}: ignoring #{attribute}=#{value[0, 40].inspect}, not a valid IPv6 address"
+    false
+end
+
+# IPv6 address with an optional /len (0..128); no zone id, brackets, whitespace or IPv4-mapped notation.
+def valid_ipv6_vip?(value)
+    addr, len, extra = value.split(%[/], -1)
+    return false unless extra.nil? && addr.match?(/\A[0-9A-Fa-f:]+\z/)
+    return false unless len.nil? || (len.match?(/\A\d{1,3}\z/) && len.to_i <= 128)
+
+    IPAddr.new(addr).ipv6?
+rescue IPAddr::Error
+    false
+end
+
+# The OpenNebula floating IPv6 may also be given as ONEAPP_VROUTER_ETH<n>_VIP<m>; the explicit value wins.
+def drop_duplicate_floating_vips(vips)
+    floating, explicit = vips.partition { |key, _| key.end_with?('_VIP_IP6') }
+    return vips if floating.empty?
+
+    given = explicit.filter_map { |_, vip| try_normalize_addr(vip) }
+
+    (explicit + floating.reject { |_, vip| given.include?(try_normalize_addr(vip)) }).to_h
+end
+
+# normalize_addr, but nil for values that are not addresses (those are rejected later, where they are used).
+def try_normalize_addr(addr)
+    normalize_addr(addr)
+rescue IPAddr::Error
+    nil
 end
 
 def detect_endpoints(addrs = detect_addrs, vips = detect_vips)

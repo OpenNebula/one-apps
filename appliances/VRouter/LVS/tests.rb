@@ -742,4 +742,382 @@ RSpec.describe self do
             expect(result.strip).to eq output.strip
         end
   end
+
+    it 'should render lvs.cfg (static) (IPv6 VIP, NAT)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_REFRESH_RATE'] = ''
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = 'fd77:1::f0/64'
+
+        ENV['ONEAPP_VNF_LB0_IP'] = '<ETH0_VIP0>'
+        ENV['ONEAPP_VNF_LB0_PORT'] = '80'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB0_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = 'fd77:2::10'
+        ENV['ONEAPP_VNF_LB0_SERVER0_PORT'] = '8080'
+
+        ENV['ONEAPP_VNF_LB0_SERVER1_HOST'] = 'fd77:2::20'
+        ENV['ONEAPP_VNF_LB0_SERVER1_PORT'] = '8080'
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '86'
+
+        allow(Service::LVS).to receive(:toggle).and_return(nil)
+        allow(Service::LVS).to receive(:sleep).and_return(nil)
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({})
+
+        clear_vars Service::LVS
+
+        output = <<~STATIC
+            virtual_server fd77:1::f0 80 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind NAT
+                protocol TCP
+
+                real_server fd77:2::10 8080 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8080
+                    }
+                }
+                real_server fd77:2::20 8080 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8080
+                    }
+                }
+            }
+        STATIC
+
+        Dir.mktmpdir do |dir|
+            Service::LVS.execute basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
+
+    it 'should render lvs.cfg (static) (IPv6 VIP, DR)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_REFRESH_RATE'] = ''
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = 'fd77:1::f0/64'
+
+        ENV['ONEAPP_VNF_LB0_IP'] = 'fd77:1::f0'
+        ENV['ONEAPP_VNF_LB0_PORT'] = '443'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB0_METHOD'] = 'DR'
+        ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = 'fd77:2::30'
+        ENV['ONEAPP_VNF_LB0_SERVER0_PORT'] = '443'
+
+        ENV['ONEAPP_VNF_LB0_SERVER1_HOST'] = 'fd77:2::40'
+        ENV['ONEAPP_VNF_LB0_SERVER1_PORT'] = '443'
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '86'
+
+        allow(Service::LVS).to receive(:toggle).and_return(nil)
+        allow(Service::LVS).to receive(:sleep).and_return(nil)
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({})
+
+        clear_vars Service::LVS
+
+        output = <<~STATIC
+            virtual_server fd77:1::f0 443 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind DR
+                protocol TCP
+
+                real_server fd77:2::30 443 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 443
+                    }
+                }
+                real_server fd77:2::40 443 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 443
+                    }
+                }
+            }
+        STATIC
+
+        Dir.mktmpdir do |dir|
+            Service::LVS.execute basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
+
+    it 'should render lvs.cfg (static) (IPv4 and IPv6 LBs side by side)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_REFRESH_RATE'] = ''
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '10.2.10.69/24'
+        ENV['ONEAPP_VROUTER_ETH0_VIP1'] = 'fd77:1::f0/64'
+
+        ENV['ONEAPP_VNF_LB0_IP'] = '<ETH0_VIP0>'
+        ENV['ONEAPP_VNF_LB0_PORT'] = '80'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB0_METHOD'] = 'DR'
+        ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = '10.2.100.10'
+        ENV['ONEAPP_VNF_LB0_SERVER0_PORT'] = '80'
+
+        ENV['ONEAPP_VNF_LB1_IP'] = '<ETH0_VIP1>'
+        ENV['ONEAPP_VNF_LB1_PORT'] = '80'
+        ENV['ONEAPP_VNF_LB1_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB1_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB1_SERVER0_HOST'] = 'fd77:2::10'
+        ENV['ONEAPP_VNF_LB1_SERVER0_PORT'] = '8080'
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '86'
+
+        allow(Service::LVS).to receive(:toggle).and_return(nil)
+        allow(Service::LVS).to receive(:sleep).and_return(nil)
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({})
+
+        clear_vars Service::LVS
+
+        output = <<~STATIC
+            virtual_server 10.2.10.69 80 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind DR
+                protocol TCP
+
+                real_server 10.2.100.10 80 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 80
+                    }
+                }
+            }
+            virtual_server fd77:1::f0 80 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind NAT
+                protocol TCP
+
+                real_server fd77:2::10 8080 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8080
+                    }
+                }
+            }
+        STATIC
+
+        Dir.mktmpdir do |dir|
+            Service::LVS.execute basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
+
+    it 'should skip a frontend on an IPv6 address that is not a VIP (static) (documented limitation)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_REFRESH_RATE'] = ''
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = 'fd77:1::f0/64'
+
+        # LB0 is on the node's own IPv6 address (not a VIP): addrs_to_nics only knows IPv4 addresses.
+        ENV['ONEAPP_VNF_LB0_IP'] = 'fd77:1::11'
+        ENV['ONEAPP_VNF_LB0_PORT'] = '80'
+        ENV['ONEAPP_VNF_LB0_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB0_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB0_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB0_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB0_SERVER0_HOST'] = 'fd77:2::10'
+        ENV['ONEAPP_VNF_LB0_SERVER0_PORT'] = '8080'
+
+        ENV['ONEAPP_VNF_LB1_IP'] = 'fd77:1::f0'
+        ENV['ONEAPP_VNF_LB1_PORT'] = '80'
+        ENV['ONEAPP_VNF_LB1_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB1_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB1_TIMEOUT'] = '10'
+        ENV['ONEAPP_VNF_LB1_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB1_SERVER0_HOST'] = 'fd77:2::20'
+        ENV['ONEAPP_VNF_LB1_SERVER0_PORT'] = '8080'
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '86'
+
+        allow(Service::LVS).to receive(:toggle).and_return(nil)
+        allow(Service::LVS).to receive(:sleep).and_return(nil)
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({
+            '10.2.10.69' => ['eth0']
+        })
+
+        clear_vars Service::LVS
+
+        output = <<~STATIC
+            virtual_server fd77:1::f0 80 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind NAT
+                protocol TCP
+
+                real_server fd77:2::20 8080 {
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 8080
+                    }
+                }
+            }
+        STATIC
+
+        Dir.mktmpdir do |dir|
+            Service::LVS.execute basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
+
+    it 'should render lvs.cfg using VR API (dynamic) (IPv6 backends)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_LB_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_LB_ONEGATE_ENABLED'] = 'YES'
+
+        ENV['ONEAPP_VNF_LB_FWMARK_OFFSET'] = ''
+
+        ENV['ONEAPP_VNF_LB3_IP'] = 'fd77:1::f0'
+        ENV['ONEAPP_VNF_LB3_PORT'] = '7969'
+        ENV['ONEAPP_VNF_LB3_PROTOCOL'] = 'TCP'
+        ENV['ONEAPP_VNF_LB3_METHOD'] = 'NAT'
+        ENV['ONEAPP_VNF_LB3_TIMEOUT'] = '5'
+        ENV['ONEAPP_VNF_LB3_SCHEDULER'] = 'rr'
+
+        ENV['ONEAPP_VNF_LB3_SERVER0_HOST'] = 'fd77:2::300'
+        ENV['ONEAPP_VNF_LB3_SERVER0_PORT'] = '7969'
+
+        ENV['ONEAPP_VNF_LB_ONEGATE_API'] = 'vrouter'
+
+        (vnets ||= []) << JSON.parse(<<~'VNET0')
+            {
+              "VNET": {
+                "ID": "0",
+                "AR_POOL": {
+                  "AR": [
+                    {
+                      "AR_ID": "0",
+                      "LEASES": {
+                        "LEASE": [
+                          {
+                            "IP6": "fd77:2::301",
+                            "MAC": "02:00:0a:02:0b:c9",
+                            "VM": "167",
+                            "NIC_NAME": "NIC0",
+                            "BACKEND": "YES",
+
+                            "ONEGATE_LB3_IP": "fd77:1::f0",
+                            "ONEGATE_LB3_PORT": "7969",
+
+                            "ONEGATE_LB3_SERVER_HOST": "fd77:2::301",
+                            "ONEGATE_LB3_SERVER_PORT": "7969",
+                            "ONEGATE_LB3_SERVER_WEIGHT": "2"
+                          },
+                          {
+                            "IP6": "fd77:2::300",
+                            "MAC": "02:00:0a:02:0b:c8",
+                            "VM": "167",
+                            "NIC_NAME": "NIC0",
+                            "BACKEND": "YES",
+
+                            "ONEGATE_LB3_IP": "fd77:1::f0",
+                            "ONEGATE_LB3_PORT": "7969",
+
+                            "ONEGATE_LB3_SERVER_HOST": "fd77:2::300",
+                            "ONEGATE_LB3_SERVER_PORT": "7969",
+                            "ONEGATE_LB3_SERVER_WEIGHT": "1"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+        VNET0
+
+        load './main.rb'; include Service::LVS
+
+        Service::LVS.const_set :VROUTER_ID, '87'
+        Service::LVS.const_set :SERVICE_ID, '124'
+
+        allow(Service::LVS).to receive(:detect_nics).and_return(%w[eth0 eth1 eth2 eth3])
+        allow(Service::LVS).to receive(:addrs_to_nics).and_return({
+            'fd77:1::f0' => ['eth0']
+        })
+
+        clear_vars Service::LVS
+
+        output = <<~'DYNAMIC'
+            virtual_server fd77:1::f0 7969 {
+                delay_loop 6
+                lb_algo rr
+                lb_kind NAT
+                protocol TCP
+
+                real_server fd77:2::300 7969 {
+                    weight 1
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 7969
+                    }
+                }
+                real_server fd77:2::301 7969 {
+                    weight 2
+                    TCP_CHECK {
+                        connect_timeout 3
+                        connect_port 7969
+                    }
+                }
+            }
+        DYNAMIC
+
+        Dir.mktmpdir do |dir|
+            lvs_vars = Service::LVS.extract_backends vnets
+            Service::LVS.render_lvs_conf lvs_vars, basedir: dir
+            result = File.read "#{dir}/conf.d/lvs.conf"
+            expect(result.strip).to eq output.strip
+        end
+    end
 end

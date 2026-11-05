@@ -35,6 +35,50 @@ RSpec.describe 'infer_pfxlen' do
     end
 end
 
+RSpec.describe 'infer_pfxlen guess warning' do
+    let(:warnings) { [] }
+
+    before do
+        clear_env
+        GUESSED_PFXLEN_WARNED.clear
+        allow(self).to receive(:msg) { |level, text| warnings << text if level == :warn }
+    end
+
+    {
+        '10.88.2.1'     => 8,
+        '172.16.5.1'    => 16,
+        '192.168.7.1'   => 24,
+        '1.2.3.4'       => 24
+    }.each do |addr, pfxlen|
+        it "warns once for the guessed /#{pfxlen} of #{addr} and keeps the value" do
+            expect(infer_pfxlen(1, addr)).to eq pfxlen
+            expect(infer_pfxlen(1, addr)).to eq pfxlen
+
+            expect(warnings).to eq ["ETH1: no netmask in the context, guessing /#{pfxlen} for #{addr}; " \
+                                    'set a netmask on the virtual network or give an explicit prefix length']
+        end
+    end
+
+    it 'warns separately per NIC and per address' do
+        infer_pfxlen(1, '10.88.2.1')
+        infer_pfxlen(2, '10.88.2.1')
+        infer_pfxlen(1, '10.88.2.2')
+
+        expect(warnings.size).to eq 3
+    end
+
+    it 'does not warn with an explicit prefix length, ETH<n>_MASK, ETH<n>_NETWORK or for IPv6' do
+        ENV['ETH2_MASK'] = '255.255.255.0'
+        ENV['ETH3_NETWORK'] = '10.88.2.0'
+
+        expect(infer_pfxlen(1, '10.88.2.1/24')).to eq 24
+        expect(infer_pfxlen(2, '10.88.2.1')).to eq 24
+        expect(infer_pfxlen(3, '10.88.2.1')).to eq 24
+        expect(infer_pfxlen(1, 'fd77::1')).to eq 64
+        expect(warnings).to be_empty
+    end
+end
+
 RSpec.describe 'detect_addrs' do
   it 'should parse IP variables with mask' do
       clear_env
@@ -1183,5 +1227,141 @@ RSpec.describe 'backends.resolve' do
         tests.each do |a, v, e, b, output|
             expect(backends.resolve(b, a, v, e)).to eq output
         end
+    end
+end
+
+RSpec.describe 'IPv6 VIPs' do
+    before { clear_env }
+
+    it 'defaults an IPv6 VIP without a prefix length to /64, whatever the IPv4 mask says' do
+        ENV['ETH0_MASK'] = '255.255.255.0'
+
+        expect(infer_pfxlen(0, 'fd77::1')).to eq 64
+        expect(infer_pfxlen(0, 'fd77::1/48')).to eq 48
+        expect(append_pfxlen(0, 'fd77::1')).to eq 'fd77::1/64'
+    end
+
+    it 'keeps the IPv4 inference order' do
+        ENV['ETH1_MASK'] = '255.255.255.0'
+
+        expect(infer_pfxlen(1, '10.77.1.1')).to eq 24
+        expect(infer_pfxlen(2, '172.16.100.60')).to eq 16
+    end
+
+    it 'reads the OpenNebula floating IPv6 address next to the IPv4 one' do
+        ENV['ETH1_MASK'] = '255.255.255.0'
+        ENV['ETH1_VROUTER_IP'] = '10.77.1.1'
+        ENV['ETH1_VROUTER_IP6'] = 'fd77:1::1'
+
+        expect(detect_vips['eth1'].values).to contain_exactly('10.77.1.1/24', 'fd77:1::1/64')
+    end
+
+    it 'takes IPv6 VIPs from ONEAPP_VROUTER_ETH<n>_VIP<m> as well' do
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.77.1.1/24'
+        ENV['ONEAPP_VROUTER_ETH1_VIP1'] = 'fd77:1::1/64'
+
+        expect(detect_vips['eth1'].values).to contain_exactly('10.77.1.1/24', 'fd77:1::1/64')
+    end
+
+    it 'lists an address given by both sources once, and the explicit ONEAPP value wins' do
+        ENV['ETH1_VROUTER_IP6'] = 'fd77:1::1'
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = 'FD77:1:0:0::1/48'
+
+        expect(detect_vips['eth1'].values).to eq ['FD77:1:0:0::1/48']
+    end
+
+    it 'passes a malformed explicit VIP through untouched when there is no floating IPv6' do
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '1.2.3.4; reboot/24'
+
+        expect { detect_vips }.not_to raise_error
+        expect(detect_vips['eth1'].values).to eq ['1.2.3.4; reboot/24']
+    end
+
+    it 'keeps the floating IPv6 and a malformed explicit VIP when both are present' do
+        ENV['ETH1_VROUTER_IP6'] = 'fd77:1::1'
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '1.2.3.4; reboot/24'
+
+        expect { detect_vips }.not_to raise_error
+        expect(detect_vips['eth1'].values).to contain_exactly('1.2.3.4; reboot/24', 'fd77:1::1/64')
+    end
+
+    it 'reads a floating IPv6 address without any IPv4 one' do
+        ENV['ETH1_VROUTER_IP6'] = 'fd77:1::1'
+
+        expect(detect_vips['eth1'].values).to eq ['fd77:1::1/64']
+    end
+
+    it 'turns an IPv6 prefix length of 0 into /128 like IPv4 does into /32' do
+        expect(infer_pfxlen(0, 'fd77::1/0')).to eq 128
+    end
+
+    describe 'malformed IPv6 VIP values' do
+        let(:logged) { [] }
+
+        before { allow(self).to receive(:msg) { |level, text| logged << [level, text] } }
+
+        [
+            'fe80::1%eth1', 'fd77::1 x', 'fd77::g', '[fd77::1]', '::ffff:1.2.3.4', 'fd77::1/129',
+            'fd77::1/x', 'fd77::1/', 'fd77::1/64/64', 'fd77:::1', ' fd77::1'
+        ].each do |bad|
+            it "skips #{bad.inspect} from ONEAPP_VROUTER_ETH<n>_VIP<m>, logs it and keeps the other VIPs" do
+                ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '10.77.1.1/24'
+                ENV['ONEAPP_VROUTER_ETH1_VIP1'] = bad
+                ENV['ONEAPP_VROUTER_ETH1_VIP2'] = 'fd77:1::1'
+
+                expect(detect_vips['eth1'].values).to contain_exactly('10.77.1.1/24', 'fd77:1::1/64')
+                expect(logged).to include([:error, a_string_including('ETH1', 'ONEAPP_VROUTER_ETH1_VIP1', bad.inspect)])
+            end
+        end
+
+        it 'skips a malformed ETH<n>_VROUTER_IP6 and names the attribute' do
+            ENV['ETH1_MASK'] = '255.255.255.0'
+            ENV['ETH1_VROUTER_IP'] = '10.77.1.1'
+            ENV['ETH1_VROUTER_IP6'] = 'fd77::g'
+
+            expect(detect_vips['eth1'].values).to eq ['10.77.1.1/24']
+            expect(logged.map(&:last).join).to include('ETH1_VROUTER_IP6')
+        end
+
+        it 'returns no NIC entry when its only VIP was malformed' do
+            ENV['ONEAPP_VROUTER_ETH1_VIP0'] = 'fd77::g'
+
+            expect(detect_vips.fetch('eth1', {})).to be_empty
+        end
+
+        it 'never logs more than 40 characters of the value' do
+            ENV['ONEAPP_VROUTER_ETH1_VIP0'] = "fd77::#{'a' * 30}g #{'b' * 100}"
+
+            detect_vips
+
+            expect(logged.map(&:last).join).not_to include('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+            expect(logged.size).to eq 1
+        end
+
+        it 'still accepts valid IPv6 VIPs with and without a prefix length' do
+            ENV['ONEAPP_VROUTER_ETH1_VIP0'] = 'fd77::1'
+            ENV['ONEAPP_VROUTER_ETH1_VIP1'] = 'fd77::2/48'
+            ENV['ONEAPP_VROUTER_ETH1_VIP2'] = 'fd77::3/128'
+
+            expect(detect_vips['eth1'].values).to contain_exactly('fd77::1/64', 'fd77::2/48', 'fd77::3/128')
+            expect(logged).to be_empty
+        end
+    end
+
+    it 'ignores an empty floating IPv6 value' do
+        ENV['ETH1_VROUTER_IP6'] = ''
+
+        expect(detect_vips).to eq({})
+    end
+end
+
+RSpec.describe 'normalize_addr' do
+    it 'strips the prefix length and writes IPv6 in the form `ip -j addr` prints' do
+        expect(normalize_addr('FD77:0:0:0::1/64')).to eq 'fd77::1'
+        expect(normalize_addr('10.0.0.1/24')).to eq '10.0.0.1'
+    end
+
+    it 'raises for garbage instead of passing it on' do
+        expect { normalize_addr('1.2.3.4; reboot') }.to raise_error(IPAddr::Error)
     end
 end

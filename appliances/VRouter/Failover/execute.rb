@@ -11,6 +11,8 @@ module Failover
     SERVICES = {
         'one-router4' => { _ENABLED: 'ONEAPP_VNF_ROUTER4_ENABLED', fallback: VROUTER_ID.nil? ? 'NO' : 'YES' },
 
+        'one-router6' => { _ENABLED: 'ONEAPP_VNF_ROUTER6_ENABLED' },
+
         'one-nat4'    => { _ENABLED: 'ONEAPP_VNF_NAT4_ENABLED' },
 
         'one-lvs'     => { _ENABLED: 'ONEAPP_VNF_LB_ENABLED' },

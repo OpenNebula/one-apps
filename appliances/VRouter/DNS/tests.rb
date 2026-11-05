@@ -278,4 +278,387 @@ RSpec.describe self do
                      'ip0.eth4' => '2.3.4.5' }
         })
     end
+
+    def render_conf(default_route: false)
+        load './main.rb'; include Service::DNS
+
+        clear_vars Service::DNS
+
+        allow(Service::DNS).to receive(:ipv6_default_route?).and_return(default_route)
+
+        Dir.mktmpdir do |dir|
+            Service::DNS.configure basedir: dir
+            File.read "#{dir}/unbound.conf"
+        end
+    end
+
+    def dual_stack_env
+        clear_env
+
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth0 eth1'
+        ENV['ETH0_VROUTER_MANAGEMENT'] = 'YES'
+
+        ENV['ETH0_IP'] = '10.20.30.40'
+        ENV['ETH0_MASK'] = '255.255.255.0'
+
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '20.30.40.55/16'
+        ENV['ONEAPP_VROUTER_ETH1_VIP1'] = '2001:db8:1::1/64'
+    end
+
+    it 'should render byte-identical config for IPv4-only routers' do
+        clear_env
+
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1'
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        result = render_conf
+
+        expect(result).to include "    interface: 127.0.0.1\n    interface: eth1\n\n"
+        expect(result).to include "    do-ip4: yes\n    do-ip6: no\n    do-udp: yes\n"
+        expect(result).to include "    access-control: 20.30.0.0/16 allow\n\n    cache-min-ttl: 0\n"
+        expect(result).not_to match(/AAAA|freebind|do-not-query/)
+        expect(result).to include 'local-data: "ip0.eth1.vr. IN A 20.30.40.50"'
+    end
+
+    it 'should serve, allow and publish IPv6 on a dual-stack router' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_NAMESERVERS'] = '1.1.1.1'
+        ENV['ETH1_VROUTER_IP6'] = '2001:db8:2::1/64'
+
+        result = render_conf
+
+        expect(result).to include "    interface: 127.0.0.1\n    interface: 20.30.40.50\n    interface: 20.30.40.55\n" \
+                                  "    interface: 2001:db8:1::1\n    interface: 2001:db8:2::1\n" \
+                                  "    ip-freebind: yes\n\n"
+        expect(result).not_to include "interface: eth1\n"
+        expect(result).to include "    do-ip4: yes\n    do-ip6: yes\n"
+        expect(result).to include 'access-control: ::0/0 refuse'
+        expect(result).to include 'access-control: 20.30.0.0/16 allow'
+        expect(result).to include 'access-control: 2001:db8:1::/64 allow'
+        expect(result).to include 'access-control: 2001:db8:2::/64 allow'
+        expect(result).to include 'local-data: "vip0.eth1.vr. IN A 20.30.40.55"'
+        expect(result).to include 'local-data: "vip1.eth1.vr. IN AAAA 2001:db8:1::1"'
+        expect(result).to include 'local-data: "ep1.eth1.vr. IN AAAA 2001:db8:1::1"'
+        expect(result).to include 'local-data: "vip-ip6.eth1.vr. IN AAAA 2001:db8:2::1"'
+        expect(result).to include 'local-data: "ep-ip6.eth1.vr. IN AAAA 2001:db8:2::1"'
+    end
+
+    it 'should serve IPv6 on an IPv6-only router' do
+        clear_env
+
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1'
+        ENV['ETH1_IP'] = '2001:db8:1::10'
+
+        result = render_conf
+
+        expect(result).to include "    interface: 127.0.0.1\n    interface: 2001:db8:1::10\n" \
+                                  "    ip-freebind: yes\n\n"
+        expect(result).not_to include "interface: eth1\n"
+        expect(result).to include "    do-ip6: yes\n"
+        expect(result).to include 'access-control: 2001:db8:1::/64 allow'
+        expect(result).to include 'local-data: "ip0.eth1.vr. IN AAAA 2001:db8:1::10"'
+        expect(result).not_to include ' IN A '
+    end
+
+    it 'should NOT bind IPv6 on management NICs' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth0 eth1'
+        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '2001:db8:9::1/64'
+
+        result = render_conf
+
+        expect(result).not_to include 'interface: 2001:db8:9::1'
+        expect(result).not_to include 'access-control: 2001:db8:9::/64'
+    end
+
+    context 'upstream IPv6 (ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED)' do
+        it 'should use IPv6 upstream with an IPv6 default route' do
+            dual_stack_env
+
+            result = render_conf default_route: true
+
+            expect(result).to include "    do-ip6: yes\n"
+            expect(result).not_to include 'do-not-query-address'
+        end
+
+        it 'should block IPv6 upstream, but keep serving, without an IPv6 default route' do
+            dual_stack_env
+
+            result = render_conf default_route: false
+
+            expect(result).to include "    do-ip6: yes\n"
+            expect(result).to include "    do-not-query-address: ::0/0\n"
+            expect(result).to include 'interface: 2001:db8:1::1'
+        end
+
+        it 'should render do-ip6 no on IPv4-only routers without an IPv6 default route' do
+            clear_env
+            ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+            ENV['ETH1_IP'] = '20.30.40.50'
+
+            result = render_conf default_route: false
+
+            expect(result).to include "    do-ip6: no\n"
+            expect(result).not_to include 'do-not-query-address'
+        end
+
+        it 'should treat a failing route lookup as no default route' do
+            clear_env
+            ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+            ENV['ETH1_IP'] = '20.30.40.50'
+
+            load './main.rb'
+            expect(Service::DNS).to receive(:bash).with(/ip -6 route show default/, terminate: false)
+                                                  .and_raise('1: boom')
+            expect(Service::DNS.ipv6_default_route?).to eq false
+        end
+
+        it 'should detect default routes from the route listing' do
+            load './main.rb'
+            allow(Service::DNS).to receive(:bash).and_return("default via fe80::1 dev eth0 metric 1024\n")
+            expect(Service::DNS.ipv6_default_route?).to eq true
+            allow(Service::DNS).to receive(:bash).and_return("")
+            expect(Service::DNS.ipv6_default_route?).to eq false
+            allow(Service::DNS).to receive(:bash).and_return("unreachable default dev lo metric 4278198272\n")
+            expect(Service::DNS.ipv6_default_route?).to eq false
+        end
+
+        it 'should block IPv6 upstream when disabled, even with an IPv6 default route' do
+            dual_stack_env
+            ENV['ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED'] = 'YES'
+
+            result = render_conf default_route: true
+
+            expect(result).to include "    do-ip6: yes\n"
+            expect(result).to include "    do-not-query-address: ::0/0\n"
+            expect(result).to include 'interface: 2001:db8:1::1'
+        end
+
+        it 'should render do-ip6 no on IPv4-only routers when disabled' do
+            clear_env
+            ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+            ENV['ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED'] = 'YES'
+            ENV['ETH1_IP'] = '20.30.40.50'
+
+            result = render_conf default_route: true
+
+            expect(result).to include "    do-ip6: no\n"
+            expect(result).not_to include 'do-not-query-address'
+        end
+
+        it 'should use IPv6 upstream when explicitly NOT disabled' do
+            dual_stack_env
+            ENV['ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED'] = 'NO'
+
+            result = render_conf default_route: true
+
+            expect(result).not_to include 'do-not-query-address'
+        end
+
+        it 'should still query IPv6 forwarders when IPv6 upstream is disabled' do
+            clear_env
+            ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+            ENV['ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED'] = 'YES'
+            ENV['ONEAPP_VNF_DNS_USE_ROOTSERVERS'] = 'NO'
+            ENV['ONEAPP_VNF_DNS_NAMESERVERS'] = '2606:4700:4700::1111'
+            ENV['ETH1_IP'] = '20.30.40.50'
+
+            result = render_conf default_route: false
+
+            expect(result).to include "    do-ip6: yes\n"
+            expect(result).not_to include 'do-not-query-address'
+            expect(result).to include 'forward-addr: 2606:4700:4700::1111'
+        end
+    end
+
+    it 'should keep IPv6 forwarders' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_USE_ROOTSERVERS'] = 'NO'
+        ENV['ONEAPP_VNF_DNS_NAMESERVERS'] = '1.1.1.1,2606:4700:4700::1111 2001:4860:4860::8888'
+
+        result = render_conf default_route: true
+
+        expect(result).to include "forward-addr: 1.1.1.1\n    forward-addr: 2606:4700:4700::1111\n" \
+                                  "    forward-addr: 2001:4860:4860::8888\n"
+    end
+
+    it 'should accept IPv6 CIDRs in ONEAPP_VNF_DNS_ALLOWED_NETWORKS' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_ALLOWED_NETWORKS'] = '20.30.0.0/16 2001:db8:abcd::/48'
+
+        result = render_conf
+
+        expect(result).to include "    access-control: 20.30.0.0/16 allow\n    access-control: 2001:db8:abcd::/48 allow\n"
+        expect(result).not_to include 'access-control: 2001:db8:1::/64 allow'
+        expect(result).to include 'interface: 2001:db8:1::1'
+    end
+
+    it 'should NOT duplicate an explicit IPv6 interface' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1/2001:db8:1::1@5353'
+
+        result = render_conf
+
+        expect(result.scan('interface: 2001:db8:1::1@5353').size).to eq 1
+        expect(result).not_to include "interface: eth1\n"
+    end
+
+    it 'should render the exact IPv4-only config (golden)' do
+        clear_env
+
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1'
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        expect(render_conf(default_route: false)).to eq <<~GOLDEN
+            server:
+                verbosity: 1
+
+                interface: 127.0.0.1
+                interface: eth1
+
+                unknown-server-time-limit: 1128
+
+                do-ip4: yes
+                do-ip6: no
+                do-udp: yes
+                do-tcp: yes
+
+                tcp-upstream: no
+                udp-upstream-without-downstream: yes
+
+                access-control: 0.0.0.0/0 refuse
+                access-control: ::0/0 refuse
+                access-control: 127.0.0.0/8 allow
+                access-control: 20.30.0.0/16 allow
+
+                cache-min-ttl: 0
+                cache-max-ttl: 3600
+
+                logfile: "/var/log/unbound/unbound.log"
+                log-identity: ""
+                log-time-ascii: yes
+                log-queries: no
+                log-replies: no
+                log-servfail: yes
+
+                root-hints: /usr/share/dns-root-hints/named.root
+
+                hide-identity: yes
+                hide-version: yes
+
+                serve-expired: no
+
+                use-systemd: no
+                do-daemonize: yes
+
+                local-zone: "vr." static
+                local-data: "ip0.eth1.vr. IN A 20.30.40.50"
+                local-data: "ep0.eth1.vr. IN A 20.30.40.50"
+
+            remote-control:
+                control-enable: no
+
+        GOLDEN
+    end
+
+    it 'should resolve upstream over IPv6 on IPv4-only routers with an IPv6 default route' do
+        clear_env
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1'
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        result = render_conf default_route: true
+
+        expect(result).to include "    interface: eth1\n"
+        expect(result).to include "    do-ip6: yes\n"
+        expect(result).not_to match(/freebind|do-not-query/)
+    end
+
+    it 'should bind explicit addresses of all kinds without the NIC name when the NIC has IPv6' do
+        dual_stack_env
+
+        result = render_conf
+
+        expect(result).not_to include "interface: eth1\n"
+        %w[20.30.40.50 20.30.40.55 2001:db8:1::1].each do |a|
+            expect(result.scan(/^    interface: #{Regexp.escape(a)}$/).size).to eq 1
+        end
+        expect(result).to include "    ip-freebind: yes\n"
+    end
+
+    it 'should keep the NIC name for NICs without IPv6 next to NICs with IPv6' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth0 eth1 eth2'
+        ENV['ETH2_IP'] = '30.40.50.60'
+        ENV['ETH2_MASK'] = '255.0.0.0'
+
+        result = render_conf
+
+        expect(result).to include "    interface: eth2\n"
+        expect(result).not_to include "interface: eth1\n"
+    end
+
+    it 'should apply the port of the NIC entry to every bound address' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1@5353'
+
+        result = render_conf
+
+        expect(result).to include "    interface: 20.30.40.50@5353\n    interface: 20.30.40.55@5353\n" \
+                                  "    interface: 2001:db8:1::1@5353\n"
+    end
+
+    it 'should not repeat an address that is also configured explicitly' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1 eth1/2001:db8:1::1'
+
+        result = render_conf
+
+        expect(result.scan('interface: 2001:db8:1::1').size).to eq 1
+        expect(result).not_to include "interface: eth1\n"
+    end
+
+    it 'should dedupe the ETHx_VROUTER_IP6 floating address given twice' do
+        dual_stack_env
+        ENV['ETH1_VROUTER_IP6'] = '2001:db8:1:0::1/64'
+
+        result = render_conf
+
+        expect(result.scan('interface: 2001:db8:1::1').size).to eq 1
+    end
+
+    it 'should serve IPv6 and use freebind for an explicit IPv6 interface' do
+        dual_stack_env
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1/2001:db8:1::1'
+
+        result = render_conf default_route: false
+
+        expect(result).to include "    interface: 2001:db8:1::1\n"
+        expect(result).to include "    ip-freebind: yes\n"
+        expect(result).to include "    do-ip6: yes\n"
+        expect(result).to include "    do-not-query-address: ::0/0\n"
+    end
+
+    it 'should serve IPv6 and use freebind for an explicit IPv6 interface with a port' do
+        clear_env
+        ENV['ONEAPP_VNF_DNS_ENABLED'] = 'YES'
+        ENV['ONEAPP_VNF_DNS_INTERFACES'] = 'eth1/2001:db8:1::1@5353'
+        ENV['ETH1_IP'] = '20.30.40.50'
+        ENV['ETH1_MASK'] = '255.255.0.0'
+
+        result = render_conf default_route: false
+
+        expect(result).to include "    interface: 2001:db8:1::1@5353\n"
+        expect(result).to include "    ip-freebind: yes\n"
+        expect(result).to include "    do-ip6: yes\n"
+    end
 end
