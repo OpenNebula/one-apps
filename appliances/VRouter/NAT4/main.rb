@@ -14,6 +14,31 @@ module NAT4
 
     ONEAPP_VNF_NAT4_INTERFACES_OUT = env :ONEAPP_VNF_NAT4_INTERFACES_OUT, nil # nil -> none, empty -> all
 
+    ONEAPP_VNF_NAT4_SNAT_TO_VIP = env :ONEAPP_VNF_NAT4_SNAT_TO_VIP, 'NO' # YES -> SNAT to the VIP instead of MASQUERADE
+
+    # SNAT to this address instead of MASQUERADE. A unicast IPv4 address, a prefix length is ignored.
+    # The address is usually not configured on any NIC (a public address the upstream routes to the VIP).
+    # Without an owner, a packet for it with no conntrack entry (scans, flows not yet synced after a
+    # failover) would be forwarded, leave via the default route and be routed back to the VIP by the
+    # upstream: a loop until the TTL runs out. Keepalived therefore adds the address as an extra /32
+    # virtual_ipaddress (no connected route) on the first outgoing NIC of the VRRP instance, see
+    # Keepalived::snat_address. It is present on the VRRP MASTER only; Keepalived removes it on BACKUP,
+    # fault, stop and when the value changes (it re-renders its config). NAT4 itself never touches addresses.
+    #
+    # Requirements and behavior (ONEAPP_VNF_NAT4_SNAT_ADDRESS / ONEAPP_VNF_NAT4_SNAT_TO_VIP):
+    #   - The address is configured as a /32 on the VRRP MASTER only, never on BACKUP.
+    #   - It must be outside the on-link subnet of every NIC and must not be a NIC, alias (ETHn_ALIASm_IP) or
+    #     VIP address. Otherwise it is ignored with a warning.
+    #   - It is only used when Keepalived owns it (same helper, nat4_snat_address: a NAT4 outgoing NIC that
+    #     gets a VRRP instance, so it is in ONEAPP_VNF_KEEPALIVED_INTERFACES, has an IP and is not skipped).
+    #     When it is configured but not owned, NAT4 logs a warning and keeps MASQUERADE (it does not fall
+    #     back to the VIP).
+    #   - Being a local address on the MASTER, services not bound to a specific address (sshd, DNS) also
+    #     answer on it there, the same exposure as the VIP.
+    #   - ONEAPP_VNF_NAT4_SNAT_ADDRESS wins over ONEAPP_VNF_NAT4_SNAT_TO_VIP.
+    # The upstream must route the address to the VIP and must not have it on-link (ARP).
+    ONEAPP_VNF_NAT4_SNAT_ADDRESS = env :ONEAPP_VNF_NAT4_SNAT_ADDRESS, ''
+
     def parse_env
         @interfaces_out ||= parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
         @mgmt           ||= detect_mgmt_nics
@@ -56,6 +81,56 @@ module NAT4
         end.then do |vars|
             vars[:masq] = @interfaces.dup
             vars
+        end
+    end
+
+    # NOTE: NIC -> source address, for the NICs that are not masqueraded.
+    #       ONEAPP_VNF_NAT4_SNAT_ADDRESS (one address for every outgoing NIC, for example a public address
+    #       routed to the VIP) wins over ONEAPP_VNF_NAT4_SNAT_TO_VIP (the first IPv4 VIP of the NIC).
+    #       The address ends up in a shell command, so anything but a plain dotted quad is rejected
+    #       (the NIC then keeps MASQUERADE, also an invalid address does not fall back to the VIP).
+    def snat_sources(nics)
+        nics = nics.grep(/\Aeth\d+\z/)
+
+        return snat_address_sources(nics) unless ONEAPP_VNF_NAT4_SNAT_ADDRESS.to_s.strip.empty?
+        return {} unless ONEAPP_VNF_NAT4_SNAT_TO_VIP
+
+        snat_vip_sources(nics)
+    end
+
+    def snat_address_sources(nics)
+        addr = ONEAPP_VNF_NAT4_SNAT_ADDRESS.strip.split(%[/])[0].to_s
+
+        unless unicast_ipv4?(addr)
+            msg :error, "NAT4::snat_sources: invalid ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr[0, 40].inspect}, using MASQUERADE"
+            return {}
+        end
+
+        if nat4_snat_address(@mgmt || detect_mgmt_nics).nil?
+            msg :warn, "NAT4::snat_sources: ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr} is not owned by Keepalived on this router, using MASQUERADE"
+            return {}
+        end
+
+        nics.each_with_object({}) do |nic, acc|
+            acc[nic] = addr
+            msg :info, "NAT4::snat_sources: #{nic} -> #{addr} (ONEAPP_VNF_NAT4_SNAT_ADDRESS)"
+        end
+    end
+
+    # NOTE: IPv6 VIPs (address with a ':') are ignored.
+    def snat_vip_sources(nics)
+        detect_vips.slice(*nics).each_with_object({}) do |(nic, vips), acc|
+            name, vip = vips.reject { |_, v| v.to_s.include?(':') }.min_by { |k, _| k[/_VIP(\d+)$/, 1].to_i }
+            next if vip.nil?
+
+            addr = vip.split(%[/])[0].to_s
+            unless IPV4_RE.match?(addr)
+                msg :error, "NAT4::snat_sources: #{nic}: invalid #{name} #{addr[0, 40].inspect}, using MASQUERADE"
+                next
+            end
+
+            acc[nic] = addr
+            msg :info, "NAT4::snat_sources: #{nic} -> #{addr} (#{name})"
         end
     end
 
