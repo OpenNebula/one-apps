@@ -44,6 +44,46 @@ def tar_checksum(header):
     return sum(h)
 
 
+def fix_pax_sizes(data_gz):
+    """Trim NUL padding from the declared size of PAX extended headers.
+
+    FPM pads the PAX record to a full 512-byte block and stores the padded
+    length in the tar header size field, so the NUL padding becomes part of
+    the PAX data. apk-tools >= 3.0.9 rejects that as a malformed PAX record
+    ("v2 package format error").
+    """
+    dc = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    tar_data = bytearray(dc.decompress(data_gz))
+
+    pos = 0
+    changed = False
+    while pos + 512 <= len(tar_data):
+        header = tar_data[pos:pos + 512]
+        if header == b'\x00' * 512:
+            pos += 512
+            continue
+
+        size = int(bytes(header[124:136]).rstrip(b'\x00 ') or b'0', 8)
+
+        if header[156:157] == b'x' and size:
+            real_size = len(bytes(tar_data[pos + 512:pos + 512 + size]).rstrip(b'\x00'))
+            if real_size != size:
+                header[124:136] = f'{real_size:011o}'.encode() + b'\x00'
+                header[148:156] = f'{tar_checksum(bytes(header)):06o}\x00 '.encode()
+                tar_data[pos:pos + 512] = header
+                changed = True
+
+        pos += 512 + (size + 511) // 512 * 512
+
+    if not changed:
+        return data_gz
+
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode='wb', mtime=0) as gz:
+        gz.write(bytes(tar_data))
+    return buf.getvalue()
+
+
 def rebuild_control_raw(control_gz, datahash):
     """Rebuild control stream by modifying .PKGINFO at the raw tar level."""
     # Decompress
@@ -116,7 +156,7 @@ def main():
         sys.exit(1)
 
     # Last stream is data, second-to-last is control
-    data_gz = streams[-1]
+    data_gz = fix_pax_sizes(streams[-1])
     control_gz = streams[-2]
     signature_streams = streams[:-2]
 
