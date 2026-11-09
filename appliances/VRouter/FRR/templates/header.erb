@@ -1,0 +1,6 @@
+frr defaults traditional
+<%- unless hostname.nil? -%>
+hostname <%= hostname %>
+<%- end -%>
+log syslog informational
+service integrated-vtysh-config
