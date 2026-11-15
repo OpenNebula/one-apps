@@ -149,7 +149,7 @@ iface ${dev} inet static
   netmask ${mask}
 EOT
 
-    if [ -n "$gateway" ]; then
+    if valid_ipv4 $gateway; then
         echo "  gateway ${gateway}"
 
         if [ -n "$metric" ]; then
