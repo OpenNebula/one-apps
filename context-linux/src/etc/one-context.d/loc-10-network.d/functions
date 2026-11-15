@@ -440,6 +440,27 @@ get_mtu()
     echo "${_mtu:-1500}"
 )
 
+# arg: <string>
+trim()
+(
+    echo "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+)
+
+# Returns 0 if the interface may install default routes, i.e. when the
+# VM-level GATEWAY_IFACE is unset or selects this interface. GATEWAY_IFACE
+# accepts the context interface name (ETH0, eth0) or only its number (0).
+# It always refers to the context NIC (ETHn = the NIC with NIC_ID n, mapped
+# to a guest device by MAC), never to the guest's device name (ens3, ...).
+# arg: <iface>
+is_gateway_iface()
+(
+    _gw_iface=$(trim "${GATEWAY_IFACE}" | tr '[:lower:]' '[:upper:]')
+    [ -z "${_gw_iface}" ] && return 0
+
+    _iface=$(echo "$1" | tr '[:lower:]' '[:upper:]')
+    [ "${_gw_iface#ETH}" = "${_iface#ETH}" ]
+)
+
 # Gets the network gateway
 # arg: <iface>
 get_gateway()
@@ -537,6 +558,17 @@ setup_iface_vars()
 
     # backward compatibility
     [ -z "$ip6_gateway" ] && ip6_gateway=$(get_iface_var "$1" "GATEWAY6")
+
+    # Whitespace-only gateway (e.g. the NIC GATEWAY=" " workaround to drop
+    # the virtual network's gateway, OpenNebula/one#2083) means no gateway
+    gateway=$(trim "${gateway}")
+    ip6_gateway=$(trim "${ip6_gateway}")
+
+    # Only the interface selected by GATEWAY_IFACE gets default routes
+    if ! is_gateway_iface "$1"; then
+        gateway=''
+        ip6_gateway=''
+    fi
 
     # defaults
     [ -z "$ip6_metric" ] && ip6_metric="${metric}"
