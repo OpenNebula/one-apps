@@ -19,6 +19,7 @@ require_relative '../common/munge'
 require_relative '../common/slurm'
 require_relative '../common/infiniband'
 require_relative '../common/accounting'
+require_relative '../common/eessi'
 require_relative 'config'
 
 # Base module for OpenNebula services
@@ -34,6 +35,7 @@ module Service
         include OneSlurm::Slurm
         include OneSlurm::Infiniband
         include OneSlurm::Accounting
+        include OneSlurm::Eessi
 
         DEPENDS_ON = []
 
@@ -42,6 +44,7 @@ module Service
             add_slurm_ppa
             bash('apt update && apt install munge libmunge-dev slurmd slurm-client slurm-wlm-basic-plugins slurm-wlm-nvml-plugin sssd sssd-ldap libnss-sss libpam-sss ldap-utils nfs-common -y')
             install_infiniband_packages
+            install_eessi
             install_nvidia_drivers
             bash('systemctl disable slurmd')
             msg(:info, 'Installation completed successfully')
@@ -152,6 +155,7 @@ module Service
             install_munge_key(accounting.fetch('munge_key_b64'))
             ldap = accounting.fetch('ldap')
             configure_discovered_ldap(ldap)
+            configure_cvmfs
 
             # Wait and start the slurmd service
             sleep 5

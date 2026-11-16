@@ -18,6 +18,7 @@ require_relative '../common/munge'
 require_relative '../common/slurm'
 require_relative '../common/infiniband'
 require_relative '../common/accounting'
+require_relative '../common/eessi'
 require_relative 'config'
 
 # Base module for OpenNebula services
@@ -33,6 +34,7 @@ module Service
         include OneSlurm::Slurm
         include OneSlurm::Infiniband
         include OneSlurm::Accounting
+        include OneSlurm::Eessi
 
         DEPENDS_ON    = []
 
@@ -43,6 +45,7 @@ module Service
             # Install dependencies
             bash 'apt update && apt install munge libmunge-dev slurmctld slurm-client slurm-wlm-basic-plugins ldap-utils sssd sssd-ldap libnss-sss libpam-sss nfs-common -y'
             install_infiniband_packages
+            install_eessi
 
             # Enable service
             bash 'systemctl enable slurmctld'
@@ -236,6 +239,7 @@ module Service
             install_munge_key(accounting.fetch('munge_key_b64'))
             ldap = accounting.fetch('ldap')
             configure_discovered_ldap(ldap)
+            configure_cvmfs
             write_controller_slurm_config(accounting_host: accounting.fetch('ip'))
 
             begin
