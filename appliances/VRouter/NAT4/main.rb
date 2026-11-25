@@ -179,7 +179,18 @@ module NAT4
             return
         end
 
+        flush_stale_snat if ONEAPP_VNF_NAT4_SNAT_LOCAL
+
         toggle [:save]
+    end
+
+    # NOTE: The saved rules are restored at boot, but a standby node never runs one-nat4 to replace them.
+    #       With SNAT_LOCAL they would translate the node's own traffic to an address it does not hold.
+    def flush_stale_snat
+        bash 'rc-service one-nat4 status'
+    rescue RuntimeError
+        msg :info, 'NAT4::configure: one-nat4 is not running, flushing restored NAT4-MASQ rules'
+        bash 'if iptables -t nat -nL NAT4-MASQ; then iptables -t nat -F NAT4-MASQ; fi'
     end
 
     def toggle(operations)

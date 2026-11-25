@@ -560,4 +560,43 @@ RSpec.describe self do
             expect(@scripts.join).to include("-o 'eth0' -j SNAT --to-source '203.0.113.10'")
         end
     end
+
+    describe 'boot with saved rules' do
+        def configure_nat4(local:, running:, enabled: 'YES')
+            clear_env
+
+            ENV['ONEAPP_VNF_NAT4_ENABLED'] = enabled
+            ENV['ONEAPP_VNF_NAT4_SNAT_LOCAL'] = local
+
+            load './main.rb'; include Service::NAT4
+
+            clear_vars Service::NAT4
+
+            calls = []
+            allow(Service::NAT4).to receive(:msg)
+            allow(Service::NAT4).to receive(:toggle) { |ops| calls.concat(ops) }
+            allow(Service::NAT4).to receive(:bash) do |script|
+                raise '3: stopped' if script.include?('rc-service one-nat4 status') && !running
+
+                calls << script.strip if script.include?('-F NAT4-MASQ')
+                ''
+            end
+            Service::NAT4.configure
+            calls
+        end
+
+        let(:flush) { 'if iptables -t nat -nL NAT4-MASQ; then iptables -t nat -F NAT4-MASQ; fi' }
+
+        it 'should flush restored source NAT rules before saving while one-nat4 is stopped' do
+            expect(configure_nat4(local: 'YES', running: false)).to eq [flush, :save]
+        end
+
+        it 'should keep the rules while one-nat4 is running' do
+            expect(configure_nat4(local: 'YES', running: true)).to eq [:save]
+        end
+
+        it 'should leave the rules alone with NO' do
+            expect(configure_nat4(local: 'NO', running: false)).to eq [:save]
+        end
+    end
 end
