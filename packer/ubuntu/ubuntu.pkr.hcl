@@ -16,16 +16,16 @@ locals {
     "2204oneke"         = 3072
     "2204oneke.aarch64" = 3072
     "2204"              = 4096
-    "2404"              = 4096
-    "2604"              = 4096
+    "2404"              = 5120
+    "2604"              = 5120
   }, var.version, 0)
 }
 
 # Build VM image
 source "qemu" "ubuntu" {
-  cpus        = 2
+  cpus        = 8
   cpu_model   = "host"
-  memory      = 2048
+  memory      = 4096
   accelerator = "kvm"
 
   iso_url      = lookup(lookup(var.ubuntu, "${var.version}.${var.arch}", {}), "iso_url", "")
