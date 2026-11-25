@@ -101,8 +101,10 @@ $(DIR_EXPORT)/%.qcow2: $$(PREREQ_$$(or $$(findstring windows,$$*),linux))
 context-linux: $(LINUX_CONTEXT_PACKAGES_FULL)
 	@$(INFO) "Generate context-linux done"
 
-context-linux/out/%: $(CONTEXT_LINUX_SOURCES)
+context-linux-generated: $(CONTEXT_LINUX_SOURCES)
 	cd context-linux/ && ./generate-all.sh
+
+$(LINUX_CONTEXT_PACKAGES_FULL): context-linux-generated
 
 context-windows: $(WINDOWS_CONTEXT_PACKAGES_FULL)
 	@$(INFO) "Generate context-windows done"
