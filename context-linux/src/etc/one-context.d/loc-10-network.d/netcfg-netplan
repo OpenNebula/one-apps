@@ -131,6 +131,8 @@ gen_routes()
 {
     if [ -n "${gateway}" ] && { [ -z "${method}" ] || [ "${method}" = 'static' ]; }; then
         cat <<EOT
+        - to: ${gateway}/32
+          scope: link
         - to: "0.0.0.0/0"
           via: ${gateway}
 EOT
