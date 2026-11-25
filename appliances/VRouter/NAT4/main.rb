@@ -39,6 +39,14 @@ module NAT4
     # The upstream must route the address to the VIP and must not have it on-link (ARP).
     ONEAPP_VNF_NAT4_SNAT_ADDRESS = env :ONEAPP_VNF_NAT4_SNAT_ADDRESS, ''
 
+    # YES -> the router's own traffic is SNATed too. By default none of it is, because SNAT rewrites the VRRP
+    # advertisements to the same source on both nodes and both keep the VIPs. With YES only the traffic that
+    # needs the node address keeps it (see NAT4.local_matches): multicast, broadcast, link-local, VRRP, OSPF,
+    # the subnets connected to an outgoing NIC, BGP, BFD, GRE, IPIP, the unicast conntrack sync peer and the
+    # WireGuard listen port. Only applies where SNAT_ADDRESS or SNAT_TO_VIP is in effect, IPv4 only.
+    # The VRRP BACKUP node runs no NAT4 and keeps its own address.
+    ONEAPP_VNF_NAT4_SNAT_LOCAL = env :ONEAPP_VNF_NAT4_SNAT_LOCAL, 'NO'
+
     def parse_env
         @interfaces_out ||= parse_interfaces ONEAPP_VNF_NAT4_INTERFACES_OUT
         @mgmt           ||= detect_mgmt_nics

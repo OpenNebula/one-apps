@@ -391,6 +391,125 @@ RSpec.describe self do
 
                 expect(all_rules).to eq ["iptables -t nat -A NAT4-MASQ -o 'eth0' -j MASQUERADE"]
             end
+
+            context 'with ONEAPP_VNF_NAT4_SNAT_LOCAL' do
+                def local_rule(match)
+                    "iptables -t nat -A NAT4-MASQ -m addrtype --src-type LOCAL #{match} -j RETURN"
+                end
+
+                def render(local: 'YES', address: '203.0.113.10', snat: nil, out: 'eth1')
+                    masq_rules(address: address, snat: snat, out: out) do
+                        ENV['ONEAPP_VNF_NAT4_SNAT_LOCAL'] = local
+                        yield if block_given?
+                    end
+                    all_rules
+                end
+
+                let(:snat_eth1) { "iptables -t nat -A NAT4-MASQ -o 'eth1' -j SNAT --to-source '203.0.113.10'" }
+
+                let(:fixed) do
+                    ['-d 224.0.0.0/4', '--dst-type BROADCAST', '-d 169.254.0.0/16', '-p 112', '-p 89',
+                     '-d 192.168.1.0/24', '-p tcp --dport 179', '-p tcp --sport 179',
+                     '-p udp -m multiport --dports 3784,3785,4784', '-p 47', '-p 4']
+                end
+
+                it 'should return only the exceptions, in order, before SNAT' do
+                    expect(render).to eq(fixed.map { |m| local_rule(m) } + [snat_eth1])
+                end
+
+                it 'should keep the single return rule with NO' do
+                    expect(render(local: 'NO')).to eq [return_local, snat_eth1]
+                end
+
+                it 'should render no return rule when the address is invalid' do
+                    expect(render(address: 'bogus')).to eq ["iptables -t nat -A NAT4-MASQ -o 'eth1' -j MASQUERADE"]
+                end
+
+                it 'should render no return rule when Keepalived does not own the address' do
+                    rules = render { ENV['ONEAPP_VNF_KEEPALIVED_INTERFACES'] = 'eth0' }
+
+                    expect(rules).to eq ["iptables -t nat -A NAT4-MASQ -o 'eth1' -j MASQUERADE"]
+                end
+
+                it 'should return the VIP and alias subnets of the outgoing NIC only' do
+                    rules = render do
+                        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '198.51.100.9/28'
+                        ENV['ETH1_ALIAS0_IP']   = '10.9.8.7'
+                        ENV['ETH1_ALIAS0_MASK'] = '255.255.0.0'
+                    end
+
+                    expect(rules).to include(local_rule('-d 198.51.100.0/28'), local_rule('-d 10.9.0.0/16'))
+                    expect(rules.join).not_to include('14.15.16.')
+                end
+
+                it 'should skip IPv6 subnets' do
+                    rules = render { ENV['ONEAPP_VROUTER_ETH1_VIP0'] = 'fd77::f0/64' }
+
+                    expect(rules.join).not_to include('fd77')
+                    expect(rules.last).to eq snat_eth1
+                end
+
+                # With a SNAT address such values already fail the ownership check, so use SNAT to the VIP.
+                it 'should skip unparsable VIPs and aliases' do
+                    rules = render(address: nil, snat: 'YES', out: 'eth0,eth1') do
+                        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '14.15.16.86'
+                        ENV['ONEAPP_VROUTER_ETH1_VIP0'] = '1.2.3.4; reboot/24'
+                        ENV['ETH1_ALIAS0_IP']   = '10.9.8.7'
+                        ENV['ETH1_ALIAS0_MASK'] = 'bogus'
+                    end
+
+                    expect(rules.join).not_to include('reboot', '10.9.', 'bogus')
+                    expect(rules).to include("iptables -t nat -A NAT4-MASQ -o 'eth0' -j SNAT --to-source '14.15.16.86'")
+                end
+
+                it 'should return traffic of a masqueraded NIC before MASQUERADE' do
+                    rules = render(address: nil, snat: 'YES', out: 'eth0,eth1') do
+                        ENV['ONEAPP_VROUTER_ETH0_VIP0'] = '14.15.16.86'
+                    end
+
+                    expect(rules[-3..]).to eq [
+                        "iptables -t nat -A NAT4-MASQ -o 'eth0' -j SNAT --to-source '14.15.16.86'",
+                        local_rule("-o 'eth1'"),
+                        "iptables -t nat -A NAT4-MASQ -o 'eth1' -j MASQUERADE"
+                    ]
+                end
+
+                it 'should return the unicast conntrack sync peer' do
+                    rules = render { ENV['ONEAPP_VNF_CONNTRACK_SYNC_PEER'] = '10.20.30.40' }
+
+                    expect(rules).to include(local_rule('-d 10.20.30.40'))
+                end
+
+                it 'should return the WireGuard source port, default 51820' do
+                    rules = render { ENV['ONEAPP_VNF_WG_ENABLED'] = 'YES' }
+
+                    expect(rules).to include(local_rule('-p udp --sport 51820'))
+                end
+
+                it 'should use the configured WireGuard port' do
+                    rules = render do
+                        ENV['ONEAPP_VNF_WG_ENABLED'] = 'YES'
+                        ENV['ONEAPP_VNF_WG_LISTEN_PORT'] = '4500'
+                    end
+
+                    expect(rules).to include(local_rule('-p udp --sport 4500'))
+                end
+
+                it 'should not return a WireGuard port when WireGuard is disabled' do
+                    expect(render.join).not_to include('51820')
+                end
+
+                it 'should skip a malformed peer and port and log both' do
+                    rules = render do
+                        ENV['ONEAPP_VNF_CONNTRACK_SYNC_PEER'] = '1.2.3.4; reboot'
+                        ENV['ONEAPP_VNF_WG_ENABLED'] = 'YES'
+                        ENV['ONEAPP_VNF_WG_LISTEN_PORT'] = '$(id)'
+                    end
+
+                    expect(rules.join).not_to include('reboot', '$(id)', '--sport 51820')
+                    expect(@errors.join).to include('ONEAPP_VNF_CONNTRACK_SYNC_PEER', 'ONEAPP_VNF_WG_LISTEN_PORT')
+                end
+            end
         end
     end
 
