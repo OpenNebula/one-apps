@@ -107,6 +107,16 @@ function export_rc_vars
         for v in $ONE_VARS; do
             export $v
         done
+
+        # Handle underscore overrides (e.g., _ETH0_MASK -> ETH0_MASK)
+        for v in $ONE_VARS; do
+            if [[ $v == _* ]]; then
+                original_var=${v#_}
+                # Use indirect expansion to get the value of the underscored variable
+                value=${!v}
+                export ${original_var}=${value}
+            fi
+        done
     fi
 }
 
