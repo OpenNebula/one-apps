@@ -24,6 +24,13 @@ module DNS
 
     ONEAPP_VNF_DNS_CLUSTER_DOMAIN = env :ONEAPP_VNF_DNS_CLUSTER_DOMAIN, 'vr'
 
+    # NOTE: Serving on IPv6 addresses needs no attribute, it follows the addresses of the allowed NICs.
+    #       Querying IPv6 servers upstream is automatic (IPv6 default route), this only forces it off.
+    #       IPv6 forwarders in ONEAPP_VNF_DNS_NAMESERVERS are explicit and always queried.
+    #       LIMIT: the IPv6 default route is checked only when configure runs, there is no polling. A default
+    #       route learned later (RA/SLAAC) or lost is picked up when configure runs again (re-context / restart).
+    ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED = env :ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED, 'NO'
+
     def parse_env
         @interfaces ||= parse_interfaces ONEAPP_VNF_DNS_INTERFACES
         @mgmt       ||= detect_mgmt_nics
@@ -38,6 +45,8 @@ module DNS
             case name
             when /^ETH(\d+)_(IP)(\d+)$/, /^ETH(\d+)_(VIP)(\d+)$/, /^ETH(\d+)_(EP)(\d+)$/
                 acc["#{$2.downcase}#{$3.to_i}.eth#{$1.to_i}"] = v.split(%[/])[0]
+            when /^ETH(\d+)_(VIP|EP)_IP6$/ # floating IPv6 (ETHx_VROUTER_IP6), no index
+                acc["#{$2.downcase}-ip6.eth#{$1.to_i}"] = v.split(%[/])[0]
             end
         end
 
@@ -60,6 +69,46 @@ module DNS
 
             hosts: @hosts
         }
+    end
+
+    # Addresses (node addresses and VIPs, IPv4 and IPv6) of one NIC, without prefix length, as `ip` prints them.
+    def nic_addresses(nic)
+        [detect_addrs, detect_vips].flat_map { |source| (source[nic] || {}).values }.map { |a| normalize_addr(a) }.uniq
+    end
+
+    # The `interface:` values of the served NICs, as [{ name:, addr:, port: }] rendered by render_interface.
+    #
+    # A NIC is bound by its name, unless it has IPv6: Unbound expands a NIC name to the addresses it has at that
+    # moment, so a NIC name next to an explicit address (needed to bind a VIP that is not there yet, see
+    # `ip-freebind`) makes the same address appear twice when the VIP is present, and `unbound-checkconf`
+    # refuses to start ("present twice, cannot bind the same ports twice"). So a NIC with IPv6 (known addresses
+    # or explicit IPv6 entries) is bound by explicit addresses only: all node addresses and VIPs, IPv4 and
+    # IPv6, with the port of the NIC entry, and every address is listed once, explicit entries included.
+    def parse_bind_interfaces(interfaces)
+        interfaces.flat_map do |nic, entries|
+            entries = entries.uniq
+            wholes, explicit = entries.partition { |h| h[:addr].nil? }
+            v6 = explicit.any? { |h| h[:addr].include?(':') } || nic_addresses(nic).any? { |a| a.include?(':') }
+
+            next entries unless v6 && !wholes.empty?
+
+            expanded = wholes.flat_map { |w| nic_addresses(nic).map { |a| { name: nic, addr: a, port: w[:port] } } }
+
+            (explicit + expanded).uniq { |h| [try_normalize_addr(h[:addr]) || h[:addr], h[:port]] }
+        end
+    end
+
+    # Whether the router has an IPv6 default route in the main routing table.
+    # NOTE: Evaluated once per configure run (boot, re-contexting, restart of one-dns), there is no polling:
+    #       a default route learned later (RA/SLAAC) is missed and a vanished one is not noticed until
+    #       configure runs again, which re-evaluates it from scratch.
+    # NOTE: A failing lookup (no `ip`, no IPv6 in the kernel) counts as no default route.
+    def ipv6_default_route?
+        routes = bash 'ip -6 route show default', terminate: false
+        routes.each_line.any? { |line| line.start_with?('default') }
+    rescue StandardError => e
+        msg :debug, "DNS::ipv6_default_route?: lookup failed, assuming no IPv6 default route: #{e.message}"
+        false
     end
 
     def install(initdir: '/etc/init.d')
@@ -121,26 +170,44 @@ module DNS
 
         dns_vars = parse_env
 
+        bind_interfaces = parse_bind_interfaces dns_vars[:interfaces]
+        ipv6_bound      = bind_interfaces.any? { |h| h[:addr]&.include?(':') }
+
+        # NOTE: In Unbound `do-ip6: no` also stops answering on IPv6 addresses, so it must be `yes` whenever
+        #       IPv6 addresses are bound (derived or explicit).
+        #       A router with an IPv6 default route gets `do-ip6: yes` even if it has no IPv6 address of its own
+        #       (IPv4-only service, dual-stack upstream): upstream IPv6 is wanted then. Without a default route
+        #       the output is the pre-IPv6 one. ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED=YES forces it off. `do-not-query-address: ::0/0` then keeps the upstream side on IPv4.
+        #       Explicit IPv6 forwarders are exempt: with forwarders in use, they are the only upstream servers.
+        ipv6_upstream  = !ONEAPP_VNF_DNS_IPV6_UPSTREAM_DISABLED && ipv6_default_route?
+        ipv6_forwarder = !ONEAPP_VNF_DNS_USE_ROOTSERVERS && dns_vars[:nameservers].any? { |a| a.include?(':') }
+        do_ip6         = ipv6_upstream || ipv6_forwarder || ipv6_bound
+        block_ip6      = do_ip6 && !ipv6_upstream && !ipv6_forwarder
+
         file "#{basedir}/unbound.conf", ERB.new(<<~CONFIG, trim_mode: '-').result(binding), mode: 'u=rw,g=r,o=', overwrite: true
             server:
                 verbosity: 1
 
                 interface: 127.0.0.1
-                <%- dns_vars[:interfaces].each do |_, info| -%>
-                <%- info.uniq.each do |h| -%>
+                <%- bind_interfaces.each do |h| -%>
                 interface: <%= render_interface(h, name: h[:addr].nil?, addr: !h[:addr].nil?, port: true) %>
                 <%- end -%>
+                <%- if ipv6_bound -%>
+                ip-freebind: yes
                 <%- end -%>
 
                 unknown-server-time-limit: <%= ONEAPP_VNF_DNS_UPSTREAM_TIMEOUT %>
 
                 do-ip4: yes
-                do-ip6: no
+                do-ip6: <%= do_ip6 ? 'yes' : 'no' %>
                 do-udp: <%= proto_yesno.('udp') %>
                 do-tcp: <%= proto_yesno.('tcp') %>
 
                 tcp-upstream: <%= proto_yesno.('tcp-upstream') %>
                 udp-upstream-without-downstream: <%= proto_yesno.('udp-upstream') %>
+                <%- if block_ip6 -%>
+                do-not-query-address: ::0/0
+                <%- end -%>
 
                 access-control: 0.0.0.0/0 refuse
                 access-control: ::0/0 refuse
@@ -176,7 +243,7 @@ module DNS
                 <%- unless ONEAPP_VNF_DNS_CLUSTER_DOMAIN.empty? -%>
                 local-zone: "<%= ONEAPP_VNF_DNS_CLUSTER_DOMAIN %>." static
                 <%- dns_vars[:hosts].each do |k, v| -%>
-                local-data: "<%= k %>.<%= ONEAPP_VNF_DNS_CLUSTER_DOMAIN %>. IN A <%= v %>"
+                local-data: "<%= k %>.<%= ONEAPP_VNF_DNS_CLUSTER_DOMAIN %>. IN <%= v.include?(':') ? 'AAAA' : 'A' %> <%= v %>"
                 <%- end -%>
                 <%- end -%>
 
