@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Check if the variable is set
+if [ -z "${START_DOCKER_COMPOSE_BASE64}" ]; then
+    exit 0
+fi
+
+echo "[INFO] START_DOCKER_COMPOSE_BASE64 is set. Enabling Docker and deploying compose file..."
+
+# Start Docker service
+systemctl start docker
+
+# Decode base64 content to /opt/docker-compose.yaml
+echo "${START_DOCKER_COMPOSE_BASE64}" | base64 -d > /opt/docker-compose.yaml
+
+if [ $? -eq 0 ]; then
+    echo "[INFO] Docker Compose file created at /opt/docker-compose.yaml. Starting services..."
+    docker compose -f /opt/docker-compose.yaml up -d
+    echo "[INFO] Docker Compose services started successfully."
+else
+    echo "[ERROR] Failed to decode START_DOCKER_COMPOSE_BASE64"
+    exit 1
+fi
