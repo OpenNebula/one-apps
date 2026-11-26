@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Check if the variable is set
+if [ -z "${IPTABLES_BASE64}" ]; then
+    exit 0
+fi
+
+echo "[INFO] IPTABLES_BASE64 is set. Overriding firewall rules..."
+
+# Decode base64 content to /etc/iptables.rules
+echo "${IPTABLES_BASE64}" | base64 -d > /etc/iptables.rules
+
+if [ $? -eq 0 ]; then
+    echo "[INFO] Firewall rules updated at /etc/iptables.rules. Applying changes..."
+    iptables-restore < /etc/iptables.rules
+    if [ $? -eq 0 ]; then
+        echo "[INFO] Firewall rules applied successfully."
+    else
+        echo "[ERROR] Failed to apply firewall rules via iptables-restore"
+        exit 1
+    fi
+else
+    echo "[ERROR] Failed to decode IPTABLES_BASE64"
+    exit 1
+fi
