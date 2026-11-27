@@ -71,6 +71,13 @@ for pci in $PCI_INTERFACES; do
     IP6_ULA=$(get_iface_var "IP6_ULA")
     GATEWAY6=$(get_iface_var "GATEWAY6")
 
+    # Only the interface selected by GATEWAY_IFACE (e.g. PCI0) gets default routes
+    GATEWAY_IFACE_UP=$(echo "$GATEWAY_IFACE" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+    if [ -n "$GATEWAY_IFACE_UP" ] && [ "$GATEWAY_IFACE_UP" != "$UPCASE_DEV" ]; then
+        GATEWAY=
+        GATEWAY6=
+    fi
+
     ADDRESS=$(get_iface_var "ADDRESS")
     [ -z "$ADDRESS" ] && continue
 
