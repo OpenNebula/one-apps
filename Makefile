@@ -44,6 +44,12 @@ packer-service_OneKE: packer-ubuntu2204oneke $(DIR_EXPORT)/service_OneKE.qcow2 $
 packer-capone: packer-ubuntu2204oneke $(DIR_EXPORT)/capone.qcow2
 	@$(INFO) "Packer capone done"
 
+packer-service_SlurmAccounting: packer-ubuntu2604 $(DIR_EXPORT)/service_SlurmAccounting.qcow2
+	@$(INFO) "Packer service_SlurmAccounting done"
+
+packer-service_SlurmAccounting.aarch64: packer-ubuntu2604.aarch64 $(DIR_EXPORT)/service_SlurmAccounting.aarch64.qcow2
+	@$(INFO) "Packer service_SlurmAccounting.aarch64 done"
+
 packer-service_SlurmController: packer-ubuntu2604 $(DIR_EXPORT)/service_SlurmController.qcow2
 	@$(INFO) "Packer service_SlurmController done"
 
