@@ -76,6 +76,84 @@ class OneGate
     end
 end
 
+IPV4_RE = /\A(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\z/
+
+# NOTE: A plain dotted quad that is not 0/8, loopback (127/8), multicast (224/4), reserved or broadcast (240/4).
+def unicast_ipv4?(addr)
+    return false unless IPV4_RE.match?(addr.to_s)
+
+    first = addr.split(%[.])[0].to_i
+    !(first.zero? || first == 127 || first >= 224)
+end
+
+# NOTE: The NIC names that get a VRRP instance in Keepalived (rendered in Keepalived::configure): the ones in
+#       ONEAPP_VNF_KEEPALIVED_INTERFACES that are not management NICs, have an IP address (no "floating only"
+#       NICs) and are not skipped (ONEAPP_VNF_KEEPALIVED_ETHn_SKIP). Read from the environment only, so every
+#       module that asks gets the same answer.
+def keepalived_vrrp_nics(mgmt)
+    nics   = parse_interfaces(env(:ONEAPP_VNF_KEEPALIVED_INTERFACES, '')).keys - mgmt
+    withip = addrs_to_nics(nics).values.flatten.uniq
+
+    nics.select { |nic| withip.include?(nic) && !env("ONEAPP_VNF_KEEPALIVED_#{nic.upcase}_SKIP", 'NO') }
+end
+
+# NOTE: Why the NAT4 SNAT address cannot be used: the first match, or nil. It is an IPv4 address that Keepalived
+#       adds as a /32, so it must not be on-link anywhere and must not be a (virtual) address already.
+def nat4_snat_address_conflict(addr)
+    ip = IPAddr.new(addr)
+
+    own = [detect_addrs, detect_vips].flat_map { |h| h.values.flat_map(&:values) }.map { |a| a.split(%[/])[0] }
+    return 'it already is a NIC address or VIP' if own.include?(addr)
+
+    aliases = ENV.each_with_object({}) do |(name, v), acc|
+        acc[$1] = v.strip.split(%[/])[0] if /\AETH(\d+_ALIAS\d+)_IP\z/ =~ name && IPV4_RE.match?(v.strip.split(%[/])[0].to_s)
+    end
+    return 'it already is an alias address of a NIC' if aliases.values.include?(addr)
+
+    alias_subnets = aliases.filter_map do |key, a|
+        next if (mask = env("ETH#{key}_MASK", nil)).nil?
+
+        IPAddr.new("#{a}/#{mask}").then { |net| "#{net}/#{net.prefix}" }
+    end
+    subnets = nics_to_subnets.values.flatten + vips_to_subnets.values + alias_subnets
+    subnet = subnets.find { |s| IPAddr.new(s).include?(ip) }
+
+    subnet.nil? ? nil : "it is inside the on-link subnet #{subnet}"
+end
+
+# NOTE: The NAT4 SNAT address (ONEAPP_VNF_NAT4_SNAT_ADDRESS) is not configured on the router as a real address.
+#       Keepalived owns it as a /32 virtual address of the first NAT4 outgoing NIC that gets a VRRP instance
+#       (MASTER only) and LVS accepts it as a virtual IP. NAT4 SNATs to it only when it is owned. All of them
+#       ask here, so they agree. `mgmt` are the management NICs. Returns [nic, address] or nil (NAT4 disabled,
+#       no or invalid address, address inside any NIC subnet or already a NIC address, alias or VIP, no
+#       outgoing NIC with a VRRP instance). A prefix length is ignored. Never raises: odd network values
+#       are logged and the address is treated as not configured.
+def nat4_snat_address(mgmt)
+    return nil unless env(:ONEAPP_VNF_NAT4_ENABLED, 'NO')
+
+    addr = ENV.fetch('ONEAPP_VNF_NAT4_SNAT_ADDRESS', '').strip.split(%[/])[0].to_s
+    return nil unless unicast_ipv4?(addr)
+
+    unless (reason = nat4_snat_address_conflict(addr)).nil?
+        msg :warn, "nat4_snat_address: ignoring ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr}: #{reason}"
+        return nil
+    end
+
+    out = parse_interfaces(env(:ONEAPP_VNF_NAT4_INTERFACES_OUT, nil)).keys - mgmt
+    nic = out.grep(/\Aeth\d+\z/).find { |n| keepalived_vrrp_nics(mgmt).include?(n) }
+
+    if nic.nil?
+        msg :warn, "nat4_snat_address: ignoring ONEAPP_VNF_NAT4_SNAT_ADDRESS #{addr}: no NAT4 outgoing NIC has a VRRP instance"
+        return nil
+    end
+
+    [nic, addr]
+rescue StandardError => e
+    msg :error, "nat4_snat_address: #{e.class}: #{e.message}, treating ONEAPP_VNF_NAT4_SNAT_ADDRESS " \
+                "#{ENV['ONEAPP_VNF_NAT4_SNAT_ADDRESS'].to_s[0, 40].inspect} as not configured"
+    nil
+end
+
 def ip_link_set_up(nic)
     stdout = bash "ip link set '#{nic}' up", terminate: false
 end
